@@ -1,108 +1,153 @@
-# Afisha Cinema Project
+🎬 Afisha Cinema
 
-A modern cinema booking platform with Telegram authentication and referral system.
+Современная платформа бронирования кино с авторизацией через Telegram и реферальной системой.
 
-## Project Structure
+Проект состоит из бэкенда (FastAPI), фронтенда (Next.js), Telegram-ботов и общей базы данных SQLite.
 
-```
-/api     — Backend (FastAPI) - JSON API only
-/web     — Frontend (Next.js React)
-/bots    — Telegram bots (main bot + auth bot)
-/data    — SQLite database
-```
+📦 Структура проекта
+/api     — Backend (FastAPI, JSON API)
+/web     — Frontend (Next.js, React)
+/bots    — Telegram-боты (основной + бот авторизации)
+/data    — База данных SQLite
 
-## Architecture
+🧱 Архитектура
 
-- **Frontend**: Next.js on `http://localhost:3000`
-- **Backend API**: FastAPI on `http://127.0.0.1:8000`
-- **Database**: SQLite (`data/app.db`) - shared between all components
+Frontend: Next.js
+URL: http://localhost:3000
 
-## Environment Setup
+Backend API: FastAPI
+URL: http://127.0.0.1:8000
 
-Copy `.env.example` to `.env` and fill in the values:
+Database: SQLite
+Файл: data/app.db
+Используется всеми компонентами проекта
 
-```bash
+⚙️ Настройка окружения
+
+Скопируйте файл окружения и заполните переменные:
+
 cp .env.example .env
-```
 
-Required variables:
-- `BOT_TOKEN` - Main Telegram bot token (for referral links)
-- `AUTH_BOT_TOKEN` - Auth bot token (for login verification)
-- `AUTH_BOT_USERNAME` - Auth bot username (without @)
-- `SITE_URL` - Frontend URL (default: http://localhost:3000)
-- `DB_PATH` - Database path (default: ./data/app.db)
+Обязательные переменные
+Переменная	Описание
+BOT_TOKEN	Токен основного Telegram-бота (реферальные ссылки)
+AUTH_BOT_TOKEN	Токен бота авторизации
+AUTH_BOT_USERNAME	Username бота авторизации (без @)
+SITE_URL	URL фронтенда (по умолчанию http://localhost:3000)
+DB_PATH	Путь к базе данных (./data/app.db)
+▶️ Запуск проекта
 
-## Running the Project
+Проект требует 4 параллельно запущенных процесса
+(каждый — в отдельном терминале).
 
-Start 4 processes in separate terminals:
-
-### 1. Backend API (port 8000)
-
-```bash
+1️⃣ Backend API (порт 8000)
 cd d:\Codes\4\112\nehuy\3
 uvicorn api.main:app --reload --port 8000
-```
 
-### 2. Frontend (port 3000)
-
-```bash
+2️⃣ Frontend (порт 3000)
 cd d:\Codes\4\112\nehuy\3\web
-npm install  # first time only
+npm install   # только при первом запуске
 npm run dev
-```
 
-### 3. Main Telegram Bot (referrals)
-
-```bash
+3️⃣ Основной Telegram-бот (рефералы)
 cd d:\Codes\4\112\nehuy\3
 python bots/bot.py
-```
 
-### 4. Auth Telegram Bot (login/registration)
-
-```bash
+4️⃣ Telegram-бот авторизации
 cd d:\Codes\4\112\nehuy\3
 python bots/auth_bot.py
-```
 
-## API Endpoints
+🔌 API эндпоинты
 
-All API endpoints are under `/api/*`:
+Все эндпоинты доступны по префиксу /api/*.
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/movies` | List of movies |
-| GET | `/api/me` | Current user info |
-| GET | `/api/referral/track?ref=XXX` | Track referral visit |
-| POST | `/api/register/draft` | Start registration |
-| POST | `/api/register/verify` | Verify code & complete registration |
-| POST | `/api/auth/telegram/start` | Start auth session |
-| POST | `/api/auth/telegram/verify` | Verify auth code |
-| POST | `/api/orders/pay` | Process payment |
+Метод	Endpoint	Описание
+GET	/api/movies	Получить список фильмов
+GET	/api/me	Информация о текущем пользователе
+GET	/api/referral/track?ref=XXX	Отслеживание реферального перехода
+POST	/api/register/draft	Начало регистрации
+POST	/api/register/verify	Подтверждение кода регистрации
+POST	/api/auth/telegram/start	Запуск Telegram-авторизации
+POST	/api/auth/telegram/verify	Проверка кода авторизации
+POST	/api/orders/pay	Оплата заказа
+🔁 Прокси Frontend → Backend
 
-## Frontend → API Proxy
+Next.js проксирует запросы /api/* на FastAPI через next.config.ts:
 
-Next.js proxies all `/api/*` requests to the backend via rewrites in `next.config.ts`:
+rewrites: [
+  {
+    source: "/api/:path*",
+    destination: "http://127.0.0.1:8000/api/:path*",
+  },
+]
 
-```typescript
-rewrites: [{
-  source: "/api/:path*",
-  destination: "http://127.0.0.1:8000/api/:path*",
-}]
-```
 
-## Verification
+Это позволяет фронтенду работать с API без CORS и хардкода URL.
 
-After starting all 4 processes:
+✅ Проверка работы
 
-1. **API Check**: `curl http://127.0.0.1:8000/` → Should return JSON `{"status": "ok", ...}`
-2. **API Movies**: `curl http://127.0.0.1:8000/api/movies` → Should return JSON array
-3. **Frontend**: Open `http://localhost:3000` → Should show cinema interface
-4. **Referral**: Open `http://localhost:3000/?ref=XXXX` → Should trigger Telegram notification
+После запуска всех компонентов:
 
-## Tech Stack
+API доступен
 
-- **Backend**: FastAPI, aiosqlite, httpx
-- **Frontend**: Next.js 14, React, Framer Motion
-- **Bots**: aiogram 3.x
-- **Database**: SQLite
+curl http://127.0.0.1:8000/
+
+
+Ожидаемый ответ:
+
+{ "status": "ok" }
+
+
+Список фильмов
+
+curl http://127.0.0.1:8000/api/movies
+
+
+Фронтенд
+
+Откройте: http://localhost:3000
+
+Должен отобразиться интерфейс киноафиши
+
+Реферальная система
+
+Перейдите по ссылке:
+
+http://localhost:3000/?ref=XXXX
+
+
+В Telegram должно прийти уведомление
+
+🛠 Технологический стек
+
+Backend
+
+FastAPI
+
+aiosqlite
+
+httpx
+
+Frontend
+
+Next.js 14
+
+React
+
+Framer Motion
+
+Bots
+
+aiogram 3.x
+
+Database
+
+SQLite
+
+📌 Примечания
+
+База данных общая для API, фронтенда и ботов
+
+Авторизация и регистрация происходят через Telegram
+
+Проект рассчитан на локальную разработку (dev-режим)
