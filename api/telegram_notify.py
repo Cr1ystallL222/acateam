@@ -24,6 +24,8 @@ async def send_telegram_message(chat_id: int, text: str, max_retries: int = 3):
         logger.error("BOT_TOKEN is missing! Cannot send notification.")
         return
 
+    logger.info(f"Attempting to send Telegram message to chat_id={chat_id}, text_length={len(text)}")
+    
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
     
@@ -50,6 +52,7 @@ async def send_telegram_message(chat_id: int, text: str, max_retries: int = 3):
                 # Responses from API usually mean connectivity was fine.
                 if 400 <= resp.status_code < 500:
                     # Client error, likely invalid chat_id or token, no need to retry
+                    logger.error(f"Client error {resp.status_code}, not retrying")
                     return
         
         except (httpx.ConnectTimeout, httpx.ReadTimeout, httpx.RequestError) as e:

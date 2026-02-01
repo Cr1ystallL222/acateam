@@ -20,7 +20,7 @@ Start-Sleep -Seconds 2
 
 # Start Main Bot
 Write-Host "[3/4] Starting Main Telegram Bot..." -ForegroundColor Yellow
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PSScriptRoot'; py bots/bot.py"
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PSScriptRoot'; py -m bots.bot"
 
 Start-Sleep -Seconds 1
 
