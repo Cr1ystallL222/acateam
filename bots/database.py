@@ -436,7 +436,7 @@ async def seed_default_events():
             INSERT INTO events (id, title, description, photo_path, min_price, max_price, date_time, venue, is_system)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (event['id'], event['title'], event['description'], event['photo_path'], 
-              event['min_price'], event['max_price'], event['date_time'], event['venue'], event['is_system']))
+              event['min_price'], event['max_price'], event['date_time'], event['venue'], bool(event['is_system'])))
     
     # Generate seats for each event
     for event in default_events:
@@ -573,7 +573,7 @@ async def generate_event_seats(event_id: int, min_price: int, max_price: int):
             current_width += 1
             seats_in_row = min(int(current_width), 40)
             for seat_num in range(1, seats_in_row + 1):
-                is_avail = 1 if random.random() > 0.5 else 0
+                is_avail = random.random() > 0.5
                 seats_data.append((event_id, r, seat_num, price_parterre, is_avail, "Партер"))
                 
         # Balcony 1
@@ -585,7 +585,7 @@ async def generate_event_seats(event_id: int, min_price: int, max_price: int):
             current_width += 2
             seats_in_row = min(int(current_width), 50)
             for seat_num in range(1, seats_in_row + 1):
-                is_avail = 1 if random.random() > 0.55 else 0
+                is_avail = random.random() > 0.55
                 seats_data.append((event_id, row_num, seat_num, price_balcony1, is_avail, "Балкон 1-й ярус"))
 
         # Balcony 2
@@ -597,7 +597,7 @@ async def generate_event_seats(event_id: int, min_price: int, max_price: int):
             current_width += 2
             seats_in_row = min(int(current_width), 60)
             for seat_num in range(1, seats_in_row + 1):
-                is_avail = 1 if random.random() > 0.6 else 0
+                is_avail = random.random() > 0.6
                 seats_data.append((event_id, row_num, seat_num, price_balcony2, is_avail, "Балкон 2-й ярус"))
 
         batch_size = 500
