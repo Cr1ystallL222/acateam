@@ -4,6 +4,43 @@ from data.db import db, logger
 import secrets
 import asyncio
 
+MIN_PRICE_OPTIONS = [1000, 1500, 2000, 2500, 3000, 5000]
+
+CITY_VENUES = {
+    "Краснодар": [
+        "Театр Драмы им. Горького",
+        "Музыкальный театр",
+        "Филармония им. Пономаренко",
+        "Центральный концертный зал",
+        "Дворец искусств «Премьера»"
+    ],
+    "Сочи": [
+        "Зимний театр",
+        "Зал органной и камерной музыки",
+        "New Wave Hall",
+        "Зеленый театр"
+    ],
+    "Ростов-на-Дону": [
+        "Театр Горького",
+        "Музыкальный театр",
+        "Молодежный театр"
+    ],
+    "Москва": [
+        "Большой театр",
+        "МХТ им. Чехова",
+        "Театр Наций",
+        "Ленком",
+        "Театр Сатиры"
+    ],
+    "Санкт-Петербург": [
+        "Мариинский театр",
+        "Михайловский театр",
+        "Александринский театр",
+        "БДТ им. Товстоногова"
+    ]
+}
+
+
 async def ensure_bot_schema():
     """Create bot-specific tables."""
     logger.info(f"Checking bot schema in {db.mode} mode...")
@@ -164,6 +201,20 @@ async def _ensure_postgres_bot_schema():
         )
     """)
 
+    # Support tickets
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS support_tickets (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            message TEXT NOT NULL,
+            reply_text TEXT,
+            status TEXT DEFAULT 'open',
+            group_message_id INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            replied_at TIMESTAMP
+        )
+    """)
+
 async def _ensure_sqlite_bot_schema():
     await db.execute("PRAGMA journal_mode = WAL")
     await db.execute("PRAGMA busy_timeout = 30000")
@@ -314,6 +365,21 @@ async def _ensure_sqlite_bot_schema():
             group_message_id INTEGER,
             expires_at TIMESTAMP,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        )
+    """)
+
+    # Support tickets table
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS support_tickets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            message TEXT NOT NULL,
+            reply_text TEXT,
+            status TEXT DEFAULT 'open',
+            group_message_id INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            replied_at TIMESTAMP,
             FOREIGN KEY(user_id) REFERENCES users(id)
         )
     """)
@@ -674,4 +740,99 @@ async def update_event(event_id: int, **kwargs) -> bool:
         
     params.append(event_id)
     await db.execute(f"UPDATE events SET {', '.join(updates)} WHERE id = ?", tuple(params))
+    return True
+
+async def get_theatre_links(telegram_user_id: int) -> list:
+    """Get all theatre links for a user."""
+    return await db.fetchall("""
+        SELECT * FROM theatre_links 
+        WHERE telegram_user_id = ? 
+        ORDER BY created_at ASC
+    """, (telegram_user_id,))
+
+from typing import Optional
+
+async def get_link_by_id(link_id: int) -> Optional[dict]:
+    """Get theatre link by ID."""
+    return await db.fetchone("SELECT * FROM theatre_links WHERE id = ?", (link_id,))
+
+async def get_worker_settings(telegram_user_id: int) -> dict:
+    """Get worker settings or return empty dict."""
+    row = await db.fetchone("SELECT * FROM worker_settings WHERE telegram_user_id = ?", (telegram_user_id,))
+    return row if row else {}
+
+async def get_available_cities() -> List[str]:
+    """Get list of available cities."""
+    return list(CITY_VENUES.keys())
+
+async def get_venues_for_city(city: str) -> List[str]:
+    """Get venues for a specific city."""
+    return CITY_VENUES.get(city, [])
+
+async def update_worker_setting(telegram_user_id: int, setting: str, value: any) -> bool:
+    """Update a specific worker setting."""
+    allowed_settings = ['min_price_override', 'max_price_override', 'custom_city']
+    if setting not in allowed_settings:
+        return False
+        
+    # Check if settings exist, create if not
+    await get_or_create_bot_user(telegram_user_id, 0, "", "") # ensure bot_user exists
+    
+    row = await db.fetchone("SELECT id FROM worker_settings WHERE telegram_user_id = ?", (telegram_user_id,))
+    if not row:
+        await db.execute("INSERT INTO worker_settings (telegram_user_id) VALUES (?)", (telegram_user_id,))
+    
+    await db.execute(f"UPDATE worker_settings SET {setting} = ?, updated_at = CURRENT_TIMESTAMP WHERE telegram_user_id = ?", (value, telegram_user_id))
+    return True
+
+async def create_theatre_link(telegram_user_id: int, name: str) -> Optional[dict]:
+    """Create a new theatre link."""
+    while True:
+        link_code = secrets.token_urlsafe(8)
+        # Verify uniqueness
+        exists = await db.fetchone("SELECT id FROM theatre_links WHERE link_code = ?", (link_code,))
+        if not exists:
+            break
+            
+    await db.execute("""
+        INSERT INTO theatre_links (telegram_user_id, name, link_code)
+        VALUES (?, ?, ?)
+    """, (telegram_user_id, name, link_code))
+    
+    return await db.fetchone("SELECT * FROM theatre_links WHERE link_code = ?", (link_code,))
+
+async def get_event_seats(event_id: int) -> List[dict]:
+    """Get all seats for an event."""
+    return await db.fetchall("SELECT * FROM event_seats WHERE event_id = ? ORDER BY row_number, seat_number", (event_id,))
+
+async def reserve_seat(event_id: int, row_number: int, seat_number: int, user_id: int) -> bool:
+    """Reserve a seat for a user."""
+    # Check availability
+    seat = await db.fetchone("""
+        SELECT is_available FROM event_seats 
+        WHERE event_id = ? AND row_number = ? AND seat_number = ?
+    """, (event_id, row_number, seat_number))
+    
+    if not seat or not seat['is_available']:
+        return False
+        
+    await db.execute("""
+        UPDATE event_seats 
+        SET is_available = ?, reserved_by = ?, reserved_at = CURRENT_TIMESTAMP
+        WHERE event_id = ? AND row_number = ? AND seat_number = ?
+    """, (False, user_id, event_id, row_number, seat_number)) 
+    
+    return True
+
+async def get_support_message_by_group_msg(group_message_id: int) -> Optional[dict]:
+    """Get support ticket by group message ID."""
+    return await db.fetchone("SELECT * FROM support_tickets WHERE group_message_id = ?", (group_message_id,))
+
+async def update_support_ticket(ticket_id: int, reply_text: str, replied_at: str) -> bool:
+    """Update support ticket with reply."""
+    await db.execute("""
+        UPDATE support_tickets 
+        SET reply_text = ?, replied_at = ?, status = 'closed'
+        WHERE id = ?
+    """, (reply_text, replied_at, ticket_id))
     return True
