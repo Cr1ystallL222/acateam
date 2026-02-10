@@ -2,9 +2,9 @@ from aiogram import types, F
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
-import aiosqlite
 
-from ..config import DB_PATH, APPLICATIONS_CHAT_ID, RESOLVED_IMAGE_PATH, logger
+from ..config import APPLICATIONS_CHAT_ID, RESOLVED_IMAGE_PATH, logger
+from ..database import create_application, update_application_confirm_msg
 from ..loader import bot, dp
 
 # FSM States
@@ -85,13 +85,7 @@ async def process_q2(message: types.Message, state: FSMContext):
     username = message.from_user.username or ""
     full_name = message.from_user.full_name or ""
     
-    async with aiosqlite.connect(DB_PATH) as db:
-        cursor = await db.execute("""
-            INSERT INTO applications (telegram_user_id, q1_text, q2_text)
-            VALUES (?, ?, ?)
-        """, (user_id, q1, q2))
-        app_id = cursor.lastrowid
-        await db.commit()
+    app_id = await create_application(user_id, q1, q2)
     
     logger.info(f"Application created: id={app_id}, telegram_user_id={user_id}")
     
@@ -127,9 +121,7 @@ async def process_q2(message: types.Message, state: FSMContext):
         parse_mode="HTML"
     )
     
-    async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute("UPDATE applications SET confirm_message_id = ? WHERE id = ?", (confirm_msg.message_id, app_id))
-        await db.commit()
+    await update_application_confirm_msg(app_id, confirm_msg.message_id)
     
     await state.clear()
 

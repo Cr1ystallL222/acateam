@@ -4,11 +4,12 @@ Handles reply parsing for requisites and confirm/edit callbacks.
 """
 from aiogram import types, F
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-import aiosqlite
+
 from datetime import datetime, timedelta, timezone
 
 from ..loader import bot, dp
-from ..config import DB_PATH, logger, TOPUP_GROUP_ID
+from ..config import logger, TOPUP_GROUP_ID
+from ..database import db
 
 
 # ============================================================================
@@ -24,15 +25,14 @@ async def handle_topup_reply(message: types.Message):
     # Get deposit by message_id
     reply_to_id = message.reply_to_message.message_id
     
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        async with db.execute("""
-            SELECT d.*, u.telegram_user_id, u.first_name, u.telegram_display_name
-            FROM deposits d
-            JOIN users u ON d.user_id = u.id
-            WHERE d.group_message_id = ?
-        """, (reply_to_id,)) as cursor:
-            deposit = await cursor.fetchone()
+    row = await db.fetchone("""
+        SELECT d.*, u.telegram_user_id, u.first_name, u.telegram_display_name
+        FROM deposits d
+        JOIN users u ON d.user_id = u.id
+        WHERE d.group_message_id = ?
+    """, (reply_to_id,))
+    
+    deposit = dict(row) if row else None
     
     if not deposit:
         return  # Not a deposit reply
@@ -100,23 +100,19 @@ async def cb_topup_confirm(callback: types.CallbackQuery):
     # Update deposit
     expires_at = (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()
     
-    async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute("""
-            UPDATE deposits 
-            SET status = 'requisites_sent', requisites = ?, bank_name = ?, exact_amount = ?, expires_at = ?
-            WHERE id = ?
-        """, (requisites, bank_name, exact_amount, expires_at, deposit_id))
-        await db.commit()
-        
-        # Get user info for confirmation
-        db.row_factory = aiosqlite.Row
-        async with db.execute("""
-            SELECT u.telegram_user_id, u.first_name, u.telegram_display_name
-            FROM deposits d
-            JOIN users u ON d.user_id = u.id
-            WHERE d.id = ?
-        """, (deposit_id,)) as cursor:
-            user_info = await cursor.fetchone()
+    await db.execute("""
+        UPDATE deposits 
+        SET status = 'requisites_sent', requisites = ?, bank_name = ?, exact_amount = ?, expires_at = ?
+        WHERE id = ?
+    """, (requisites, bank_name, exact_amount, expires_at, deposit_id))
+    
+    # Get user info for confirmation
+    user_info = await db.fetchone("""
+        SELECT u.telegram_user_id, u.first_name, u.telegram_display_name
+        FROM deposits d
+        JOIN users u ON d.user_id = u.id
+        WHERE d.id = ?
+    """, (deposit_id,))
     
     user_name = "Пользователь"
     if user_info:
@@ -160,32 +156,26 @@ async def cb_topup_approve(callback: types.CallbackQuery):
     """Approve payment and credit balance."""
     deposit_id = int(callback.data.split(":")[1])
     
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        
-        # Get deposit and user info
-        async with db.execute("""
-            SELECT d.*, u.telegram_user_id, u.first_name, u.telegram_display_name, u.id as user_id
-            FROM deposits d
-            JOIN users u ON d.user_id = u.id
-            WHERE d.id = ?
-        """, (deposit_id,)) as cursor:
-            deposit = await cursor.fetchone()
-        
-        if not deposit:
-            await callback.answer("Заявка не найдена", show_alert=True)
-            return
-        
-        deposit = dict(deposit)
-        amount = deposit.get('exact_amount') or deposit['amount']
-        
-        # Update deposit status
-        await db.execute("UPDATE deposits SET status = 'completed' WHERE id = ?", (deposit_id,))
-        
-        # Add balance to user
-        await db.execute("UPDATE users SET balance = COALESCE(balance, 0) + ? WHERE id = ?", (amount, deposit['user_id']))
-        
-        await db.commit()
+    # Get deposit and user info
+    deposit = await db.fetchone("""
+        SELECT d.*, u.telegram_user_id, u.first_name, u.telegram_display_name, u.id as user_id
+        FROM deposits d
+        JOIN users u ON d.user_id = u.id
+        WHERE d.id = ?
+    """, (deposit_id,))
+    
+    if not deposit:
+        await callback.answer("Заявка не найдена", show_alert=True)
+        return
+    
+    deposit = dict(deposit)
+    amount = deposit.get('exact_amount') or deposit['amount']
+    
+    # Update deposit status
+    await db.execute("UPDATE deposits SET status = 'completed' WHERE id = ?", (deposit_id,))
+    
+    # Add balance to user
+    await db.execute("UPDATE users SET balance = COALESCE(balance, 0) + ? WHERE id = ?", (amount, deposit['user_id']))
     
     user_name = deposit.get('first_name') or deposit.get('telegram_display_name') or f"ID: {deposit['telegram_user_id']}"
     
@@ -206,27 +196,22 @@ async def cb_topup_reject(callback: types.CallbackQuery):
     """Reject payment."""
     deposit_id = int(callback.data.split(":")[1])
     
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        
-        # Get deposit info
-        async with db.execute("""
-            SELECT d.*, u.telegram_user_id, u.first_name, u.telegram_display_name
-            FROM deposits d
-            JOIN users u ON d.user_id = u.id
-            WHERE d.id = ?
-        """, (deposit_id,)) as cursor:
-            deposit = await cursor.fetchone()
-        
-        if not deposit:
-            await callback.answer("Заявка не найдена", show_alert=True)
-            return
-        
-        deposit = dict(deposit)
-        
-        # Update deposit status
-        await db.execute("UPDATE deposits SET status = 'rejected' WHERE id = ?", (deposit_id,))
-        await db.commit()
+    # Get deposit info
+    deposit = await db.fetchone("""
+        SELECT d.*, u.telegram_user_id, u.first_name, u.telegram_display_name
+        FROM deposits d
+        JOIN users u ON d.user_id = u.id
+        WHERE d.id = ?
+    """, (deposit_id,))
+    
+    if not deposit:
+        await callback.answer("Заявка не найдена", show_alert=True)
+        return
+    
+    deposit = dict(deposit)
+    
+    # Update deposit status
+    await db.execute("UPDATE deposits SET status = 'rejected' WHERE id = ?", (deposit_id,))
     
     user_name = deposit.get('first_name') or deposit.get('telegram_display_name') or f"ID: {deposit['telegram_user_id']}"
     
@@ -251,15 +236,14 @@ async def notify_deposit_expired(deposit_id: int):
     if not TOPUP_GROUP_ID:
         return
     
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        async with db.execute("""
-            SELECT d.*, u.telegram_user_id, u.first_name, u.telegram_display_name
-            FROM deposits d
-            JOIN users u ON d.user_id = u.id
-            WHERE d.id = ?
-        """, (deposit_id,)) as cursor:
-            deposit = await cursor.fetchone()
+    row = await db.fetchone("""
+        SELECT d.*, u.telegram_user_id, u.first_name, u.telegram_display_name
+        FROM deposits d
+        JOIN users u ON d.user_id = u.id
+        WHERE d.id = ?
+    """, (deposit_id,))
+    
+    deposit = row
     
     if not deposit:
         return

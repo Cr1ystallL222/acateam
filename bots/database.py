@@ -836,3 +836,70 @@ async def update_support_ticket(ticket_id: int, reply_text: str, replied_at: str
         WHERE id = ?
     """, (reply_text, replied_at, ticket_id))
     return True
+
+# Application Management Functions
+
+async def create_application(telegram_user_id: int, q1_text: str, q2_text: str) -> int:
+    """Create a new application and return its ID."""
+    if db.is_postgres:
+        row = await db.fetchone("""
+            INSERT INTO applications (telegram_user_id, q1_text, q2_text)
+            VALUES (?, ?, ?)
+            RETURNING id
+        """, (telegram_user_id, q1_text, q2_text))
+        return row['id']
+    else:
+        # For SQLite, we use cursor.lastrowid
+        cursor = await db.execute("""
+            INSERT INTO applications (telegram_user_id, q1_text, q2_text)
+            VALUES (?, ?, ?)
+        """, (telegram_user_id, q1_text, q2_text))
+        return cursor.lastrowid
+
+async def update_application_confirm_msg(app_id: int, msg_id: int):
+    """Update confirmation message ID for an application."""
+    await db.execute("""
+        UPDATE applications SET confirm_message_id = ? WHERE id = ?
+    """, (msg_id, app_id))
+
+async def get_application_approval_data(app_id: int) -> Optional[dict]:
+    """Get data needed for application approval/rejection."""
+    return await db.fetchone("""
+        SELECT a.confirm_message_id, b.chat_id, a.telegram_user_id
+        FROM applications a 
+        JOIN bot_users b ON a.telegram_user_id = b.telegram_user_id 
+        WHERE a.id = ?
+    """, (app_id,))
+
+async def approve_application(app_id: int, admin_id: int, telegram_user_id: int):
+    """Approve application and user."""
+    from datetime import datetime, timezone
+    now_iso = datetime.now(timezone.utc).isoformat()
+    
+    await db.execute("""
+        UPDATE applications SET status = 'approved', decided_at = ?, decided_by = ?
+        WHERE id = ?
+    """, (now_iso, admin_id, app_id))
+    
+    # Using integer 1 for compatibility with SQLite and Postgres (if column is INTEGER)
+    await db.execute("""
+        UPDATE bot_users SET approved = 1, cooldown_until = NULL, joined_at = ?
+        WHERE telegram_user_id = ?
+    """, (now_iso, telegram_user_id))
+    
+    logger.info(f"Set bot_users.approved=1 for telegram_user_id={telegram_user_id}")
+
+async def reject_application(app_id: int, admin_id: int, telegram_user_id: int, cooldown_iso: str):
+    """Reject application and set cooldown."""
+    from datetime import datetime, timezone
+    now_iso = datetime.now(timezone.utc).isoformat()
+    
+    await db.execute("""
+        UPDATE applications SET status = 'rejected', decided_at = ?, decided_by = ?
+        WHERE id = ?
+    """, (now_iso, admin_id, app_id))
+    
+    await db.execute("""
+        UPDATE bot_users SET approved = 0, cooldown_until = ?
+        WHERE telegram_user_id = ?
+    """, (cooldown_iso, telegram_user_id))

@@ -4,7 +4,6 @@ Handles replies to support messages in the group.
 Replies are saved to database and shown in widget (not sent to TG).
 """
 import os
-import aiosqlite
 from pathlib import Path
 from datetime import datetime, timezone
 from aiogram import types, F
@@ -17,84 +16,72 @@ load_dotenv(PROJECT_ROOT / ".env")
 
 SUPPORT_CHAT_ID = os.getenv("SUPPORT_CHAT_ID")
 
-from ..config import DB_PATH, logger
+from ..config import logger
+from ..database import db
 from ..database import get_support_message_by_group_msg, update_support_ticket
 from ..loader import bot, dp
 
 
 async def get_mamont_by_id(mamont_id: str) -> dict:
     """Get mamont by mamont_id (5-digit ID)."""
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        async with db.execute("SELECT * FROM mamonts WHERE mamont_id = ?", (str(mamont_id),)) as cursor:
-            row = await cursor.fetchone()
-            return dict(row) if row else None
+    row = await db.fetchone("SELECT * FROM mamonts WHERE mamont_id = ?", (str(mamont_id),))
+    return dict(row) if row else None
 
 
 async def get_user_by_id(user_id: int) -> dict:
     """Get user by database ID."""
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        async with db.execute("SELECT * FROM users WHERE id = ?", (user_id,)) as cursor:
-            row = await cursor.fetchone()
-            return dict(row) if row else None
+    row = await db.fetchone("SELECT * FROM users WHERE id = ?", (user_id,))
+    return dict(row) if row else None
 
 
 async def get_worker_display_info(user_id: int) -> str:
     """Get worker's display info (username or name) from bot_users via users table."""
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        # Join users and bot_users to get full info
-        async with db.execute("""
-            SELECT u.telegram_username, u.telegram_display_name, bu.username, bu.full_name
-            FROM users u
-            LEFT JOIN bot_users bu ON u.telegram_user_id = bu.telegram_user_id
-            WHERE u.id = ?
-        """, (user_id,)) as cursor:
-            row = await cursor.fetchone()
-            if not row:
-                return "Нет"
-            
-            # Prefer bot_users data (usually more complete), fallback to users
-            username = row['username'] or row['telegram_username']
-            display_name = row['full_name'] or row['telegram_display_name']
-            
-            if username:
-                return f"@{username}"
-            elif display_name:
-                return display_name
-            else:
-                return "Неизвестно"
+    # Join users and bot_users to get full info
+    # Join users and bot_users to get full info
+    row = await db.fetchone("""
+        SELECT u.telegram_username, u.telegram_display_name, bu.username, bu.full_name
+        FROM users u
+        LEFT JOIN bot_users bu ON u.telegram_user_id = bu.telegram_user_id
+        WHERE u.id = ?
+    """, (user_id,))
+    
+    if not row:
+        return "Нет"
+    
+    # Prefer bot_users data (usually more complete), fallback to users
+    username = row['username'] or row['telegram_username']
+    display_name = row['full_name'] or row['telegram_display_name']
+    
+    if username:
+        return f"@{username}"
+    elif display_name:
+        return display_name
+    else:
+        return "Неизвестно"
 
 
 async def get_user_orders_count(user_id: int) -> int:
     """Get count of user orders."""
-    async with aiosqlite.connect(DB_PATH) as db:
-        async with db.execute("SELECT COUNT(*) FROM orders WHERE user_id = ?", (user_id,)) as cursor:
-            row = await cursor.fetchone()
-            return row[0] if row else 0
+    row = await db.fetchone("SELECT COUNT(*) FROM orders WHERE user_id = ?", (user_id,))
+    return row[0] if row else 0
 
 
 async def get_user_support_tickets_count(user_id: int) -> int:
     """Get count of user support tickets."""
-    async with aiosqlite.connect(DB_PATH) as db:
-        async with db.execute("SELECT COUNT(*) FROM support_tickets WHERE user_id = ?", (user_id,)) as cursor:
-            row = await cursor.fetchone()
-            return row[0] if row else 0
+    row = await db.fetchone("SELECT COUNT(*) FROM support_tickets WHERE user_id = ?", (user_id,))
+    return row[0] if row else 0
 
 
 async def get_mamont_orders_count(mamont_id: str) -> int:
     """Get count of orders for a mamont."""
-    async with aiosqlite.connect(DB_PATH) as db:
-        # Try to find user linked to this mamont and count their orders
-        async with db.execute("""
-            SELECT COUNT(*) FROM orders o
-            JOIN users u ON o.user_id = u.id
-            JOIN mamonts m ON m.tg_username = u.telegram_username OR m.email = u.email
-            WHERE m.mamont_id = ?
-        """, (str(mamont_id),)) as cursor:
-            row = await cursor.fetchone()
-            return row[0] if row else 0
+    # Try to find user linked to this mamont and count their orders
+    row = await db.fetchone("""
+        SELECT COUNT(*) FROM orders o
+        JOIN users u ON o.user_id = u.id
+        JOIN mamonts m ON m.tg_username = u.telegram_username OR m.email = u.email
+        WHERE m.mamont_id = ?
+    """, (str(mamont_id),))
+    return row[0] if row else 0
 
 
 # ============================================================================

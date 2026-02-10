@@ -1,13 +1,12 @@
 from aiogram import types, F
 from aiogram.fsm.context import FSMContext
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-import aiosqlite
 from datetime import datetime, timedelta, timezone
 
 from ..loader import bot, dp
-from ..config import DB_PATH, SITE_URL, ADMIN_IDS, logger
+from ..config import SITE_URL, ADMIN_IDS, logger
 from ..utils import format_cooldown_remaining, is_cooldown_active
-from ..database import get_or_create_bot_user, get_or_create_referral
+from ..database import get_or_create_bot_user, get_or_create_referral, get_application_approval_data, approve_application, reject_application
 from ..renderers import (
     render_theatre_menu,
     render_clients_menu,
@@ -581,30 +580,15 @@ async def cb_approve(callback: types.CallbackQuery):
     admin_id = callback.from_user.id
     now_iso = datetime.now(timezone.utc).isoformat()
     
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        
-        async with db.execute("""
-            SELECT a.confirm_message_id, b.chat_id 
-            FROM applications a 
-            JOIN bot_users b ON a.telegram_user_id = b.telegram_user_id 
-            WHERE a.id = ?
-        """, (app_id,)) as cursor:
-            row = await cursor.fetchone()
-            confirm_message_id = row['confirm_message_id'] if row else None
-            chat_id = row['chat_id'] if row else None
-        
-        await db.execute("""
-            UPDATE applications SET status = 'approved', decided_at = ?, decided_by = ?
-            WHERE id = ?
-        """, (now_iso, admin_id, app_id))
-        
-        await db.execute("""
-            UPDATE bot_users SET approved = 1, cooldown_until = NULL, joined_at = ?
-            WHERE telegram_user_id = ?
-        """, (now_iso, user_id))
-        
-        await db.commit()
+    
+    # Get application data using adapter
+    row = await get_application_approval_data(app_id)
+    confirm_message_id = row['confirm_message_id'] if row else None
+    chat_id = row['chat_id'] if row else None
+    app_user_id = row['telegram_user_id'] if row else user_id
+    
+    # Approve matches logic
+    await approve_application(app_id, admin_id, app_user_id)
     
     logger.info(f"Application approved: id={app_id}, telegram_user_id={user_id}, by={admin_id}")
     
@@ -650,30 +634,15 @@ async def cb_reject(callback: types.CallbackQuery):
     cooldown_until = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
     now_iso = datetime.now(timezone.utc).isoformat()
     
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        
-        async with db.execute("""
-            SELECT a.confirm_message_id, b.chat_id 
-            FROM applications a 
-            JOIN bot_users b ON a.telegram_user_id = b.telegram_user_id 
-            WHERE a.id = ?
-        """, (app_id,)) as cursor:
-            row = await cursor.fetchone()
-            confirm_message_id = row['confirm_message_id'] if row else None
-            chat_id = row['chat_id'] if row else None
-        
-        await db.execute("""
-            UPDATE applications SET status = 'rejected', decided_at = ?, decided_by = ?
-            WHERE id = ?
-        """, (now_iso, admin_id, app_id))
-        
-        await db.execute("""
-            UPDATE bot_users SET approved = 0, cooldown_until = ?
-            WHERE telegram_user_id = ?
-        """, (cooldown_until, user_id))
-        
-        await db.commit()
+    
+    # Get application data using adapter
+    row = await get_application_approval_data(app_id)
+    confirm_message_id = row['confirm_message_id'] if row else None
+    chat_id = row['chat_id'] if row else None
+    app_user_id = row['telegram_user_id'] if row else user_id
+    
+    # Reject application
+    await reject_application(app_id, admin_id, app_user_id, cooldown_until)
     
     logger.info(f"Application rejected: id={app_id}, telegram_user_id={user_id}, by={admin_id}")
     
