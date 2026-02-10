@@ -41,6 +41,10 @@ class Database:
             
         logger.info(f"Database initialized in {self.mode} mode")
 
+    @property
+    def is_postgres(self):
+        return self.mode == "postgres"
+
     async def connect(self):
         """Initialize connection pool (for Postgres) or ensure path (for SQLite)."""
         if self.mode == "postgres":
