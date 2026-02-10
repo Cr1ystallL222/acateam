@@ -874,32 +874,32 @@ async def get_application_approval_data(app_id: int) -> Optional[dict]:
 async def approve_application(app_id: int, admin_id: int, telegram_user_id: int):
     """Approve application and user."""
     from datetime import datetime, timezone
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(timezone.utc)
     
     await db.execute("""
         UPDATE applications SET status = 'approved', decided_at = ?, decided_by = ?
         WHERE id = ?
-    """, (now_iso, admin_id, app_id))
+    """, (now, admin_id, app_id))
     
     # Using integer 1 for compatibility with SQLite and Postgres (if column is INTEGER)
     await db.execute("""
         UPDATE bot_users SET approved = 1, cooldown_until = NULL, joined_at = ?
         WHERE telegram_user_id = ?
-    """, (now_iso, telegram_user_id))
+    """, (now, telegram_user_id))
     
     logger.info(f"Set bot_users.approved=1 for telegram_user_id={telegram_user_id}")
 
-async def reject_application(app_id: int, admin_id: int, telegram_user_id: int, cooldown_iso: str):
+async def reject_application(app_id: int, admin_id: int, telegram_user_id: int, cooldown_until: Any):
     """Reject application and set cooldown."""
     from datetime import datetime, timezone
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(timezone.utc)
     
     await db.execute("""
         UPDATE applications SET status = 'rejected', decided_at = ?, decided_by = ?
         WHERE id = ?
-    """, (now_iso, admin_id, app_id))
+    """, (now, admin_id, app_id))
     
     await db.execute("""
         UPDATE bot_users SET approved = 0, cooldown_until = ?
         WHERE telegram_user_id = ?
-    """, (cooldown_iso, telegram_user_id))
+    """, (cooldown_until, telegram_user_id))

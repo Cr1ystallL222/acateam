@@ -631,8 +631,7 @@ async def cb_reject(callback: types.CallbackQuery):
     user_id = int(user_id_str)
     app_id = int(app_id_str)
     admin_id = callback.from_user.id
-    cooldown_until = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
-    now_iso = datetime.now(timezone.utc).isoformat()
+    cooldown_until = datetime.now(timezone.utc) + timedelta(hours=1)
     
     
     # Get application data using adapter
