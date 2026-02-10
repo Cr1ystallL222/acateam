@@ -6,7 +6,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, FSInputFil
 from ..loader import bot, dp
 from ..config import WELCOME_STICKER_ID, RESOLVED_IMAGE_PATH, ADMIN_IDS, logger
 from ..utils import is_cooldown_active, format_cooldown_remaining
-from ..database import get_or_create_bot_user
+from ..database import get_or_create_bot_user, has_pending_application
 from ..renderers import render_profile_menu
 
 @dp.message(Command("start"))
@@ -41,6 +41,15 @@ async def cmd_start(message: types.Message, state: FSMContext):
             parse_mode="HTML"
         )
     else:
+        # Check if user has a pending application
+        if await has_pending_application(user_id):
+            await message.answer(
+                "<b>⏳ Ваша заявка находится на рассмотрении</b>\n\n"
+                "Пожалуйста, ожидайте решения администратора.",
+                parse_mode="HTML"
+            )
+            return
+
         # Application flow
         if WELCOME_STICKER_ID:
             try:

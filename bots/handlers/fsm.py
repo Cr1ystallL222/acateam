@@ -4,7 +4,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
 
 from ..config import APPLICATIONS_CHAT_ID, RESOLVED_IMAGE_PATH, logger
-from ..database import create_application, update_application_confirm_msg
+from ..database import create_application, update_application_confirm_msg, has_pending_application
 from ..loader import bot, dp
 
 # FSM States
@@ -40,6 +40,14 @@ class TheatreLinkCreation(StatesGroup):
 
 @dp.callback_query(F.data == "continue")
 async def cb_continue(callback: types.CallbackQuery, state: FSMContext):
+    if await has_pending_application(callback.from_user.id):
+        await callback.answer("Ваша заявка уже на рассмотрении!", show_alert=True)
+        try:
+            await callback.message.delete()
+        except:
+            pass
+        return
+
     await callback.answer()
     
     data = await state.get_data()

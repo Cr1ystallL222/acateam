@@ -839,6 +839,15 @@ async def update_support_ticket(ticket_id: int, reply_text: str, replied_at: str
 
 # Application Management Functions
 
+async def has_pending_application(telegram_user_id: int) -> bool:
+    """Check if user has a pending application."""
+    row = await db.fetchval("""
+        SELECT 1 FROM applications 
+        WHERE telegram_user_id = ? AND status = 'pending' 
+        LIMIT 1
+    """, (telegram_user_id,))
+    return bool(row)
+
 async def create_application(telegram_user_id: int, q1_text: str, q2_text: str) -> int:
     """Create a new application and return its ID."""
     if db.is_postgres:
