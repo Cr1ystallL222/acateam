@@ -1,6 +1,5 @@
 aiogram>=3.18.0
-sqlalchemy
-psycopg2-binary
+asyncpg
 python-dotenv
 aiosqlite
 httpx
