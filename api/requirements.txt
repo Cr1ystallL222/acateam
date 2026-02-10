@@ -5,6 +5,7 @@ psycopg2-binary
 python-dotenv
 aiosqlite
 httpx
+aiohttp==3.9.5
 python-multipart
 jinja2
 Pillow>=10.0.0
