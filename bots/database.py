@@ -874,7 +874,7 @@ async def get_application_approval_data(app_id: int) -> Optional[dict]:
 async def approve_application(app_id: int, admin_id: int, telegram_user_id: int):
     """Approve application and user."""
     from datetime import datetime, timezone
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     
     await db.execute("""
         UPDATE applications SET status = 'approved', decided_at = ?, decided_by = ?
@@ -892,7 +892,7 @@ async def approve_application(app_id: int, admin_id: int, telegram_user_id: int)
 async def reject_application(app_id: int, admin_id: int, telegram_user_id: int, cooldown_until: Any):
     """Reject application and set cooldown."""
     from datetime import datetime, timezone
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     
     await db.execute("""
         UPDATE applications SET status = 'rejected', decided_at = ?, decided_by = ?
