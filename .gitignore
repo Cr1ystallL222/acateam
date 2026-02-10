@@ -1,0 +1,33 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+
+# SQLite databases
+data/*.db
+data/*.db-wal
+data/*.db-shm
+
+# Node
+node_modules/
+.next/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp
+bots/temp/
+bots/images/events/

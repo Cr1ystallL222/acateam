@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "acfateam"
+version = "0.1.0"
+description = "ACFATeam — Afisha Cinema monorepo"
+requires-python = ">=3.10"
+
+[tool.setuptools.packages.find]
+include = ["data*", "api*", "bots*"]

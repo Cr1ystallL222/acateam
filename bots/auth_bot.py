@@ -40,26 +40,49 @@ async def cmd_start(message: types.Message):
     args = message.text.split(maxsplit=1)
     payload = args[1] if len(args) > 1 else None
 
-    if payload and payload.startswith("reg_"):
-        session_id = payload.split("_")[1]
-        await handle_registration_start(message, session_id)
+    if payload:
+        if payload.startswith("reg_"):
+            session_id = payload[4:]
+            await handle_registration_start(message, session_id, intent_override='register')
+        elif payload.startswith("auth_"):
+            session_id = payload[5:]
+            await handle_registration_start(message, session_id, intent_override='login')
+        else:
+            await message.answer("Ошибка: Неверный формат ссылки.")
     else:
         await message.answer("Этот бот предназначен только для входа и регистрации. Пожалуйста, используйте сайт.")
 
-async def handle_registration_start(message: types.Message, session_id: str):
+async def handle_registration_start(message: types.Message, session_id: str, intent_override: str = None):
     async with aiosqlite.connect(DB_PATH) as db:
         # Check session
-        async with db.execute("SELECT status, session_expires_at FROM registration_sessions WHERE session_id = ?", (session_id,)) as cursor:
+        async with db.execute("SELECT status, session_expires_at, intent FROM registration_sessions WHERE session_id = ?", (session_id,)) as cursor:
             row = await cursor.fetchone()
         
         if not row:
             await message.answer("Ошибка: Сессия регистрации не найдена.")
             return
             
-        status, session_expires_at = row
+        status, session_expires_at, intent = row
+        intent = intent or 'login'
+        if intent_override:
+            intent = intent_override
+            await db.execute("UPDATE registration_sessions SET intent = ? WHERE session_id = ?", (intent, session_id))
+            await db.commit()
         if status not in ["created", "draft"]:
              await message.answer("Эта сессия регистрации уже активна или использована.")
              return
+        
+        # CLEANUP: Mark old waiting_contact sessions for this user as expired
+        logger.info(f"Cleaning up old sessions for telegram_user_id={message.from_user.id}")
+        await db.execute("""
+            UPDATE registration_sessions 
+            SET status = 'expired' 
+            WHERE telegram_user_id = ? 
+            AND status = 'waiting_contact' 
+            AND session_id != ?
+        """, (message.from_user.id, session_id))
+        await db.commit()
+        logger.info(f"Old sessions marked as expired")
              
         # Ask for contact
         kb = [
@@ -79,52 +102,192 @@ async def handle_registration_start(message: types.Message, session_id: str):
         """, (message.from_user.id, message.chat.id, message.from_user.username, message.from_user.full_name, datetime.now(timezone.utc), session_id))
         await db.commit()
         
+        logger.info(f"Session {session_id} updated: telegram_user_id={message.from_user.id}, username={message.from_user.username}, display_name={message.from_user.full_name}, intent={intent}")
+        
+        msg_text = "Для входа в аккаунт, пожалуйста, нажмите кнопку ниже, чтобы поделиться контактом."
+        if intent == 'register':
+             msg_text = "Для завершения регистрации, пожалуйста, нажмите кнопку ниже, чтобы поделиться контактом."
+             
         await message.answer(
-            "Для завершения регистрации, пожалуйста, нажмите кнопку ниже, чтобы поделиться контактом.", 
+            msg_text, 
             reply_markup=keyboard
         )
 
 @dp.message(F.contact)
 async def handle_contact(message: types.Message):
     contact = message.contact
-    if not contact: return
+    if not contact: 
+        logger.warning("Received message without contact")
+        return
+    
+    tg_id = message.from_user.id
+    phone = contact.phone_number
+    phone_normalized = ''.join(filter(str.isdigit, phone))
+    
+    logger.info(f"=== CONTACT HANDLER START ===")
+    logger.info(f"Telegram ID: {tg_id}")
+    logger.info(f"Phone (last 4): {phone_normalized[-4:]}")
+    logger.info(f"Username: {message.from_user.username}")
     
     # Validation: contact user id match
     if contact.user_id != message.from_user.id:
+        logger.warning(f"Contact user_id mismatch: {contact.user_id} != {tg_id}")
         await message.answer("Пожалуйста, отправьте СВОЙ контакт.")
         return
-
+    
     async with aiosqlite.connect(DB_PATH) as db:
-        # Find active session for this user in 'waiting_contact'
+        db.row_factory = aiosqlite.Row
+        
+        # Find ALL active sessions for this user in 'waiting_contact'
         async with db.execute(
-            "SELECT session_id FROM registration_sessions WHERE telegram_user_id = ? AND status = 'waiting_contact'", 
-            (message.from_user.id,)
+            "SELECT session_id, intent, status, created_at, updated_at FROM registration_sessions WHERE telegram_user_id = ? AND status = 'waiting_contact' ORDER BY updated_at DESC", 
+            (tg_id,)
         ) as cursor:
-            row = await cursor.fetchone()
+            all_sessions = await cursor.fetchall()
             
-        if not row:
+        if not all_sessions:
+            logger.error(f"❌ NO ACTIVE SESSION found for tg_id={tg_id}")
             await message.answer("Активная сессия регистрации не найдена. Попробуйте начать заново с сайта.")
             return
-            
-        session_id = row[0]
         
-        # Generate Code
-        code = f"{secrets.randbelow(9000) + 1000}" 
-        code_hash = hashlib.sha256(code.encode()).hexdigest()
-        code_expires_at = datetime.now(timezone.utc) + timedelta(minutes=5)
+        # Log all candidate sessions
+        logger.info(f"📋 Found {len(all_sessions)} session(s) in 'waiting_contact' status:")
+        for idx, sess in enumerate(all_sessions):
+            logger.info(f"   [{idx}] session_id={sess['session_id']}, intent='{sess['intent']}', updated_at={sess['updated_at']}")
+        
+        # SELECTION LOGIC: Pick the most recent session (first in DESC order)
+        row = all_sessions[0]
+        
+        session_id = row['session_id']
+        intent = row['intent']
+        
+        logger.info(f"✅ SELECTED Session: session_id={session_id}")
+        logger.info(f"📋 Intent from DB: '{intent}' (type: {type(intent).__name__})")
+        logger.info(f"📋 Status from DB: '{row['status']}'")
+        logger.info(f"📋 Updated at: {row['updated_at']}")
+        
+        # CRITICAL: Check if intent is None or empty
+        if not intent:
+            logger.error(f"❌ INTENT IS EMPTY/NULL! Setting default to 'login'")
+            intent = 'login'
+        
+        logger.info(f"🔀 FLOW DECISION: intent='{intent}'")
+        
+        # РАЗДЕЛЕНИЕ ЛОГИКИ ПО INTENT
+        if intent == 'register':
+            logger.info(f"🟢 REGISTER FLOW: Generating code WITHOUT DB check")
+            logger.info(f"   → Skipping user lookup in database")
+            logger.info(f"   → Generating OTP code directly")
+            
+            code = f"{secrets.randbelow(9000) + 1000}" 
+            code_hash = hashlib.sha256(code.encode()).hexdigest()
+            code_expires_at = datetime.now(timezone.utc) + timedelta(minutes=5)
+            
+            await db.execute("""
+                UPDATE registration_sessions 
+                SET status = 'code_issued',
+                    contact_phone = ?,
+                    code_hash = ?,
+                    code_expires_at = ?,
+                    updated_at = ?
+                WHERE session_id = ?
+            """, (phone, code_hash, code_expires_at, datetime.now(timezone.utc), session_id))
+            await db.commit()
+            
+            logger.info(f"✅ Registration code issued: session={session_id}, phone_last4={phone_normalized[-4:]}, code={code}")
+            
+            await message.answer(
+                f"📝 Для завершения регистрации введите код на сайте:\n\n`{code}`\n\n"
+                "⏱ Код действителен 5 минут.",
+                reply_markup=types.ReplyKeyboardRemove(),
+                parse_mode="Markdown"
+            )
+            logger.info(f"=== CONTACT HANDLER END (REGISTER) ===")
+            return
+        
+        # LOGIN FLOW
+        logger.info(f"🔵 LOGIN FLOW: Checking if user exists in DB")
+        logger.info(f"   → Looking up phone in users table")
+        
+        async with db.execute(
+            "SELECT id, first_name, last_name, referrer_user_id FROM users WHERE phone LIKE ?", 
+            (f'%{phone_normalized[-10:]}%',)
+        ) as cursor:
+            existing_user = await cursor.fetchone()
+        
+        logger.info(f"   → User lookup result: {'FOUND' if existing_user else 'NOT FOUND'}")
+
+        if not existing_user:
+            logger.info(f"❌ User not found - rejecting login attempt")
+            await message.answer(
+                "❌ Номер не найден в базе.\n\n"
+                "Если у вас нет аккаунта, пожалуйста, зарегистрируйтесь на сайте.",
+                reply_markup=types.ReplyKeyboardRemove()
+            )
+            logger.info(f"=== CONTACT HANDLER END (LOGIN FAILED) ===")
+            return
+        
+        logger.info(f"✅ User found: id={existing_user['id']}, name={existing_user['first_name']}")
+        logger.info(f"   → Generating login token")
+        login_token = secrets.token_urlsafe(32)
+        token_expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
         
         await db.execute("""
             UPDATE registration_sessions 
-            SET status = 'code_issued',
+            SET status = 'login_ready',
                 contact_phone = ?,
-                code_hash = ?,
-                code_expires_at = ?,
+                login_token = ?,
+                login_token_expires_at = ?,
+                login_user_id = ?,
                 updated_at = ?
             WHERE session_id = ?
-        """, (contact.phone_number, code_hash, code_expires_at, datetime.now(timezone.utc), session_id))
+        """, (phone, login_token, token_expires_at, existing_user['id'], datetime.now(timezone.utc), session_id))
         await db.commit()
         
-        await message.answer(f"Ваш код: `{code}`\n\nВведите его на сайте.", reply_markup=types.ReplyKeyboardRemove(), parse_mode="Markdown")
+        logger.info(f"✅ Login token generated and saved")
+        
+        # Get SITE_URL
+        SITE_URL = os.getenv("SITE_URL", "http://localhost:3000")
+        login_link = f"{SITE_URL}/auth/login-token?token={login_token}"
+        
+        user_name = existing_user['first_name'] or "пользователь"
+        
+        msg = f"👋 С возвращением, {user_name}!\n\n🔐 Ваша ссылка для входа:\n\n{login_link}\n\n⏱ Ссылка действительна 15 минут."
+
+        await message.answer(
+            msg,
+            reply_markup=types.ReplyKeyboardRemove()
+        )
+        
+        logger.info(f"✅ Login link sent to user")
+        
+        # Notify referrer if exists
+        if existing_user['referrer_user_id']:
+            logger.info(f"   → Notifying referrer: user_id={existing_user['referrer_user_id']}")
+            try:
+                # Get referrer chat_id
+                async with db.execute(
+                    "SELECT chat_id FROM users WHERE id = ?", 
+                    (existing_user['referrer_user_id'],)
+                ) as cursor:
+                    ref_row = await cursor.fetchone()
+                
+                if ref_row and ref_row['chat_id']:
+                    from bots.loader import bot as main_bot
+                    try:
+                        await main_bot.send_message(
+                            ref_row['chat_id'],
+                            f"🔔 Ваш мамонт вошел в аккаунт!\n\n"
+                            f"👤 {existing_user['first_name'] or ''} {existing_user['last_name'] or ''}\n"
+                            f"📱 Телефон: {phone}"
+                        )
+                        logger.info(f"   → Referrer notified successfully")
+                    except Exception as e:
+                        logger.warning(f"Could not notify referrer: {e}")
+            except Exception as e:
+                logger.warning(f"Error notifying referrer: {e}")
+        
+        logger.info(f"=== CONTACT HANDLER END (LOGIN SUCCESS) ===")
 
 async def main():
     if not bot:
@@ -134,3 +297,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+

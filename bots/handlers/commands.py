@@ -1,10 +1,10 @@
-from aiogram import types
+from aiogram import types, F
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
 
 from ..loader import bot, dp
-from ..config import WELCOME_STICKER_ID, RESOLVED_IMAGE_PATH, logger
+from ..config import WELCOME_STICKER_ID, RESOLVED_IMAGE_PATH, ADMIN_IDS, logger
 from ..utils import is_cooldown_active, format_cooldown_remaining
 from ..database import get_or_create_bot_user
 from ..renderers import render_profile_menu
@@ -49,11 +49,11 @@ async def cmd_start(message: types.Message, state: FSMContext):
                 logger.warning(f"Failed to send sticker: {e}")
         
         markup = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="▶️ Продолжить", callback_data="continue")]
+            [InlineKeyboardButton(text="Продолжить", callback_data="continue")]
         ])
         
         welcome_text = (
-            "<b>🎬 Добро пожаловать в ACA Team!</b>\n\n"
+            "<b>Добро пожаловать в ACA Team!</b>\n\n"
             "Для получения доступа к боту, необходимо пройти короткую анкету.\n\n"
             "<i>Это займёт всего минуту.</i>"
         )
@@ -65,3 +65,19 @@ async def cmd_start(message: types.Message, state: FSMContext):
             sent_msg = await message.answer(welcome_text, parse_mode="HTML", reply_markup=markup)
         
         await state.update_data(welcome_msg_id=sent_msg.message_id)
+@dp.message(F.text == "/create_system_events")
+async def cmd_create_system_events(message: types.Message):
+    """Admin command to manually create system events."""
+    if message.from_user.id not in ADMIN_IDS:
+        await message.answer("Доступ запрещен")
+        return
+    
+    await message.answer("Создаю системные события...")
+    
+    try:
+        from ..database import create_system_events
+        await create_system_events()
+        await message.answer("✅ Системные события созданы успешно!")
+    except Exception as e:
+        logger.error(f"Error creating system events: {e}")
+        await message.answer(f"Ошибка при создании событий: {e}")

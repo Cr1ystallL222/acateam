@@ -25,3 +25,6 @@ class PaymentRequest(BaseModel):
     movie: str
     session_time: str
     qty: int
+
+class AuthStartRequest(BaseModel):
+    intent: str | None = "login"

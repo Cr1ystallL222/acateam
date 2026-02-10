@@ -1,8 +1,12 @@
 import os
 import sys
 import logging
+import warnings
 from pathlib import Path
 from dotenv import load_dotenv
+
+# Suppress Pydantic warnings about aiogram models
+warnings.filterwarnings("ignore", message=".*model_custom_emoji_id.*conflict with protected namespace.*")
 
 # Add project root to sys.path
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -19,14 +23,15 @@ logger = logging.getLogger("main_bot")
 MAIN_BOT_TOKEN = os.getenv("MAIN_BOT_TOKEN") or os.getenv("BOT_TOKEN")
 APPLICATIONS_CHAT_ID = os.getenv("APPLICATIONS_CHAT_ID")
 ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip()]
-SITE_URL = os.getenv("SITE_URL", "http://localhost:3000")
-WELCOME_STICKER_ID = os.getenv("WELCOME_STICKER_ID", "")
+SITE_URL = os.getenv("SITE_URL", "http://localhost:3000").rstrip('/')
+WELCOME_STICKER_ID = os.getenv("WELCOME_STICKER_ID", "CAACAgIAAxkBAAEVndxpfLWe_kV-422Fi4qGKJLHsd5efwACu4wAAuMy4UtXVa5yYy5AOTgE")
 WELCOME_IMAGE_PATH = os.getenv("WELCOME_IMAGE_PATH", "")
 
 # New profile & theatre config
 WELCOME_PHOTO_PATH = os.getenv("WELCOME_PHOTO_PATH", "bots/images/wealcom.jpg")
 THEATRE_PHOTO_PATH = os.getenv("THEATRE_PHOTO_PATH", "bots/images/Teatre.jpg")
 THEATRE_GUIDE_URL = os.getenv("THEATRE_GUIDE_URL", "https://telegra.ph/Instrukciya-01-30")
+TOPUP_GROUP_ID = os.getenv("TOPUP_GROUP_ID")
 
 # Absolute path to database
 DB_PATH = PROJECT_ROOT / "data" / "app.db"

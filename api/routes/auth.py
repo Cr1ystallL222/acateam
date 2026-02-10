@@ -6,7 +6,7 @@ from fastapi import APIRouter, Request, Response, BackgroundTasks, HTTPException
 
 from ..config import logger, BOT_USERNAME
 from ..database import get_db_path
-from ..models import AuthVerifyRequest, AuthDraftRequest, RegisterRequest
+from ..models import AuthVerifyRequest, AuthDraftRequest, RegisterRequest, AuthStartRequest
 from ..utils import get_current_user
 from ..services.mamont import get_mamont_display
 from ..services.notifications import notify_mamont_registration
@@ -39,24 +39,28 @@ async def api_me(request: Request):
             "display_name": display_name,
             "telegram_display_name": user['telegram_display_name'],
             "telegram_username": user['telegram_username'],
-            "email": user['email']
+            "telegram_username": user['telegram_username'],
+            "email": user['email'],
+            "balance": user['balance'] or 0
         }
-    return None
+    raise HTTPException(status_code=401, detail="Not authenticated")
 
 @router.post("/api/auth/telegram/start")
-async def api_auth_start():
+async def api_auth_start(payload: AuthStartRequest = None):
     session_id = str(uuid.uuid4())
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
+    intent = payload.intent if payload else "login"
     
     db_file = await get_db_path()
     async with aiosqlite.connect(db_file) as db:
         await db.execute(
-            "INSERT INTO registration_sessions (session_id, status, session_expires_at) VALUES (?, 'created', ?)",
-            (session_id, expires_at)
+            "INSERT INTO registration_sessions (session_id, status, session_expires_at, intent) VALUES (?, 'created', ?, ?)",
+            (session_id, expires_at, intent)
         )
         await db.commit()
     
-    bot_link = f"https://t.me/{BOT_USERNAME}?start=reg_{session_id}"
+    prefix = "auth" if intent == "login" else "reg"
+    bot_link = f"https://t.me/{BOT_USERNAME}?start={prefix}_{session_id}"
     return {"session_id": session_id, "bot_link": bot_link}
 
 @router.post("/api/auth/telegram/verify")
@@ -295,7 +299,7 @@ async def api_auth_verify(payload: AuthVerifyRequest, request: Request, response
                 ))
                 new_user_id = cursor.lastrowid
                 
-                logger.info(f"User created id={new_user_id}, first_name={draft_first_name}, last_name={draft_last_name}, phone={draft_phone}, email={draft_email}")
+                logger.info(f"User created id={new_user_id}, first_name={draft_first_name}, last_name={draft_last_name}, phone={draft_phone}, email={draft_email}, telegram_username={session['telegram_username']}, telegram_display_name={session['telegram_display_name']}")
                 
                 await db.execute("UPDATE registration_sessions SET status = 'completed' WHERE session_id = ?", (session_id,))
                 await db.commit()
@@ -496,3 +500,57 @@ async def api_auth_register(payload: RegisterRequest, background_tasks: Backgrou
             
         except aiosqlite.IntegrityError:
              raise HTTPException(400, "Пользователь уже существует")
+
+@router.get("/api/auth/login-token")
+async def verify_login_token(token: str, response: Response):
+    """Verify one-time login token and log the user in."""
+    db_file = await get_db_path()
+    
+    async with aiosqlite.connect(db_file) as db:
+        db.row_factory = aiosqlite.Row
+        
+        # Find session with this token
+        async with db.execute("""
+            SELECT session_id, login_user_id, login_token_expires_at, status 
+            FROM registration_sessions 
+            WHERE login_token = ? AND status = 'login_ready'
+        """, (token,)) as cursor:
+            session = await cursor.fetchone()
+        
+        if not session:
+            raise HTTPException(400, "Недействительная или использованная ссылка")
+        
+        # Check expiration
+        try:
+            expires_at = datetime.fromisoformat(str(session['login_token_expires_at']))
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+        except:
+            raise HTTPException(500, "Ошибка времени")
+        
+        if datetime.now(timezone.utc) > expires_at:
+            raise HTTPException(400, "Ссылка для входа истекла")
+        
+        user_id = session['login_user_id']
+        
+        # Mark token as used
+        await db.execute("""
+            UPDATE registration_sessions 
+            SET status = 'login_used', login_token = NULL 
+            WHERE session_id = ?
+        """, (session['session_id'],))
+        await db.commit()
+        
+        # Set auth cookie
+        response.set_cookie(
+            key="auth_user_id", 
+            value=str(user_id), 
+            max_age=2592000, 
+            httponly=True, 
+            path="/",
+            samesite="lax"
+        )
+        
+        logger.info(f"User logged in via token: user_id={user_id}")
+        
+        return {"status": "ok", "user_id": user_id}

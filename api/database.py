@@ -12,6 +12,10 @@ async def ensure_schema():
     logger.info("Checking database schema...")
     
     async with aiosqlite.connect(db_file) as db:
+        # Enable WAL mode for better concurrency
+        await db.execute("PRAGMA journal_mode = WAL")
+        await db.execute("PRAGMA busy_timeout = 30000")  # 30 seconds timeout
+        
         await db.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -46,7 +50,20 @@ async def ensure_schema():
                 session_expires_at TIMESTAMP,
                 attempts INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP
+                updated_at TIMESTAMP,
+                reg_first_name TEXT,
+                reg_last_name TEXT,
+                reg_phone TEXT,
+                reg_email TEXT,
+                consent_pd BOOLEAN DEFAULT 0,
+                consent_marketing BOOLEAN DEFAULT 0,
+                consent_at TIMESTAMP,
+                contact_phone TEXT,
+                visitor_id TEXT,
+                intent TEXT,
+                login_token TEXT,
+                login_token_expires_at TIMESTAMP,
+                login_user_id INTEGER
             )
         """)
         await db.execute("""
@@ -98,7 +115,9 @@ async def ensure_schema():
         await add_column_if_missing("users", "consent_terms", "BOOLEAN DEFAULT 0")
         await add_column_if_missing("users", "consent_pd", "BOOLEAN DEFAULT 0")
         await add_column_if_missing("users", "consent_marketing", "BOOLEAN DEFAULT 0")
+        await add_column_if_missing("users", "consent_marketing", "BOOLEAN DEFAULT 0")
         await add_column_if_missing("users", "consent_at", "TIMESTAMP")
+        await add_column_if_missing("users", "balance", "INTEGER DEFAULT 0")
 
         # Visits table updates
         await add_column_if_missing("visits", "visitor_id", "TEXT")
@@ -112,6 +131,8 @@ async def ensure_schema():
         await add_column_if_missing("registration_sessions", "consent_marketing", "BOOLEAN DEFAULT 0")
         await add_column_if_missing("registration_sessions", "consent_at", "TIMESTAMP")
         await add_column_if_missing("registration_sessions", "contact_phone", "TEXT")
+        await add_column_if_missing("registration_sessions", "visitor_id", "TEXT")
+        await add_column_if_missing("registration_sessions", "intent", "TEXT")
         
         # Orders table updates
         await add_column_if_missing("orders", "user_id", "INTEGER REFERENCES users(id)")
@@ -145,8 +166,37 @@ async def ensure_schema():
         await add_column_if_missing("mamonts", "phone", "TEXT")
         await add_column_if_missing("mamonts", "email", "TEXT")
         
-        # Registration sessions - add visitor_id column for mamont linking
-        await add_column_if_missing("registration_sessions", "visitor_id", "TEXT")
+        # Login token columns for phone-based auto login
+        await add_column_if_missing("registration_sessions", "login_token", "TEXT")
+        await add_column_if_missing("registration_sessions", "login_token_expires_at", "TIMESTAMP")
+        await add_column_if_missing("registration_sessions", "login_user_id", "INTEGER")
+
+        # Event seats - add zone_name
+        await add_column_if_missing("event_seats", "zone_name", "TEXT")
         
         await db.commit()
     logger.info("Schema OK")
+async def get_current_user(session_id: str = None, telegram_user_id: int = None):
+    """Get current user from session or telegram_user_id."""
+    db_file = await get_db_path()
+    
+    async with aiosqlite.connect(db_file) as db:
+        db.row_factory = aiosqlite.Row
+        
+        if telegram_user_id:
+            # Direct lookup by telegram_user_id
+            async with db.execute("SELECT * FROM users WHERE telegram_user_id = ?", (telegram_user_id,)) as cursor:
+                row = await cursor.fetchone()
+                return dict(row) if row else None
+        
+        if session_id:
+            # Lookup by session
+            async with db.execute("""
+                SELECT u.* FROM users u
+                JOIN registration_sessions rs ON u.telegram_user_id = rs.telegram_user_id
+                WHERE rs.session_id = ? AND rs.status = 'completed'
+            """, (session_id,)) as cursor:
+                row = await cursor.fetchone()
+                return dict(row) if row else None
+        
+        return None

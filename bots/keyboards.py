@@ -11,7 +11,7 @@ def get_profile_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
     
     if is_admin:
         # Add Admin Panel button in a new row or same row? Let's add new row for visibility
-        keyboard.append([InlineKeyboardButton(text="🛠 Админ панель", callback_data="menu_admin")])
+        keyboard.append([InlineKeyboardButton(text="Админ панель", callback_data="menu_admin")])
         
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
@@ -23,8 +23,35 @@ def get_theatre_keyboard(ref_link: str) -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="События", callback_data="menu_events")
         ],
         [InlineKeyboardButton(text="Настройки", callback_data="menu_settings")],
-        [InlineKeyboardButton(text="⬅Назад", callback_data="menu_back_profile")]
+        [InlineKeyboardButton(text="Назад", callback_data="menu_back_links")]
     ])
+
+def get_links_management_keyboard(links: list) -> InlineKeyboardMarkup:
+    """Generate keyboard for links management menu.
+    
+    Button numbers (1, 2, 3...) are visual order in the list,
+    callback_data contains internal id for lookup.
+    """
+    keyboard = []
+    
+    # Add link buttons (3 per row)
+    row = []
+    for idx, link in enumerate(links, start=1):
+        row.append(InlineKeyboardButton(
+            text=str(idx),  # Visual number = order in list
+            callback_data=f"select_link:{link['id']}"  # Internal id
+        ))
+        if len(row) == 3:
+            keyboard.append(row)
+            row = []
+    if row:
+        keyboard.append(row)
+    
+    # Add create and back buttons
+    keyboard.append([InlineKeyboardButton(text="➕ Создать ссылку", callback_data="create_link")])
+    keyboard.append([InlineKeyboardButton(text="◀️ Назад", callback_data="menu_back_profile")])
+    
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 def get_clients_keyboard(mamonts: list) -> InlineKeyboardMarkup:
     """Generate keyboard with mamont buttons."""
@@ -44,13 +71,31 @@ def get_clients_keyboard(mamonts: list) -> InlineKeyboardMarkup:
         keyboard.append(row)
     
     # Add back button
-    keyboard.append([InlineKeyboardButton(text="⬅Назад", callback_data="menu_back_theatre")])
+    keyboard.append([InlineKeyboardButton(text="Назад", callback_data="menu_back_theatre")])
     
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 def get_stub_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⬅Назад", callback_data="menu_back_theatre")]
+        [InlineKeyboardButton(text="Назад", callback_data="menu_back_theatre")]
+    ])
+
+def get_settings_keyboard(settings: dict) -> InlineKeyboardMarkup:
+    """Generate settings keyboard with current values."""
+    min_price = settings.get('min_price_override')
+    min_price_text = f"💰 Мин. цена: {min_price}₽" if min_price else "💰 Мин. цена: не установлена"
+    
+    max_price = settings.get('max_price_override')
+    max_price_text = f"💎 Макс. цена: {max_price}₽" if max_price else "💎 Макс. цена: не установлена"
+    
+    city = settings.get('custom_city')
+    city_text = f"🏙️ Город: {city}" if city else "🏙️ Город: Краснодар (по умолчанию)"
+    
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=min_price_text, callback_data="settings_min_price")],
+        [InlineKeyboardButton(text=max_price_text, callback_data="settings_max_price")],
+        [InlineKeyboardButton(text=city_text, callback_data="settings_city")],
+        [InlineKeyboardButton(text="Назад", callback_data="menu_back_theatre")]
     ])
 
 def get_events_keyboard() -> InlineKeyboardMarkup:
@@ -60,7 +105,7 @@ def get_events_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="Список событий", callback_data="events_list"),
             InlineKeyboardButton(text="Добавить событие", callback_data="events_add")
         ],
-        [InlineKeyboardButton(text="⬅Назад", callback_data="menu_back_theatre")]
+        [InlineKeyboardButton(text="Назад", callback_data="menu_back_theatre")]
     ])
 
 def format_mamont_display_for_button(mamont: dict) -> str:

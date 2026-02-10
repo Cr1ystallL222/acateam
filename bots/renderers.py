@@ -9,13 +9,16 @@ from .config import (
     THEATRE_PHOTO_RESOLVED,
     THEATRE_GUIDE_URL,
     ADMIN_IDS,
+    WELCOME_STICKER_ID,
     logger
 )
 from .database import (
     get_user_profits_stats, 
     get_or_create_referral, 
     save_last_menu_message_id,
-    get_user_mamonts
+    get_user_mamonts,
+    get_theatre_links,
+    get_link_by_id
 )
 from .utils import calculate_days_in_team, format_mamont_display
 from .keyboards import (
@@ -23,7 +26,8 @@ from .keyboards import (
     get_theatre_keyboard, 
     get_clients_keyboard,
     get_stub_keyboard,
-    get_events_keyboard
+    get_events_keyboard,
+    get_links_management_keyboard
 )
 
 async def render_profile_menu(chat_id: int, telegram_user_id: int, bot_user: dict, message_id: Optional[int] = None) -> int:
@@ -43,23 +47,19 @@ async def render_profile_menu(chat_id: int, telegram_user_id: int, bot_user: dic
     is_admin = telegram_user_id in ADMIN_IDS
     keyboard = get_profile_keyboard(is_admin=is_admin)
     
-    # Try to edit existing message
+    # Always delete old message to ensure Sticker appears before Menu
     if message_id:
         try:
-            if PROFILE_PHOTO_PATH.exists():
-                photo = FSInputFile(PROFILE_PHOTO_PATH)
-                media = InputMediaPhoto(media=photo, caption=caption, parse_mode="HTML")
-                await bot.edit_message_media(chat_id=chat_id, message_id=message_id, media=media, reply_markup=keyboard)
-                return message_id
-            else:
-                await bot.edit_message_caption(chat_id=chat_id, message_id=message_id, caption=caption, parse_mode="HTML", reply_markup=keyboard)
-                return message_id
-        except TelegramBadRequest as e:
-            logger.warning(f"Cannot edit message: {e}. Will delete and resend.")
-            try:
-                await bot.delete_message(chat_id=chat_id, message_id=message_id)
-            except:
-                pass
+            await bot.delete_message(chat_id=chat_id, message_id=message_id)
+        except:
+            pass
+            
+    # Send sticker
+    if WELCOME_STICKER_ID:
+        try:
+            await bot.send_sticker(chat_id, WELCOME_STICKER_ID)
+        except Exception as e:
+            logger.warning(f"Failed to send welcome sticker: {e}")
     
     # Send new message
     if PROFILE_PHOTO_PATH.exists():
@@ -72,16 +72,84 @@ async def render_profile_menu(chat_id: int, telegram_user_id: int, bot_user: dic
     await save_last_menu_message_id(telegram_user_id, msg.message_id)
     return msg.message_id
 
-async def render_theatre_menu(chat_id: int, telegram_user_id: int, message_id: Optional[int] = None) -> int:
-    """Render theatre menu. Returns new message_id."""
-    ref_code = await get_or_create_referral(telegram_user_id, chat_id)
-    ref_link = f"{SITE_URL}/?ref={ref_code}"
+async def render_links_management_menu(chat_id: int, telegram_user_id: int, message_id: Optional[int] = None) -> int:
+    """Render links management menu. Returns new message_id."""
+    links = await get_theatre_links(telegram_user_id)
+    
+    # Build links list text
+    if links:
+        links_text = ""
+        for idx, link in enumerate(links, start=1):
+            city = link.get('custom_city') or "не указан"
+            links_text += f"\n<b>Промокод №{idx}:</b> {link['name']}\n"
+            links_text += f"<i>Адрес:</i> {city}\n"
+    else:
+        links_text = "\n<i>У вас пока нет ссылок.\nСоздайте первую ссылку!</i>\n"
     
     caption = (
-        "🎭 <b>Theatre</b>\n\n"
-        f"📝 Инструкция к боту: <a href=\"{THEATRE_GUIDE_URL}\">ТЫК</a>\n"
-        f"🔗 Ваша реферальная ссылка: <code>{ref_link}</code>"
+        "🔗 <b>Ссылки для Театра</b>\n\n"
+        "Ниже указаны ссылки и номера ваших конфигов\n\n"
+        "🏷 <b>Текущие ссылки:</b>"
+        f"{links_text}\n"
+        "<i>Для настройки ссылки нажмите на соответствующий номер</i>"
     )
+    
+    keyboard = get_links_management_keyboard(links)
+    
+    # Try to edit existing message
+    if message_id:
+        try:
+            await bot.edit_message_caption(chat_id=chat_id, message_id=message_id, caption=caption, parse_mode="HTML", reply_markup=keyboard)
+            return message_id
+        except TelegramBadRequest:
+            try:
+                await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=caption, parse_mode="HTML", reply_markup=keyboard)
+                return message_id
+            except TelegramBadRequest as e:
+                logger.warning(f"Cannot edit message: {e}. Will delete and resend.")
+                try:
+                    await bot.delete_message(chat_id=chat_id, message_id=message_id)
+                except:
+                    pass
+    
+    # Send new message
+    msg = await bot.send_message(chat_id, caption, parse_mode="HTML", reply_markup=keyboard)
+    await save_last_menu_message_id(telegram_user_id, msg.message_id)
+    return msg.message_id
+
+
+async def render_theatre_menu(chat_id: int, telegram_user_id: int, message_id: Optional[int] = None, link_id: Optional[int] = None) -> int:
+    """Render theatre menu. If link_id is provided, use that link's code."""
+    
+    # Get link by id or fallback
+    if link_id:
+        link = await get_link_by_id(link_id)
+        if link:
+            ref_link = f"{SITE_URL}/?cl={link['link_code']}"
+            link_name = link.get('name', 'Без названия')
+        else:
+            # Fallback to old ref system
+            ref_code = await get_or_create_referral(telegram_user_id, chat_id)
+            ref_link = f"{SITE_URL}/?ref={ref_code}"
+            link_name = None
+    else:
+        # Fallback to old ref system
+        ref_code = await get_or_create_referral(telegram_user_id, chat_id)
+        ref_link = f"{SITE_URL}/?ref={ref_code}"
+        link_name = None
+    
+    if link_name:
+        caption = (
+            f"<b>Theatre</b> — {link_name}\n\n"
+            f"Инструкция к боту: <a href=\"{THEATRE_GUIDE_URL}\">ТЫК</a>\n"
+            f"Ваша реферальная ссылка: <code>{ref_link}</code>"
+        )
+    else:
+        caption = (
+            "<b>Theatre</b>\n\n"
+            f"Инструкция к боту: <a href=\"{THEATRE_GUIDE_URL}\">ТЫК</a>\n"
+            f"Ваша реферальная ссылка: <code>{ref_link}</code>"
+        )
     
     keyboard = get_theatre_keyboard(ref_link)
     
@@ -121,7 +189,7 @@ async def render_clients_menu(chat_id: int, telegram_user_id: int, message_id: O
     mamonts = await get_user_mamonts(telegram_user_id)
     
     if not mamonts:
-        text = "<b>👥 Ваши мамонты</b>\n\n<i>У вас пока нет мамонтов.\nПоделитесь реферальной ссылкой, чтобы привлечь первых клиентов!</i>"
+        text = "<b>Ваши мамонты</b>\n\n<i>У вас пока нет мамонтов.\nПоделитесь реферальной ссылкой, чтобы привлечь первых клиентов!</i>"
         keyboard = get_stub_keyboard()
     else:
         # Count by status
@@ -130,10 +198,10 @@ async def render_clients_menu(chat_id: int, telegram_user_id: int, message_id: O
         paid_count = len([m for m in mamonts if m['status'] == 'paid'])
         
         text = (
-            f"<b>👥 Ваши мамонты</b> ({len(mamonts)})\n\n"
-            f"🔗 Привязано: <b>{attached_count}</b>\n"
-            f"📝 Зарегистрировано: <b>{registered_count}</b>\n"
-            f"💰 Оплатило: <b>{paid_count}</b>\n\n"
+            f"<b>Ваши мамонты</b> ({len(mamonts)})\n\n"
+            f"Привязано: <b>{attached_count}</b>\n"
+            f"Зарегистрировано: <b>{registered_count}</b>\n"
+            f"Оплатило: <b>{paid_count}</b>\n\n"
             f"<i>Выберите мамонта для просмотра деталей:</i>"
         )
         keyboard = get_clients_keyboard(mamonts)
@@ -158,9 +226,28 @@ async def render_clients_menu(chat_id: int, telegram_user_id: int, message_id: O
     return msg.message_id
 
 async def render_settings_menu(chat_id: int, telegram_user_id: int, message_id: Optional[int] = None) -> int:
-    """Render settings stub menu. Returns new message_id."""
-    text = "<b>⚙️ Раздел Настройки</b>\n\n<i>В разработке...</i>"
-    keyboard = get_stub_keyboard()
+    """Render settings menu with current worker settings. Returns new message_id."""
+    from .database import get_worker_settings
+    from .keyboards import get_settings_keyboard
+    
+    settings = await get_worker_settings(telegram_user_id)
+    
+    min_price = settings.get('min_price_override')
+    max_price = settings.get('max_price_override')
+    city = settings.get('custom_city') or "Краснодар"
+    
+    min_price_display = f"{min_price}₽" if min_price else "не установлена"
+    max_price_display = f"{max_price}₽" if max_price else "не установлена"
+    
+    text = (
+        "<b>⚙️ Настройки Театра</b>\n\n"
+        f"💰 <b>Мин. цена:</b> {min_price_display}\n"
+        f"💎 <b>Макс. цена:</b> {max_price_display}\n"
+        f"🏙️ <b>Город:</b> {city}\n\n"
+        "<i>Нажмите на настройку чтобы изменить её.</i>\n\n"
+        "<i>Эти настройки применяются ко всем вашим рефералам.</i>"
+    )
+    keyboard = get_settings_keyboard(settings)
     
     if message_id:
         try:

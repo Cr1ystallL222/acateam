@@ -1,0 +1,7 @@
+aiogram>=3.18.0
+sqlalchemy
+psycopg2-binary
+python-dotenv
+aiosqlite
+httpx
+Pillow>=10.0.0

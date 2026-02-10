@@ -4,9 +4,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.config import logger
 from api.database import ensure_schema
 from api.utils import global_exception_handler
-from api.routes import auth, movies, orders, referral
+from api.routes import auth, movies, orders, referral, events, topup, support
 
-app = FastAPI()
+# Disable redirect_slashes to prevent 307 redirects that lose cookies
+app = FastAPI(redirect_slashes=False)
 
 # CORS Configuration
 app.add_middleware(
@@ -25,10 +26,28 @@ app.include_router(auth.router)
 app.include_router(movies.router)
 app.include_router(orders.router)
 app.include_router(referral.router)
+app.include_router(events.router)
+app.include_router(topup.router)
+app.include_router(support.router)
 
 @app.on_event("startup")
 async def startup():
+    # SQLite schema (existing)
     await ensure_schema()
+    
+    # Postgres schema (new shared layer)
+    try:
+        from data.db import engine
+        from data.models import Base
+        # Create tables for shared models
+        Base.metadata.create_all(bind=engine)
+        logger.info("Shared PostgreSQL schema checked/created.")
+    except Exception as e:
+        logger.error(f"Failed to init shared DB: {e}")
+
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
 
 @app.get("/")
 async def read_root():
