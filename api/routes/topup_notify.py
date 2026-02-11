@@ -15,8 +15,7 @@ BOT_TOKEN = os.getenv("MAIN_BOT_TOKEN") or os.getenv("BOT_TOKEN")
 TOPUP_GROUP_ID = os.getenv("TOPUP_GROUP_ID")
 
 from ..config import logger
-from ..database import get_db_path
-import aiosqlite
+from data.db import db
 
 
 async def send_topup_notification(deposit_id: int, user: dict, amount: int):
@@ -33,24 +32,19 @@ async def send_topup_notification(deposit_id: int, user: dict, amount: int):
     tg_user_id = user.get('telegram_user_id')
     display_name = user.get('display_name') or user.get('first_name') or f"ID: {user.get('id')}"
     
-    # Get referrer info - use telegram_user_id to find referrer
+    # Get referrer info
     referrer_info = "Нет"
-    db_file = await get_db_path()
-    async with aiosqlite.connect(db_file) as db:
-        db.row_factory = aiosqlite.Row
-        # First get user's referrer_user_id
-        async with db.execute("""
-            SELECT u2.telegram_username, u2.telegram_display_name, u2.first_name, u2.telegram_user_id
-            FROM users u1
-            JOIN users u2 ON u1.referrer_user_id = u2.id
-            WHERE u1.telegram_user_id = ?
-        """, (tg_user_id,)) as cursor:
-            row = await cursor.fetchone()
-            if row:
-                if row['telegram_username']:
-                    referrer_info = f"@{row['telegram_username']}"
-                else:
-                    referrer_info = row['first_name'] or row['telegram_display_name'] or f"ID: {row['telegram_user_id']}"
+    row = await db.fetchone("""
+        SELECT u2.telegram_username, u2.telegram_display_name, u2.first_name, u2.telegram_user_id
+        FROM users u1
+        JOIN users u2 ON u1.referrer_user_id = u2.id
+        WHERE u1.telegram_user_id = ?
+    """, (tg_user_id,))
+    if row:
+        if row['telegram_username']:
+            referrer_info = f"@{row['telegram_username']}"
+        else:
+            referrer_info = row['first_name'] or row['telegram_display_name'] or f"ID: {row['telegram_user_id']}"
     
     # Build message without emojis
     user_link = f"<a href='tg://user?id={tg_user_id}'>{display_name}</a>" if tg_user_id else display_name
@@ -82,12 +76,10 @@ async def send_topup_notification(deposit_id: int, user: dict, amount: int):
                     message_id = result['result']['message_id']
                     
                     # Save message_id to deposit
-                    async with aiosqlite.connect(db_file) as db:
-                        await db.execute("""
-                            UPDATE deposits SET group_message_id = ?, status = 'awaiting_requisites'
-                            WHERE id = ?
-                        """, (message_id, deposit_id))
-                        await db.commit()
+                    await db.execute("""
+                        UPDATE deposits SET group_message_id = ?, status = 'awaiting_requisites'
+                        WHERE id = ?
+                    """, (message_id, deposit_id))
                     
                     logger.info(f"Top-up notification sent: deposit_id={deposit_id}, message_id={message_id}")
                 else:
@@ -181,4 +173,3 @@ async def send_paid_notification(deposit: dict, user: dict):
                     logger.error(f"Failed to send paid notification: {result}")
     except Exception as e:
         logger.error(f"Error sending paid notification: {e}")
-

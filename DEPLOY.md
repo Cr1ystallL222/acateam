@@ -1,59 +1,185 @@
-# Deployment Guide
+# Деплой: VPS + Render + Vercel
 
-This repository is structured for deployment on **Render** (API, Worker, DB) and **Vercel** (Frontend).
+## Архитектура
 
-## 1. Database (Render PostgreSQL)
-
-1. Create a **New PostgreSQL** on Render.
-2. Copy the **Internal URL** (starts with `postgres://...`).
-3. This is your `DATABASE_URL`.
+```
+┌─────────────┐     ┌──────────────┐     ┌──────────────┐
+│  VPS        │     │  Render      │     │  Vercel      │
+│  Боты       │────▶│  API + БД    │◀────│  Фронтенд    │
+│  (polling)  │     │  (PostgreSQL)│     │  (Next.js)   │
+└─────────────┘     └──────────────┘     └──────────────┘
+```
 
 ---
 
-## 2. API (Render Web Service)
+## 1. БД — Render PostgreSQL
 
-1. Create a **New Web Service** connected to this repo.
-2. **Settings**:
-   - **Name**: `afisha-api`
-   - **Runtime**: `Python 3`
-   - **Build Command**: `pip install -r api/requirements.txt && pip install -e .`
+1. **Render Dashboard** → New → PostgreSQL
+2. Скопировать **Internal Database URL** (для API на том же Render)
+3. Скопировать **External Database URL** (для ботов на VPS)
+   ```
+   # Для API (internal, быстрее):
+   DATABASE_URL=postgresql://user:pass@dpg-xxx.internal:5432/dbname
+
+   # Для ботов на VPS (external):
+   DATABASE_URL=postgresql://user:pass@dpg-xxx.oregon-postgres.render.com:5432/dbname
+   ```
+
+> ⚠️ Бесплатная PostgreSQL на Render удаляется через 90 дней. Платная — от $7/мес.
+
+---
+
+## 2. API — Render Web Service
+
+1. **Render Dashboard** → New → Web Service
+2. Подключить GitHub репозиторий
+3. Настройки:
+   - **Runtime**: Python
+   - **Build Command**: `pip install -r requirements.txt`
    - **Start Command**: `uvicorn api.main:app --host 0.0.0.0 --port $PORT`
-3. **Environment Variables**:
-   - `DATABASE_URL`: (Paste from DB step)
-   - `PYTHON_VERSION`: `3.11.0` (Recommended)
+4. **Environment Variables**:
+   ```
+   DATABASE_URL=postgresql://user:pass@dpg-xxx.internal:5432/dbname
+   BOT_TOKEN=токен_основного_бота
+   MAIN_BOT_TOKEN=токен_основного_бота
+   AUTH_BOT_TOKEN=токен_авт_бота
+   TOPUP_GROUP_ID=-100xxxxxxxxx
+   SUPPORT_CHAT_ID=-100xxxxxxxxx
+   ```
+
+### Проверка
+- `GET https://your-api.onrender.com/health` → `{"status": "ok"}`
+- Логи: `"Connected to PostgreSQL"` и `"API DB connected."`
 
 ---
 
-## 3. Telegram Bot (Render Background Worker)
+## 3. Боты — VPS
 
-1. Create a **New Background Worker** connected to this repo.
-2. **Settings**:
-   - **Name**: `afisha-bot`
-   - **Runtime**: `Python 3`
-   - **Build Command**: `pip install -r bots/requirements.txt && pip install -e .`
-   - **Start Command**: `python bots/bot.py`
-3. **Environment Variables**:
-   - `DATABASE_URL`: (Paste from DB step)
-   - `BOT_TOKEN`: (Your Telegram Bot Token)
-   - `PYTHON_VERSION`: `3.11.0` (Recommended)
+### Установка
+
+```bash
+# Клонировать репозиторий
+git clone https://github.com/your/repo.git && cd repo
+
+# Установить зависимости
+pip install -r requirements.txt
+
+# Настроить .env
+cp .env.example .env
+nano .env
+```
+
+### .env на VPS
+
+```bash
+# ВАЖНО: использовать External URL (не internal!)
+DATABASE_URL=postgresql://user:pass@dpg-xxx.oregon-postgres.render.com:5432/dbname
+
+BOT_TOKEN=токен_основного_бота
+MAIN_BOT_TOKEN=токен_основного_бота
+AUTH_BOT_TOKEN=токен_авт_бота
+BOT_USERNAME=имя_авт_бота
+ADMIN_IDS=123456789,987654321
+SITE_URL=https://your-domain.vercel.app
+TOPUP_GROUP_ID=-100xxxxxxxxx
+SUPPORT_CHAT_ID=-100xxxxxxxxx
+```
+
+### Запуск через systemd
+
+**Основной бот** — `/etc/systemd/system/main-bot.service`:
+```ini
+[Unit]
+Description=Main Telegram Bot
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/repo
+ExecStart=/home/ubuntu/repo/venv/bin/python -m bots.bot
+Restart=always
+RestartSec=5
+EnvironmentFile=/home/ubuntu/repo/.env
+
+[Install]
+WantedBy=multi-user.target
+```
+
+**Авторизационный бот** — `/etc/systemd/system/auth-bot.service`:
+```ini
+[Unit]
+Description=Auth Telegram Bot
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/repo
+ExecStart=/home/ubuntu/repo/venv/bin/python -m bots.auth_bot
+Restart=always
+RestartSec=5
+EnvironmentFile=/home/ubuntu/repo/.env
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+# Активировать и запустить
+sudo systemctl daemon-reload
+sudo systemctl enable main-bot auth-bot
+sudo systemctl start main-bot auth-bot
+
+# Проверить статус
+sudo systemctl status main-bot
+sudo systemctl status auth-bot
+
+# Логи
+journalctl -u main-bot -f
+journalctl -u auth-bot -f
+```
 
 ---
 
-## 4. Frontend (Vercel)
+## 4. Фронтенд — Vercel
 
-1. Import project in Vercel.
-2. **Settings**:
-   - **Root Directory**: `web`
-   - **Framework Preset**: `Next.js`
-3. **Environment Variables**:
-   - `NEXT_PUBLIC_API_URL`: `https://<YOUR-RENDER-API-URL>.onrender.com`
+1. **Vercel Dashboard** → Import Git Repository
+2. **Root Directory**: `web/`
+3. **Framework**: Next.js (авто)
+4. **Environment Variables**:
+   ```
+   NEXT_PUBLIC_API_URL=https://your-api.onrender.com
+   ```
+
+### CORS
+
+В `api/main.py` указать домен Vercel:
+```python
+allow_origins=["https://your-domain.vercel.app", "http://localhost:3000"]
+```
 
 ---
 
-## 5. Local Development
+## 5. Чеклист
 
-1. Set `ENV=local` in your `.env` file to use local SQLite fallback (`data/app.db`).
-2. Run `start.ps1` to launch everything.
+- [ ] Render PostgreSQL создан
+- [ ] API на Render запущен с **Internal** DATABASE_URL
+- [ ] Боты на VPS запущены с **External** DATABASE_URL
+- [ ] CORS в `api/main.py` включает домен Vercel
+- [ ] `SITE_URL` в `.env` на VPS = домен Vercel
+- [ ] Фронтенд на Vercel видит API (`NEXT_PUBLIC_API_URL`)
 
-> [!IMPORTANT]
-> The `.env` file is NOT committed. You must manually add environment variables in the Render/Vercel dashboards.
+
+
+
+
+DATABASE_URL	(Internal URL из Render PostgreSQL)
+BOT_TOKEN	
+MAIN_BOT_TOKEN	
+AUTH_BOT_TOKEN	
+BOT_USERNAME	
+TOPUP_GROUP_ID	
+SUPPORT_CHAT_ID	
+ADMIN_IDS	
+SITE_URL	

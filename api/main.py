@@ -5,6 +5,7 @@ from api.config import logger
 from api.database import ensure_schema
 from api.utils import global_exception_handler
 from api.routes import auth, movies, orders, referral, events, topup, support
+from data.db import db
 
 # Disable redirect_slashes to prevent 307 redirects that lose cookies
 app = FastAPI(redirect_slashes=False)
@@ -32,18 +33,9 @@ app.include_router(support.router)
 
 @app.on_event("startup")
 async def startup():
-    # SQLite schema (existing)
+    await db.connect()
+    logger.info("API DB connected.")
     await ensure_schema()
-    
-    # Postgres schema (new shared layer)
-    try:
-        from data.db import engine
-        from data.models import Base
-        # Create tables for shared models
-        Base.metadata.create_all(bind=engine)
-        logger.info("Shared PostgreSQL schema checked/created.")
-    except Exception as e:
-        logger.error(f"Failed to init shared DB: {e}")
 
 @app.get("/health")
 async def health_check():

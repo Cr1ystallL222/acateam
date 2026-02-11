@@ -2,6 +2,7 @@ from aiogram import types, F
 from aiogram.fsm.context import FSMContext
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from datetime import datetime, timedelta, timezone
+from data.db import db as shared_db
 
 from ..loader import bot, dp
 from ..config import SITE_URL, ADMIN_IDS, logger
@@ -684,10 +685,7 @@ async def cb_get_ref(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     chat_id = callback.message.chat.id
     
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        async with db.execute("SELECT * FROM bot_users WHERE telegram_user_id = ?", (user_id,)) as cursor:
-            bot_user = await cursor.fetchone()
+    bot_user = await shared_db.fetchone("SELECT * FROM bot_users WHERE telegram_user_id = ?", (user_id,))
     
     if not bot_user:
         await callback.message.answer("Вы не зарегистрированы. Используйте /start", parse_mode="HTML")
@@ -729,23 +727,18 @@ async def cb_mamont_details(callback: types.CallbackQuery):
     mamont_id = callback.data.split(":")[1]
     user_id = callback.from_user.id
     
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        
-        # Get user_id from telegram_user_id
-        async with db.execute("SELECT id FROM users WHERE telegram_user_id = ?", (user_id,)) as cursor:
-            row = await cursor.fetchone()
-            if not row:
-                await callback.message.answer("❌ Пользователь не найден")
-                return
-            referrer_user_id = row[0]
-        
-        # Get mamont details
-        async with db.execute("""
-            SELECT * FROM mamonts 
-            WHERE mamont_id = ? AND referrer_user_id = ?
-        """, (mamont_id, referrer_user_id)) as cursor:
-            mamont = await cursor.fetchone()
+    # Get user_id from telegram_user_id
+    row = await shared_db.fetchone("SELECT id FROM users WHERE telegram_user_id = ?", (user_id,))
+    if not row:
+        await callback.message.answer("❌ Пользователь не найден")
+        return
+    referrer_user_id = row['id']
+    
+    # Get mamont details
+    mamont = await shared_db.fetchone("""
+        SELECT * FROM mamonts 
+        WHERE mamont_id = ? AND referrer_user_id = ?
+    """, (mamont_id, referrer_user_id))
     
     if not mamont:
         await callback.message.answer("❌ Мамонт не найден")

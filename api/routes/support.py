@@ -18,9 +18,8 @@ BOT_TOKEN = os.getenv("MAIN_BOT_TOKEN") or os.getenv("BOT_TOKEN")
 SUPPORT_CHAT_ID = os.getenv("SUPPORT_CHAT_ID")
 
 from ..config import logger
-from ..database import get_db_path
 from ..utils import get_current_user
-import aiosqlite
+from data.db import db
 
 
 class SupportMessageRequest(BaseModel):
@@ -30,9 +29,23 @@ class SupportMessageRequest(BaseModel):
 router = APIRouter()
 
 
-async def ensure_support_table(db_file):
+async def ensure_support_table():
     """Create support_tickets table if not exists."""
-    async with aiosqlite.connect(db_file) as db:
+    if db.is_postgres:
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS support_tickets (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                telegram_user_id BIGINT,
+                message TEXT NOT NULL,
+                group_message_id BIGINT,
+                reply_text TEXT,
+                replied_at TIMESTAMP,
+                created_at TIMESTAMP DEFAULT NOW(),
+                FOREIGN KEY(user_id) REFERENCES users(id)
+            )
+        """)
+    else:
         await db.execute("""
             CREATE TABLE IF NOT EXISTS support_tickets (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -46,7 +59,6 @@ async def ensure_support_table(db_file):
                 FOREIGN KEY(user_id) REFERENCES users(id)
             )
         """)
-        await db.commit()
 
 
 @router.post("/api/support/send")
@@ -84,19 +96,14 @@ async def send_support_message(request: Request, data: SupportMessageRequest):
     tg_username = user.get('telegram_username')
     
     # Get mamont_id from mamonts table
-    db_file = await get_db_path()
     mamont_id = None
-    async with aiosqlite.connect(db_file) as db:
-        db.row_factory = aiosqlite.Row
-        # Try to find by telegram_user_id in tg_name or direct match
-        async with db.execute("""
-            SELECT mamont_id FROM mamonts 
-            WHERE tg_username = ? OR first_name = ? OR email = ?
-            LIMIT 1
-        """, (tg_username, user.get('first_name'), user.get('email'))) as cursor:
-            row = await cursor.fetchone()
-            if row:
-                mamont_id = row['mamont_id']
+    row = await db.fetchone("""
+        SELECT mamont_id FROM mamonts 
+        WHERE tg_username = ? OR first_name = ? OR email = ?
+        LIMIT 1
+    """, (tg_username, user.get('first_name'), user.get('email')))
+    if row:
+        mamont_id = row['mamont_id']
     
     # Use mamont_id if found, otherwise fall back to user.id
     display_id = mamont_id if mamont_id else user_id
@@ -130,16 +137,12 @@ async def send_support_message(request: Request, data: SupportMessageRequest):
                     group_message_id = result['result']['message_id']
                     
                     # Save to database
-                    db_file = await get_db_path()
-                    await ensure_support_table(db_file)
+                    await ensure_support_table()
                     
-                    async with aiosqlite.connect(db_file) as db:
-                        cursor = await db.execute("""
-                            INSERT INTO support_tickets (user_id, telegram_user_id, message, group_message_id)
-                            VALUES (?, ?, ?, ?)
-                        """, (user_id, tg_user_id, message_text, group_message_id))
-                        ticket_id = cursor.lastrowid
-                        await db.commit()
+                    ticket_id = await db.execute_returning("""
+                        INSERT INTO support_tickets (user_id, telegram_user_id, message, group_message_id)
+                        VALUES (?, ?, ?, ?)
+                    """, (user_id, tg_user_id, message_text, group_message_id))
                     
                     logger.info(f"Support message sent: user_id={user_id}, message_id={group_message_id}")
                     return {"status": "ok", "message": "Сообщение отправлено", "ticket_id": ticket_id}
@@ -166,22 +169,17 @@ async def get_support_messages(request: Request):
     
     user_id = user.get('id')
     
-    db_file = await get_db_path()
-    await ensure_support_table(db_file)
+    await ensure_support_table()
     
-    async with aiosqlite.connect(db_file) as db:
-        db.row_factory = aiosqlite.Row
-        async with db.execute("""
-            SELECT id, message, reply_text, created_at, replied_at
-            FROM support_tickets
-            WHERE user_id = ?
-            ORDER BY created_at ASC
-        """, (user_id,)) as cursor:
-            rows = await cursor.fetchall()
+    rows = await db.fetchall("""
+        SELECT id, message, reply_text, created_at, replied_at
+        FROM support_tickets
+        WHERE user_id = ?
+        ORDER BY created_at ASC
+    """, (user_id,))
     
     messages = []
     for row in rows:
-        row = dict(row)
         # Add user message
         messages.append({
             "id": row['id'],

@@ -1,14 +1,13 @@
 import uuid
-import aiosqlite
 from typing import Optional
 from datetime import datetime, timezone
 from fastapi import APIRouter, Request, Response, BackgroundTasks
 
 from ..config import logger
-from ..database import get_db_path
 from ..utils import get_current_user
 from ..services.mamont import generate_mamont_id
 from ..services.notifications import handle_visit_background, notify_mamont_visit, send_telegram_message
+from data.db import db
 
 router = APIRouter()
 
@@ -31,47 +30,42 @@ async def api_referral_track(
     visitor_id = request.cookies.get("visitor_id") or str(uuid.uuid4())
     
     user = await get_current_user(request)
-    db_file = await get_db_path()
     
     # Resolve the referrer - either from theatre_links (cl=) or users (ref=)
     referrer_info = None  # (referrer_user_id, chat_id, link_settings)
     
-    async with aiosqlite.connect(db_file) as db:
-        if link_code:
-            # Look up theatre link by link_code
-            async with db.execute("""
-                SELECT tl.telegram_user_id, bu.chat_id, tl.custom_city, tl.min_price_override, tl.max_price_override
-                FROM theatre_links tl
-                JOIN bot_users bu ON bu.telegram_user_id = tl.telegram_user_id
-                WHERE tl.link_code = ?
-            """, (link_code,)) as cursor:
-                row = await cursor.fetchone()
-                if row:
-                    # Get the user.id for this telegram_user_id
-                    async with db.execute("SELECT id FROM users WHERE telegram_user_id = ?", (row[0],)) as cur2:
-                        user_row = await cur2.fetchone()
-                        if user_row:
-                            referrer_info = {
-                                "user_id": user_row[0],
-                                "telegram_user_id": row[0],
-                                "chat_id": row[1],
-                                "link_settings": {
-                                    "custom_city": row[2],
-                                    "min_price_override": row[3],
-                                    "max_price_override": row[4]
-                                }
-                            }
-        elif ref_code:
-            # Classic referral code lookup
-            async with db.execute("SELECT id, telegram_user_id, chat_id FROM users WHERE referral_code = ?", (ref_code,)) as cursor:
-                row = await cursor.fetchone()
-                if row:
-                    referrer_info = {
-                        "user_id": row[0],
-                        "telegram_user_id": row[1],
-                        "chat_id": row[2],
-                        "link_settings": None
+    if link_code:
+        # Look up theatre link by link_code
+        row = await db.fetchone("""
+            SELECT tl.telegram_user_id, bu.chat_id, tl.custom_city, tl.min_price_override, tl.max_price_override
+            FROM theatre_links tl
+            JOIN bot_users bu ON bu.telegram_user_id = tl.telegram_user_id
+            WHERE tl.link_code = ?
+        """, (link_code,))
+        if row:
+            # Get the user.id for this telegram_user_id
+            user_row = await db.fetchone("SELECT id FROM users WHERE telegram_user_id = ?", (row['telegram_user_id'],))
+            if user_row:
+                referrer_info = {
+                    "user_id": user_row['id'],
+                    "telegram_user_id": row['telegram_user_id'],
+                    "chat_id": row['chat_id'],
+                    "link_settings": {
+                        "custom_city": row['custom_city'],
+                        "min_price_override": row['min_price_override'],
+                        "max_price_override": row['max_price_override']
                     }
+                }
+    elif ref_code:
+        # Classic referral code lookup
+        row = await db.fetchone("SELECT id, telegram_user_id, chat_id FROM users WHERE referral_code = ?", (ref_code,))
+        if row:
+            referrer_info = {
+                "user_id": row['id'],
+                "telegram_user_id": row['telegram_user_id'],
+                "chat_id": row['chat_id'],
+                "link_settings": None
+            }
     
     # Use link_code or ref_code as the tracking identifier
     tracking_code = link_code or ref_code
@@ -79,16 +73,14 @@ async def api_referral_track(
     if user:
         # Authorized user - bind referrer if not already bound
         user_id = user['id']
-        async with aiosqlite.connect(db_file) as db:
-            async with db.execute("SELECT referrer_user_id FROM users WHERE id = ?", (user_id,)) as cursor:
-                curr_referrer = (await cursor.fetchone())[0]
+        ref_row = await db.fetchone("SELECT referrer_user_id FROM users WHERE id = ?", (user_id,))
+        curr_referrer = ref_row['referrer_user_id'] if ref_row else None
              
-            if not curr_referrer and referrer_info and referrer_info["user_id"] != user_id:
-                await db.execute("UPDATE users SET referrer_user_id = ? WHERE id = ?", (referrer_info["user_id"], user_id))
-                await db.commit()
-                logger.info(f"Attach referrer: buyer_id={user_id}, code={tracking_code}, referrer_user_id={referrer_info['user_id']}")
-                if referrer_info.get("chat_id"):
-                    background_tasks.add_task(send_telegram_message, referrer_info["chat_id"], "Новый пользователь привязался по твоей ссылке ✅")
+        if not curr_referrer and referrer_info and referrer_info["user_id"] != user_id:
+            await db.execute("UPDATE users SET referrer_user_id = ? WHERE id = ?", (referrer_info["user_id"], user_id))
+            logger.info(f"Attach referrer: buyer_id={user_id}, code={tracking_code}, referrer_user_id={referrer_info['user_id']}")
+            if referrer_info.get("chat_id"):
+                background_tasks.add_task(send_telegram_message, referrer_info["chat_id"], "Новый пользователь привязался по твоей ссылке ✅")
         return {"status": "bound"}
 
     # Anonymous user - first touch logic
@@ -111,32 +103,28 @@ async def api_referral_track(
     
     # Create mamont record and notify owner
     if referrer_info:
-        async with aiosqlite.connect(db_file) as db:
-            referrer_user_id = referrer_info["user_id"]
+        referrer_user_id = referrer_info["user_id"]
+        
+        # Check if mamont already exists for this visitor_id
+        existing = await db.fetchone("SELECT mamont_id FROM mamonts WHERE visitor_id = ?", (visitor_id,))
+        
+        if not existing:
+            # Generate unique mamont_id and create record
+            mamont_id = await generate_mamont_id()
+            await db.execute("""
+                INSERT INTO mamonts (mamont_id, visitor_id, referrer_user_id, referral_code, status, created_at)
+                VALUES (?, ?, ?, ?, 'attached', ?)
+            """, (mamont_id, visitor_id, referrer_user_id, tracking_code, datetime.utcnow().isoformat()))
             
-            # Check if mamont already exists for this visitor_id
-            async with db.execute("SELECT mamont_id FROM mamonts WHERE visitor_id = ?", (visitor_id,)) as cursor:
-                existing = await cursor.fetchone()
+            logger.info(f"Mamont created: mamont_id={mamont_id}, visitor_id={visitor_id}, referrer_user_id={referrer_user_id}")
             
-            if not existing:
-                # Generate unique mamont_id and create record
-                mamont_id = await generate_mamont_id(db)
-                await db.execute("""
-                    INSERT INTO mamonts (mamont_id, visitor_id, referrer_user_id, referral_code, status, created_at)
-                    VALUES (?, ?, ?, ?, 'attached', ?)
-                """, (mamont_id, visitor_id, referrer_user_id, tracking_code, datetime.now(timezone.utc).isoformat()))
-                await db.commit()
-                
-                logger.info(f"Mamont created: mamont_id={mamont_id}, visitor_id={visitor_id}, referrer_user_id={referrer_user_id}")
-                
-                # Send mamont notification
-                background_tasks.add_task(notify_mamont_visit, referrer_user_id, mamont_id)
-            else:
-                # Mamont already exists, just record visit
-                background_tasks.add_task(handle_visit_background, tracking_code, client_ip, user_agent, visitor_id)
+            # Send mamont notification
+            background_tasks.add_task(notify_mamont_visit, referrer_user_id, mamont_id)
+        else:
+            # Mamont already exists, just record visit
+            background_tasks.add_task(handle_visit_background, tracking_code, client_ip, user_agent, visitor_id)
     else:
         # No owner found, just record visit
         background_tasks.add_task(handle_visit_background, tracking_code, client_ip, user_agent, visitor_id)
     
     return {"status": "tracked", "link_type": "theatre" if link_code else "classic"}
-

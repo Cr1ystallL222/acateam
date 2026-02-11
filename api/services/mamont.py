@@ -1,12 +1,13 @@
 import random
+from data.db import db as shared_db
 
-async def generate_mamont_id(db) -> str:
+async def generate_mamont_id() -> str:
     """Generate unique 5-digit mamont_id (10000-99999)."""
     while True:
         new_id = str(random.randint(10000, 99999))
-        async with db.execute("SELECT 1 FROM mamonts WHERE mamont_id = ?", (new_id,)) as cursor:
-            if not await cursor.fetchone():
-                return new_id
+        existing = await shared_db.fetchval("SELECT 1 FROM mamonts WHERE mamont_id = ?", (new_id,))
+        if not existing:
+            return new_id
 
 def get_mamont_display(mamont: dict) -> str:
     """

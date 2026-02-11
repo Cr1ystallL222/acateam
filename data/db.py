@@ -130,6 +130,30 @@ class Database:
                 await db.executemany(sql, params_list)
                 await db.commit()
 
+    async def execute_returning(self, sql: str, params: tuple = None, id_column: str = "id") -> Any:
+        """Execute INSERT and return the new row's id.
+        For Postgres: appends RETURNING <id_column> to the SQL.
+        For SQLite: uses cursor.lastrowid.
+        """
+        params = params or ()
+        if self.mode == "postgres":
+            if not self._pool:
+                await self.connect()
+            
+            sql_pg, params_pg = self._convert_sql_params(sql, params)
+            # Append RETURNING if not already present
+            if "RETURNING" not in sql_pg.upper():
+                sql_pg = sql_pg.rstrip().rstrip(";") + f" RETURNING {id_column}"
+            async with self._pool.acquire() as conn:
+                return await conn.fetchval(sql_pg, *params_pg)
+        else:
+            async with aiosqlite.connect(self._sqlite_path) as db_conn:
+                await db_conn.execute("PRAGMA journal_mode = WAL")
+                await db_conn.execute("PRAGMA busy_timeout = 30000")
+                cursor = await db_conn.execute(sql, params)
+                await db_conn.commit()
+                return cursor.lastrowid
+
     async def fetchone(self, sql: str, params: tuple = None) -> Optional[dict]:
         """Execute query and return one row as dict."""
         params = params or ()
