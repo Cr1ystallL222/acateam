@@ -7,6 +7,7 @@ warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
 from bots.loader import bot, dp
 from bots.config import logger
 from bots.database import ensure_bot_schema
+from data.db import db
 import bots.handlers  # This registers all handlers
 
 import sys
@@ -17,19 +18,10 @@ PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.append(str(PROJECT_ROOT))
 
 async def main():
-    await ensure_bot_schema()
+    await db.connect()
+    logger.info("Main bot DB connected.")
     
-    # Try connecting to shared DB (sanity check)
-    try:
-        from data.db import engine
-        from sqlalchemy import text
-        with engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
-        logger.info("Shared DB connection OK.")
-    except Exception as e:
-        logger.warning(f"Shared DB connection skipped/failed (normal for purely local/sqlite run): {e}")
-
-    # System events creation removed per user request
+    await ensure_bot_schema()
     
     logger.info("Starting main bot...")
     await dp.start_polling(bot)
