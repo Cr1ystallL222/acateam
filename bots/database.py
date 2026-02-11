@@ -828,7 +828,7 @@ async def get_support_message_by_group_msg(group_message_id: int) -> Optional[di
     """Get support ticket by group message ID."""
     return await db.fetchone("SELECT * FROM support_tickets WHERE group_message_id = ?", (group_message_id,))
 
-async def update_support_ticket(ticket_id: int, reply_text: str, replied_at: str) -> bool:
+async def update_support_ticket(ticket_id: int, reply_text: str, replied_at: Any) -> bool:
     """Update support ticket with reply."""
     await db.execute("""
         UPDATE support_tickets 

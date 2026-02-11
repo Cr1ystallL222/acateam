@@ -183,7 +183,7 @@ Email: {mamont.get('email') or 'Не указан'}
             await update_support_ticket(
                 ticket['id'],
                 reply_text=reply_text.strip(),
-                replied_at=datetime.now(timezone.utc).isoformat()
+                replied_at=datetime.now(timezone.utc)
             )
             
             logger.info(f"Support reply saved for ticket {ticket['id']}")
