@@ -37,6 +37,10 @@ class Database:
                 # Fix protocol for asyncpg if needed (usually postgres:// works, but let's be safe)
                 self.pg_url = DATABASE_URL.replace("postgresql+asyncpg://", "postgres://").replace("postgresql://", "postgres://")
         else:
+            if not DATABASE_URL:
+                 logger.warning("DATABASE_URL is missing or empty. Falling back to SQLite.")
+            elif not DATABASE_URL.startswith("postgres"):
+                 logger.warning(f"DATABASE_URL does not start with 'postgres' (Value: {DATABASE_URL[:10]}...). Falling back to SQLite.")
             self.mode = "sqlite"
             
         logger.info(f"Database initialized in {self.mode} mode")
