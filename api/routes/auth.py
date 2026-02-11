@@ -155,7 +155,7 @@ async def api_auth_verify(payload: AuthVerifyRequest, request: Request, response
         
         if updates:
             updates.append("consent_at = ?")
-            params.append(datetime.utcnow().isoformat())
+            params.append(datetime.utcnow())
             params.append(user_id)
             await db.execute(f"UPDATE users SET {', '.join(updates)} WHERE id = ?", tuple(params))
             logger.info(f"User updated id={user_id}, first_name={draft_first_name}, last_name={draft_last_name}, phone={draft_phone}, email={draft_email}")
@@ -275,7 +275,7 @@ async def api_auth_verify(payload: AuthVerifyRequest, request: Request, response
                 draft_email,
                 draft_consent_pd, 
                 draft_consent_marketing,
-                datetime.utcnow().isoformat(), 
+                datetime.utcnow(), 
                 referrer_id, 
                 str(uuid.uuid4())[:12]
             ))
@@ -407,7 +407,7 @@ async def api_register_draft(payload: AuthDraftRequest, request: Request):
     """, (
         session_id, expires_at,
         payload.first_name, payload.last_name, payload.phone, payload.email,
-        payload.consent_pd, payload.consent_marketing, datetime.utcnow().isoformat(),
+        payload.consent_pd, payload.consent_marketing, datetime.utcnow(),
         visitor_id
     ))
     
@@ -447,7 +447,7 @@ async def api_auth_register(payload: RegisterRequest, background_tasks: Backgrou
         """, (
             session['telegram_user_id'], session['chat_id'], session['telegram_username'], session['telegram_display_name'],
             payload.first_name, payload.last_name, payload.phone, payload.email,
-            True, True, datetime.utcnow().isoformat(), referrer_id, str(uuid.uuid4())[:12]
+            True, True, datetime.utcnow(), referrer_id, str(uuid.uuid4())[:12]
         ))
         
         logger.info(f"User created id={new_user_id}, first_name={payload.first_name}, last_name={payload.last_name}")
