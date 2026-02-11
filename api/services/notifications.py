@@ -15,6 +15,7 @@ async def handle_visit_background(ref_code: str, ip: str, user_agent: str, visit
     chat_id = None
     
     # helper: resolving owner if not provided
+    # helper: resolving owner if not provided
     if not referrer_user_id:
         # Check users (classic referral)
         row = await db.fetchone("SELECT id, chat_id FROM users WHERE referral_code = ?", (ref_code,))
@@ -25,8 +26,9 @@ async def handle_visit_background(ref_code: str, ip: str, user_agent: str, visit
             # Check theatre links
             row = await db.fetchone("SELECT telegram_user_id FROM theatre_links WHERE link_code = ?", (ref_code,))
             if row:
-                # Resolve telegram_user_id to user_id
-                user_row = await db.fetchone("SELECT id, chat_id FROM users WHERE telegram_user_id = ?", (row['telegram_user_id'],))
+                # Resolve telegram_user_id to user_id (syncing if needed)
+                from ..utils import ensure_global_user
+                user_row = await ensure_global_user(row['telegram_user_id'])
                 if user_row:
                     referrer_user_id = user_row['id']
                     chat_id = user_row['chat_id']

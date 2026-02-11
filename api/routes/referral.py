@@ -43,8 +43,10 @@ async def api_referral_track(
             WHERE tl.link_code = ?
         """, (link_code,))
         if row:
-            # Get the user.id for this telegram_user_id
-            user_row = await db.fetchone("SELECT id FROM users WHERE telegram_user_id = ?", (row['telegram_user_id'],))
+            # Get the user.id for this telegram_user_id (sync if needed)
+            from ..utils import ensure_global_user
+            user_row = await ensure_global_user(row['telegram_user_id'])
+            
             if user_row:
                 referrer_info = {
                     "user_id": user_row['id'],
