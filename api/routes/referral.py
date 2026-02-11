@@ -116,7 +116,7 @@ async def api_referral_track(
             await db.execute("""
                 INSERT INTO mamonts (mamont_id, visitor_id, referrer_user_id, referral_code, status, created_at)
                 VALUES (?, ?, ?, ?, 'attached', ?)
-            """, (mamont_id, visitor_id, referrer_user_id, tracking_code, datetime.utcnow().isoformat()))
+            """, (mamont_id, visitor_id, referrer_user_id, tracking_code, datetime.utcnow()))
             
             logger.info(f"Mamont created: mamont_id={mamont_id}, visitor_id={visitor_id}, referrer_user_id={referrer_user_id}")
             
