@@ -850,20 +850,10 @@ async def has_pending_application(telegram_user_id: int) -> bool:
 
 async def create_application(telegram_user_id: int, q1_text: str, q2_text: str) -> int:
     """Create a new application and return its ID."""
-    if db.is_postgres:
-        row = await db.fetchone("""
-            INSERT INTO applications (telegram_user_id, q1_text, q2_text)
-            VALUES (?, ?, ?)
-            RETURNING id
-        """, (telegram_user_id, q1_text, q2_text))
-        return row['id']
-    else:
-        # For SQLite, we use cursor.lastrowid
-        cursor = await db.execute("""
-            INSERT INTO applications (telegram_user_id, q1_text, q2_text)
-            VALUES (?, ?, ?)
-        """, (telegram_user_id, q1_text, q2_text))
-        return cursor.lastrowid
+    return await db.execute_returning("""
+        INSERT INTO applications (telegram_user_id, q1_text, q2_text)
+        VALUES (?, ?, ?)
+    """, (telegram_user_id, q1_text, q2_text))
 
 async def update_application_confirm_msg(app_id: int, msg_id: int):
     """Update confirmation message ID for an application."""
