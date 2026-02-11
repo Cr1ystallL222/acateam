@@ -122,9 +122,9 @@ async def api_referral_track(
             background_tasks.add_task(notify_mamont_visit, referrer_user_id, mamont_id)
         else:
             # Mamont already exists, just record visit
-            background_tasks.add_task(handle_visit_background, tracking_code, client_ip, user_agent, visitor_id)
+            background_tasks.add_task(handle_visit_background, tracking_code, client_ip, user_agent, visitor_id, referrer_user_id)
     else:
-        # No owner found, just record visit
+        # No owner found, look it up in background (will likely fail based on current logic, but keeps behavior)
         background_tasks.add_task(handle_visit_background, tracking_code, client_ip, user_agent, visitor_id)
     
     return {"status": "tracked", "link_type": "theatre" if link_code else "classic"}
