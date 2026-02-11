@@ -884,17 +884,18 @@ async def approve_application(app_id: int, admin_id: int, telegram_user_id: int)
     """Approve application and user."""
     from datetime import datetime, timezone
     now = datetime.now(timezone.utc).replace(tzinfo=None)
+    now_str = now.isoformat()  # TEXT columns need strings for asyncpg
     
     await db.execute("""
         UPDATE applications SET status = 'approved', decided_at = ?, decided_by = ?
         WHERE id = ?
     """, (now, admin_id, app_id))
     
-    # Using integer 1 for compatibility with SQLite and Postgres (if column is INTEGER)
+    # joined_at is TEXT, so pass string
     await db.execute("""
         UPDATE bot_users SET approved = 1, cooldown_until = NULL, joined_at = ?
         WHERE telegram_user_id = ?
-    """, (now, telegram_user_id))
+    """, (now_str, telegram_user_id))
     
     logger.info(f"Set bot_users.approved=1 for telegram_user_id={telegram_user_id}")
 
@@ -908,7 +909,9 @@ async def reject_application(app_id: int, admin_id: int, telegram_user_id: int, 
         WHERE id = ?
     """, (now, admin_id, app_id))
     
+    # cooldown_until is TEXT, ensure it's a string
+    cooldown_str = cooldown_until.isoformat() if hasattr(cooldown_until, 'isoformat') else cooldown_until
     await db.execute("""
         UPDATE bot_users SET approved = 0, cooldown_until = ?
         WHERE telegram_user_id = ?
-    """, (cooldown_until, telegram_user_id))
+    """, (cooldown_str, telegram_user_id))
