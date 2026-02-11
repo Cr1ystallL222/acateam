@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { motion } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
 
-export default function BuyPage() {
+function BuyContent() {
     const router = useRouter();
     const params = useSearchParams();
     const movieTitle = params.get("movie");
@@ -97,5 +97,17 @@ export default function BuyPage() {
                 </div>
             </motion.div>
         </div>
+    );
+}
+
+export default function BuyPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center">
+                <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+        }>
+            <BuyContent />
+        </Suspense>
     );
 }

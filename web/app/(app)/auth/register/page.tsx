@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { motion } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
 
-export default function RegisterPage() {
+function RegisterContent() {
     const router = useRouter();
     const params = useSearchParams();
     const sessionId = params.get("session_id");
@@ -100,5 +100,17 @@ export default function RegisterPage() {
                 </form>
             </motion.div>
         </div>
+    );
+}
+
+export default function RegisterPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center">
+                <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+        }>
+            <RegisterContent />
+        </Suspense>
     );
 }

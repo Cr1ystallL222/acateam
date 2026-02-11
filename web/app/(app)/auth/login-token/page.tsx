@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-export default function LoginTokenPage() {
+function LoginTokenContent() {
     const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
     const [error, setError] = useState('');
     const router = useRouter();
@@ -28,7 +28,6 @@ export default function LoginTokenPage() {
 
             if (response.ok) {
                 setStatus('success');
-                // Redirect to home after 2 seconds
                 setTimeout(() => {
                     router.push('/');
                 }, 2000);
@@ -89,5 +88,17 @@ export default function LoginTokenPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function LoginTokenPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+        }>
+            <LoginTokenContent />
+        </Suspense>
     );
 }

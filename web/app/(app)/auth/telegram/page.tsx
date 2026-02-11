@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 
-export default function TelegramAuthPage() {
+function TelegramAuthContent() {
     const [botLink, setBotLink] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -15,7 +15,6 @@ export default function TelegramAuthPage() {
     const mode = params.get('mode') === 'register' ? 'register' : 'login';
     const { refreshUser, user } = useAuth();
 
-    // If already logged in, redirect
     useEffect(() => {
         if (user) {
             router.push('/');
@@ -28,8 +27,6 @@ export default function TelegramAuthPage() {
         try {
             const res = await api.auth.start(mode);
             setBotLink(res.bot_link);
-
-            // Open bot directly
             window.open(res.bot_link, '_blank');
             setOpened(true);
         } catch (e: any) {
@@ -132,5 +129,17 @@ export default function TelegramAuthPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function TelegramAuthPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+        }>
+            <TelegramAuthContent />
+        </Suspense>
     );
 }

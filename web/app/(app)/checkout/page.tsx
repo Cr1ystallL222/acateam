@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Ticket, AlertCircle, Loader2, MessageCircle, Wallet } from 'lucide-react';
@@ -23,7 +23,7 @@ interface EventInfo {
 
 type CheckoutState = 'preview' | 'processing' | 'error';
 
-export default function CheckoutPage() {
+function CheckoutContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
 
@@ -39,7 +39,6 @@ export default function CheckoutPage() {
 
     const loadCheckoutData = async () => {
         try {
-            // Get seats from URL params
             const seatsParam = searchParams.get('seats');
             const eventId = searchParams.get('event_id');
 
@@ -51,14 +50,12 @@ export default function CheckoutPage() {
             const parsedSeats = JSON.parse(decodeURIComponent(seatsParam));
             setSeats(parsedSeats);
 
-            // Fetch event info
             const eventResponse = await fetch(`/api/events/${eventId}`, { credentials: 'include' });
             if (eventResponse.ok) {
                 const eventData = await eventResponse.json();
                 setEventInfo(eventData);
             }
 
-            // Fetch user balance
             const meResponse = await fetch('/api/me', { credentials: 'include' });
             if (meResponse.ok) {
                 const userData = await meResponse.json();
@@ -84,7 +81,6 @@ export default function CheckoutPage() {
     };
 
     const handlePurchase = () => {
-        // Check balance
         if (userBalance < getTotalPrice()) {
             router.push('/topup');
             return;
@@ -92,7 +88,6 @@ export default function CheckoutPage() {
 
         setState('processing');
 
-        // After 12 seconds, show error
         setTimeout(() => {
             setState('error');
         }, 12000);
@@ -109,7 +104,6 @@ export default function CheckoutPage() {
         );
     }
 
-    // Processing state - spinner
     if (state === 'processing') {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -133,7 +127,6 @@ export default function CheckoutPage() {
         );
     }
 
-    // Error state
     if (state === 'error') {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -163,10 +156,8 @@ export default function CheckoutPage() {
         );
     }
 
-    // Preview state
     return (
         <div className="min-h-screen bg-gray-50">
-            {/* Header */}
             <div className="bg-white shadow-sm">
                 <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                     <div className="flex items-center">
@@ -185,7 +176,6 @@ export default function CheckoutPage() {
             </div>
 
             <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                {/* Event Info */}
                 {eventInfo && (
                     <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
                         <h2 className="text-lg font-semibold text-gray-900 mb-2">{eventInfo.title}</h2>
@@ -199,7 +189,6 @@ export default function CheckoutPage() {
                     </div>
                 )}
 
-                {/* Selected Tickets */}
                 <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
                     <div className="flex items-center mb-4">
                         <Ticket className="w-5 h-5 text-orange-500 mr-2" />
@@ -230,7 +219,6 @@ export default function CheckoutPage() {
                     </div>
                 </div>
 
-                {/* Balance & Total */}
                 <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
                     <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-100">
                         <div className="flex items-center">
@@ -259,7 +247,6 @@ export default function CheckoutPage() {
                     )}
                 </div>
 
-                {/* Action Buttons */}
                 <div className="flex flex-col sm:flex-row gap-4">
                     <button
                         onClick={handleCancel}
@@ -276,5 +263,17 @@ export default function CheckoutPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function CheckoutPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto"></div>
+            </div>
+        }>
+            <CheckoutContent />
+        </Suspense>
     );
 }
