@@ -54,6 +54,20 @@ class Database:
         if self.mode == "postgres":
             if not self._pool:
                 try:
+                    # Debug: Parse and log URL structure
+                    from urllib.parse import urlparse
+                    
+                    # Mask password for logging
+                    masked_url = self.pg_url
+                    try:
+                        parsed = urlparse(self.pg_url)
+                        if parsed.password:
+                            masked_url = self.pg_url.replace(parsed.password, "******")
+                        
+                        logger.info(f"Connecting to Postgres: Host='{parsed.hostname}', Port={parsed.port}, Path='{parsed.path}'")
+                    except Exception as parse_e:
+                        logger.error(f"Failed to parse DATABASE_URL for logging: {parse_e}")
+                        
                     self._pool = await asyncpg.create_pool(self.pg_url)
                     logger.info("Connected to PostgreSQL")
                 except Exception as e:
