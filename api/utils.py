@@ -15,6 +15,7 @@ async def get_current_user(request: Request):
     user_id = request.cookies.get("auth_user_id")
     if not user_id:
         return None
+    row = await db.fetchone("SELECT * FROM users WHERE id = ?", (user_id,))
     return row
 
 async def ensure_global_user(telegram_user_id: int) -> Optional[dict]:
