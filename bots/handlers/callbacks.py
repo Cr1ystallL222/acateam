@@ -51,7 +51,7 @@ async def cb_create_link(callback: types.CallbackQuery, state: FSMContext):
     text = (
         "🔗 <b>Создание ссылки</b>\n\n"
         "Введите название ссылки:\n\n"
-        "<i>Например: Главная, VK, Telegram, Instagram</i>"
+        "<i>Название ссылки ни на что не влияет, просто для удобства.</i>"
     )
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
