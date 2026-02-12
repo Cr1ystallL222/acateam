@@ -98,7 +98,7 @@ async def cb_topup_confirm(callback: types.CallbackQuery):
     exact_amount = int(parts[4])
     
     # Update deposit
-    expires_at = (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()
+    expires_at = (datetime.now(timezone.utc) + timedelta(minutes=10)).replace(tzinfo=None)
     
     await db.execute("""
         UPDATE deposits 
