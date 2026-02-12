@@ -111,8 +111,8 @@ async def api_auth_verify(payload: AuthVerifyRequest, request: Request, response
     draft_last_name = session['reg_last_name'] or ""
     draft_phone = session['reg_phone'] or session['contact_phone'] or ""
     draft_email = session['reg_email'] or ""
-    draft_consent_pd = session['consent_pd'] or 0
-    draft_consent_marketing = session['consent_marketing'] or 0
+    draft_consent_pd = bool(session['consent_pd'])
+    draft_consent_marketing = bool(session['consent_marketing'])
     
     # Get referrer from cookie
     ref_pending = request.cookies.get("ref_pending")
@@ -263,7 +263,7 @@ async def api_auth_verify(payload: AuthVerifyRequest, request: Request, response
                     first_name, last_name, phone, email, 
                     consent_terms, consent_pd, consent_marketing, consent_at, 
                     referrer_user_id, referral_code
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, TRUE, ?, ?, ?, ?, ?)
             """, (
                 session['telegram_user_id'], 
                 session['chat_id'], 
