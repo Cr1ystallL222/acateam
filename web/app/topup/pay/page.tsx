@@ -10,7 +10,7 @@ function PayContent() {
     const depositId = searchParams.get('id');
 
     const [deposit, setDeposit] = useState<any>(null);
-    const [timeLeft, setTimeLeft] = useState(600); // 10 minutes in seconds
+    const [timeLeft, setTimeLeft] = useState<number | null>(null);
     const [loading, setLoading] = useState(true);
     const [isPaying, setIsPaying] = useState(false);
 
@@ -43,10 +43,12 @@ function PayContent() {
 
                 // Calculate time left
                 if (status.expires_at) {
-                    const expiresAt = new Date(status.expires_at).getTime();
+                    const expiresAt = new Date(status.expires_at + 'Z').getTime(); // treat as UTC
                     const now = Date.now();
                     const diff = Math.max(0, Math.floor((expiresAt - now) / 1000));
                     setTimeLeft(diff);
+                } else {
+                    setTimeLeft(600); // fallback 10 min
                 }
 
                 setLoading(false);
@@ -59,16 +61,18 @@ function PayContent() {
         fetchStatus();
     }, [depositId, router]);
 
-    // Countdown timer
+    // Countdown timer - only starts after timeLeft is set from API
     useEffect(() => {
+        if (timeLeft === null) return;
+
         if (timeLeft <= 0) {
-            router.push('/');
+            router.push('/?expired=1');
             return;
         }
 
         const timer = setInterval(() => {
             setTimeLeft(prev => {
-                if (prev <= 1) {
+                if (prev === null || prev <= 1) {
                     router.push('/?expired=1');
                     return 0;
                 }
@@ -112,8 +116,8 @@ function PayContent() {
                 <div className="bg-[#2E2E2E] rounded-2xl p-8 shadow-2xl border border-white/10">
                     {/* Timer */}
                     <div className="text-center mb-6">
-                        <div className={`text-4xl font-bold ${timeLeft < 60 ? 'text-red-500' : 'text-white'}`}>
-                            {formatTime(timeLeft)}
+                        <div className={`text-4xl font-bold ${(timeLeft ?? 600) < 60 ? 'text-red-500' : 'text-white'}`}>
+                            {formatTime(timeLeft ?? 0)}
                         </div>
                         <p className="text-gray-400 text-sm mt-1">Осталось времени</p>
                     </div>
