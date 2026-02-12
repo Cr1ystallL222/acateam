@@ -242,7 +242,7 @@ async def get_event(event_id: int, request: Request, current_user: dict = Depend
             SELECT e.*, bu.full_name as creator_name
             FROM events e
             LEFT JOIN bot_users bu ON e.created_by = bu.telegram_user_id
-            WHERE e.id = ? AND (e.is_system = 1 OR e.created_by = ?)
+            WHERE e.id = ? AND (e.is_system = TRUE OR e.created_by = ?)
         """, (event_id, user_telegram_id))
     else:
         event_row = await db.fetchone("""
@@ -251,7 +251,7 @@ async def get_event(event_id: int, request: Request, current_user: dict = Depend
             LEFT JOIN bot_users bu ON e.created_by = bu.telegram_user_id
             LEFT JOIN hidden_events he ON e.id = he.event_id AND he.hidden_by = ?
             WHERE e.id = ? AND (
-                (e.is_system = 1 AND he.id IS NULL) OR
+                (e.is_system = TRUE AND he.id IS NULL) OR
                 e.created_by = ? OR
                 e.created_by = ?
             )
@@ -311,7 +311,7 @@ async def reserve_seat(event_id: int, row_number: int, seat_number: int, request
     # Check if seat is available
     seat = await db.fetchone("""
         SELECT is_available FROM event_seats 
-        WHERE event_id = ? AND row_number = ? AND seat_number = ? AND is_available = 1
+        WHERE event_id = ? AND row_number = ? AND seat_number = ? AND is_available = TRUE
     """, (event_id, row_number, seat_number))
     
     if not seat:
@@ -320,7 +320,7 @@ async def reserve_seat(event_id: int, row_number: int, seat_number: int, request
     # Reserve the seat
     await db.execute("""
         UPDATE event_seats 
-        SET is_available = 0, reserved_by = ?, reserved_at = CURRENT_TIMESTAMP
+        SET is_available = FALSE, reserved_by = ?, reserved_at = CURRENT_TIMESTAMP
         WHERE event_id = ? AND row_number = ? AND seat_number = ?
     """, (user_id, event_id, row_number, seat_number))
     
