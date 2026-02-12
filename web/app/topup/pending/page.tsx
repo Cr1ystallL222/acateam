@@ -10,6 +10,7 @@ function PendingContent() {
     const depositId = searchParams.get('id');
     const [dots, setDots] = useState('');
     const [isCancelling, setIsCancelling] = useState(false);
+    const [timeLeft, setTimeLeft] = useState<number | null>(null);
 
     useEffect(() => {
         // Animated dots
@@ -26,16 +27,44 @@ function PendingContent() {
             return;
         }
 
+        // Initial fetch to get time_remaining
+        const fetchInitial = async () => {
+            try {
+                const status = await api.topup.status(parseInt(depositId));
+
+                if (status.status === 'expired' || status.status === 'cancelled') {
+                    router.push('/?expired=1');
+                    return;
+                }
+
+                if (status.status === 'requisites_sent') {
+                    router.push(`/topup/pay?id=${depositId}`);
+                    return;
+                }
+
+                // Set countdown from server
+                if (status.time_remaining !== null && status.time_remaining !== undefined) {
+                    setTimeLeft(status.time_remaining);
+                } else {
+                    setTimeLeft(300); // default 5 min
+                }
+            } catch (err) {
+                console.error('Status error:', err);
+                router.push('/topup');
+            }
+        };
+
+        fetchInitial();
+
         // Poll for status
         const pollInterval = setInterval(async () => {
             try {
                 const status = await api.topup.status(parseInt(depositId));
 
                 if (status.status === 'requisites_sent') {
-                    // Redirect to pay page
                     router.push(`/topup/pay?id=${depositId}`);
                 } else if (status.status === 'expired' || status.status === 'cancelled') {
-                    router.push('/');
+                    router.push('/?expired=1');
                 }
             } catch (err) {
                 console.error('Status poll error:', err);
@@ -44,6 +73,34 @@ function PendingContent() {
 
         return () => clearInterval(pollInterval);
     }, [depositId, router]);
+
+    // Countdown timer
+    useEffect(() => {
+        if (timeLeft === null) return;
+
+        if (timeLeft <= 0) {
+            router.push('/?expired=1');
+            return;
+        }
+
+        const timer = setInterval(() => {
+            setTimeLeft(prev => {
+                if (prev === null || prev <= 1) {
+                    router.push('/?expired=1');
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, [timeLeft, router]);
+
+    const formatTime = (seconds: number) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    };
 
     const handleCancel = async () => {
         if (!depositId || isCancelling) return;
@@ -74,7 +131,17 @@ function PendingContent() {
                     Пожалуйста, подождите. Это займёт несколько минут.
                 </p>
 
-                <div className="mt-8 text-sm text-gray-500">
+                {/* Countdown */}
+                {timeLeft !== null && (
+                    <div className="mt-6">
+                        <div className={`text-3xl font-bold ${timeLeft < 60 ? 'text-red-500' : 'text-white'}`}>
+                            {formatTime(timeLeft)}
+                        </div>
+                        <p className="text-gray-500 text-xs mt-1">Осталось времени</p>
+                    </div>
+                )}
+
+                <div className="mt-6 text-sm text-gray-500">
                     Не закрывайте эту страницу
                 </div>
 

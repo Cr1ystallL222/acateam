@@ -141,6 +141,8 @@ export const api = {
                 bank_name: string | null;
                 exact_amount: number | null;
                 expires_at: string | null;
+                expired_reason: string | null;
+                time_remaining: number | null;
             }>(`/api/topup/status?deposit_id=${deposit_id}`),
         cancel: (deposit_id: number) =>
             fetchJson<{ status: string }>(`/api/topup/cancel?deposit_id=${deposit_id}`, {

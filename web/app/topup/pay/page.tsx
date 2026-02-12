@@ -25,7 +25,7 @@ function PayContent() {
                 const status = await api.topup.status(parseInt(depositId));
 
                 if (status.status === 'expired' || status.status === 'cancelled') {
-                    router.push('/');
+                    router.push('/?expired=1');
                     return;
                 }
 
@@ -69,7 +69,7 @@ function PayContent() {
         const timer = setInterval(() => {
             setTimeLeft(prev => {
                 if (prev <= 1) {
-                    router.push('/');
+                    router.push('/?expired=1');
                     return 0;
                 }
                 return prev - 1;

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Request, HTTPException, BackgroundTasks
+import asyncio
 from pydantic import BaseModel
 from datetime import datetime, timedelta, timezone
 
@@ -65,25 +66,57 @@ async def api_topup_status(deposit_id: int, request: Request):
     if not deposit:
         raise HTTPException(status_code=404, detail="Заявка не найдена")
     
-    # Check if expired
+    deposit = dict(deposit)
+    expired_reason = None
+    
+    # Check 5-min expiry for awaiting_requisites (no requisites provided yet)
+    if deposit['status'] in ('pending', 'awaiting_requisites') and deposit['created_at']:
+        created_at = datetime.fromisoformat(str(deposit['created_at']))
+        if created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo=timezone.utc)
+        
+        if datetime.now(timezone.utc) > created_at + timedelta(minutes=5):
+            await db.execute("UPDATE deposits SET status = 'expired' WHERE id = ?", (deposit_id,))
+            deposit['status'] = 'expired'
+            expired_reason = 'requisites_timeout'
+            # Send notification to group in background
+            from .topup_notify import send_expired_notification
+            user_dict = dict(user) if hasattr(user, 'keys') else user
+            asyncio.create_task(send_expired_notification(deposit, user_dict, 'requisites_timeout'))
+    
+    # Check 10-min expiry for requisites_sent (user didn't pay)
     if deposit['status'] == 'requisites_sent' and deposit['expires_at']:
         expires_at = datetime.fromisoformat(str(deposit['expires_at']))
         if expires_at.tzinfo is None:
             expires_at = expires_at.replace(tzinfo=timezone.utc)
         
         if datetime.now(timezone.utc) > expires_at:
-            # Mark as expired
             await db.execute("UPDATE deposits SET status = 'expired' WHERE id = ?", (deposit_id,))
             deposit['status'] = 'expired'
+            expired_reason = 'payment_timeout'
+            from .topup_notify import send_expired_notification
+            user_dict = dict(user) if hasattr(user, 'keys') else user
+            asyncio.create_task(send_expired_notification(deposit, user_dict, 'payment_timeout'))
+    
+    # Calculate time remaining for pending page
+    time_remaining = None
+    if deposit['status'] in ('pending', 'awaiting_requisites') and deposit['created_at']:
+        created_at = datetime.fromisoformat(str(deposit['created_at']))
+        if created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo=timezone.utc)
+        deadline = created_at + timedelta(minutes=5)
+        time_remaining = max(0, int((deadline - datetime.now(timezone.utc)).total_seconds()))
     
     return {
         "deposit_id": deposit['id'],
         "status": deposit['status'],
         "amount": deposit['amount'],
-        "requisites": deposit['requisites'],
-        "bank_name": deposit['bank_name'],
-        "exact_amount": deposit['exact_amount'],
-        "expires_at": deposit['expires_at']
+        "requisites": deposit.get('requisites'),
+        "bank_name": deposit.get('bank_name'),
+        "exact_amount": deposit.get('exact_amount'),
+        "expires_at": deposit.get('expires_at'),
+        "expired_reason": expired_reason,
+        "time_remaining": time_remaining
     }
 
 

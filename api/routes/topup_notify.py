@@ -173,3 +173,48 @@ async def send_paid_notification(deposit: dict, user: dict):
                     logger.error(f"Failed to send paid notification: {result}")
     except Exception as e:
         logger.error(f"Error sending paid notification: {e}")
+
+
+async def send_expired_notification(deposit: dict, user: dict, reason: str):
+    """Notify group that deposit expired automatically."""
+    if not TOPUP_GROUP_ID:
+        return
+    
+    if not BOT_TOKEN:
+        return
+    
+    display_name = user.get('display_name') or user.get('first_name') or f"ID: {user.get('id')}"
+    tg_user_id = user.get('telegram_user_id')
+    user_link = f"<a href='tg://user?id={tg_user_id}'>{display_name}</a>" if tg_user_id else display_name
+    
+    if reason == 'requisites_timeout':
+        reason_text = "Реквизиты не были выданы в течение 5 минут."
+    else:
+        reason_text = "Пользователь не подтвердил оплату в течение 10 минут."
+    
+    message = f"""<b>⏰ Заявка истекла</b>
+
+Мамонт: {user_link}
+Сумма: <b>{deposit['amount']:,}₽</b>
+
+{reason_text}
+<i>Реквизиты по этой заявке выдать нельзя.</i>"""
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+            data = {
+                "chat_id": TOPUP_GROUP_ID,
+                "text": message,
+                "parse_mode": "HTML",
+                "reply_to_message_id": deposit.get('group_message_id')
+            }
+            async with session.post(url, json=data) as resp:
+                result = await resp.json()
+                if result.get('ok'):
+                    logger.info(f"Expired notification sent for deposit {deposit.get('id')}, reason={reason}")
+                else:
+                    logger.error(f"Failed to send expired notification: {result}")
+    except Exception as e:
+        logger.error(f"Error sending expired notification: {e}")
+

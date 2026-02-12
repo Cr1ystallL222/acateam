@@ -1,6 +1,7 @@
 ﻿"use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Hero from "@/components/Hero";
 import FilterBar from "@/components/FilterBar";
 import EventCard from "@/components/EventCard";
@@ -177,17 +178,30 @@ interface DatabaseEvent {
   weekday: string;
 }
 
-export default function Home() {
+function HomeContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [databaseEvents, setDatabaseEvents] = useState<DatabaseEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const eventsPerPage = 12; // 3 ряда по 4 события
+  const [showExpiredNotice, setShowExpiredNotice] = useState(false);
+  const eventsPerPage = 12;
 
   useEffect(() => {
     fetchUser();
     fetchDatabaseEvents();
-  }, []);
+
+    // Check for expired deposit redirect
+    if (searchParams.get('expired') === '1') {
+      setShowExpiredNotice(true);
+      // Clean URL
+      window.history.replaceState({}, '', '/');
+      // Auto-hide after 6 seconds
+      const timer = setTimeout(() => setShowExpiredNotice(false), 6000);
+      return () => clearTimeout(timer);
+    }
+  }, [searchParams]);
 
   const fetchUser = async () => {
     try {
@@ -271,6 +285,16 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-white">
+      {/* Expired deposit notification */}
+      {showExpiredNotice && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-600 text-white px-6 py-3 rounded-xl shadow-lg flex items-center gap-3 animate-slide-down">
+          <span className="text-sm font-medium">Заявка на пополнение истекла. Попробуйте позже.</span>
+          <button onClick={() => setShowExpiredNotice(false)} className="hover:bg-white/20 rounded-full p-1 transition-colors">
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
       <Hero />
 
       <FilterBar />
@@ -361,5 +385,17 @@ export default function Home() {
         )}
       </section>
     </main>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
+      </div>
+    }>
+      <HomeContent />
+    </Suspense>
   );
 }
