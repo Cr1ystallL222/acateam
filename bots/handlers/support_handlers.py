@@ -200,10 +200,11 @@ Email: {mamont.get('email') or 'Не указан'}
             display_id_str = f" (#{mamont_id})" if mamont_id else ""
             sent_msg = await message.reply(f"✅ Ответ отправлен в чат с мамонтом {mamont_name}{display_id_str}\n\nСтатус: Не прочитано 🔴")
             
-            # Save bot message ID for later editing
-            await update_support_ticket(
+            # Save reply to support_replies table
+            await add_support_reply(
                 ticket['id'],
-                bot_message_id=sent_msg.message_id
+                msg.text,
+                sent_msg.message_id
             )
             
         except Exception as e:

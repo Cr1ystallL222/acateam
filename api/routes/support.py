@@ -280,23 +280,51 @@ async def get_support_messages(request: Request):
             
         messages.append(msg)
         
-        # Add support reply if exists
-        if row['reply_text']:
-            # Check read status if available
+        # Add legacy reply if exists (migration fallback)
+        if row.get('reply_text'):
             is_read = True
-            if 'user_read' in row:
+            if 'user_read' in row and row['user_read'] is not None:
                 is_read = bool(row['user_read'])
                 if not is_read:
                     has_unread = True
-
+            
             messages.append({
-                "id": f"{row['id']}_reply",
+                "id": f"{row['id']}_reply_legacy",
                 "text": row['reply_text'],
                 "isSupport": True,
-                "timestamp": row['replied_at'] or row['created_at'],
+                "timestamp": row.get('replied_at') or row['created_at'],
                 "isRead": is_read
             })
-    
+
+    # Fetch new replies from support_replies table
+    # We fetch all replies for the tickets belonging to this user
+    # Or just fetch all replies linked to these ticket ids?
+    ticket_ids = [r['id'] for r in rows]
+    if ticket_ids:
+        placeholders = ",".join(["?"] * len(ticket_ids))
+        replies = await db.fetchall(f"""
+            SELECT id, ticket_id, reply_text, created_at, is_read 
+            FROM support_replies 
+            WHERE ticket_id IN ({placeholders})
+            ORDER BY created_at ASC
+        """, tuple(ticket_ids))
+        
+        for reply in replies:
+            is_read = bool(reply['is_read'])
+            if not is_read:
+                has_unread = True
+                
+            messages.append({
+                "id": f"{reply['ticket_id']}_reply_{reply['id']}",
+                "text": reply['reply_text'],
+                "isSupport": True,
+                "timestamp": reply['created_at'],
+                "isRead": is_read
+            })
+            
+    # Sort all messages by timestamp
+    messages.sort(key=lambda x: x['timestamp'] if isinstance(x['timestamp'], datetime) else datetime.fromisoformat(str(x['timestamp'])))
+
     return {"messages": messages, "has_unread": has_unread}
 
 

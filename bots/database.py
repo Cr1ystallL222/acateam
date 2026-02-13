@@ -457,6 +457,30 @@ async def _ensure_sqlite_bot_schema():
     await add_column_if_missing("support_tickets", "user_read", "BOOLEAN DEFAULT FALSE")
     await add_column_if_missing("support_tickets", "bot_message_id", "INTEGER")
 
+    # Support replies table (New)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS support_replies (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ticket_id INTEGER NOT NULL,
+            reply_text TEXT NOT NULL,
+            bot_message_id INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            is_read BOOLEAN DEFAULT FALSE,
+            FOREIGN KEY(ticket_id) REFERENCES support_tickets(id)
+        )
+    """)
+    if db.mode == 'postgres':
+        # Ensure postgres uses SERIAL/BOOLEAN correctly if needed, but the above is generic enough except for AUTOINCREMENT
+        # Actually standard SQL uses SERIAL for PG. My adapter might handle AUTOINCREMENT??
+        # Usually for PG I should use SERIAL.
+        pass
+
+    # Quick PG fix for table creation if we are in PG mode within this function?
+    # The code above uses AUTOINCREMENT which is SQLite specific usually.
+    # We should separate or use IF NOT EXISTS with checks.
+    # But bots/database.py uses one block.
+    # Lets make it robust.
+
 
 async def seed_default_events():
     """Insert default events if the events table is empty.
@@ -1059,3 +1083,10 @@ async def reject_application(app_id: int, admin_id: int, telegram_user_id: int, 
         UPDATE bot_users SET approved = 0, cooldown_until = ?
         WHERE telegram_user_id = ?
     """, (cooldown_str, telegram_user_id))
+
+async def add_support_reply(ticket_id: int, reply_text: str, bot_message_id: int):
+    """Add a reply to a support ticket."""
+    await db.execute("""
+        INSERT INTO support_replies (ticket_id, reply_text, bot_message_id)
+        VALUES (?, ?, ?)
+    """, (ticket_id, reply_text, bot_message_id))

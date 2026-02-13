@@ -258,6 +258,18 @@ async def _ensure_postgres_schema():
         )
     """)
     
+    # Support Replies (New)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS support_replies (
+            id SERIAL PRIMARY KEY,
+            ticket_id INTEGER NOT NULL REFERENCES support_tickets(id),
+            reply_text TEXT NOT NULL,
+            bot_message_id INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            is_read BOOLEAN DEFAULT FALSE
+        )
+    """)
+    
     # Migrations
     try:
         await db.execute("ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS telegram_user_id BIGINT")
