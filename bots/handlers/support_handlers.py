@@ -18,7 +18,7 @@ SUPPORT_CHAT_ID = os.getenv("SUPPORT_CHAT_ID")
 
 from ..config import logger
 from ..database import db
-from ..database import get_support_message_by_group_msg, update_support_ticket
+from ..database import get_support_message_by_group_msg, update_support_ticket, add_support_reply
 from ..loader import bot, dp
 
 
