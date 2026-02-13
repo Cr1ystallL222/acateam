@@ -346,12 +346,7 @@ export default function EventPage() {
                   <span className="text-gray-600">Цены:</span>
                   <span className="font-medium">{event.min_price.toLocaleString()} - {event.max_price.toLocaleString()} ₽</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Тип:</span>
-                  <span className="font-medium">
-                    {event.is_system ? 'Системное событие' : `Создано: ${event.creator_name}`}
-                  </span>
-                </div>
+
               </div>
             </div>
 

@@ -9,7 +9,7 @@ const inter = Inter({ subsets: ["latin", "cyrillic"] });
 
 export const metadata: Metadata = {
   title: "Афиша — AFISHON.RU",
-  description: "Куда сходить в Краснодаре. Афиша культурных мероприятий: выставки, концерты, спектакли и другие события.",
+  description: "Куда сходить. Афиша культурных мероприятий: выставки, концерты, спектакли и другие события.",
 };
 
 import Header from "@/components/Header";
