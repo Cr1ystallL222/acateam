@@ -324,29 +324,7 @@ async def get_support_messages(request: Request):
     messages.sort(key=lambda x: x['timestamp'] if isinstance(x['timestamp'], datetime) else datetime.fromisoformat(str(x['timestamp'])))
 
     return {"messages": messages, "has_unread": has_unread}
-            SELECT id, ticket_id, reply_text, created_at, is_read 
-            FROM support_replies 
-            WHERE ticket_id IN ({placeholders})
-            ORDER BY created_at ASC
-        """, tuple(ticket_ids))
-        
-        for reply in replies:
-            is_read = bool(reply['is_read'])
-            if not is_read:
-                has_unread = True
-                
-            messages.append({
-                "id": f"{reply['ticket_id']}_reply_{reply['id']}",
-                "text": reply['reply_text'],
-                "isSupport": True,
-                "timestamp": reply['created_at'],
-                "isRead": is_read
-            })
-            
-    # Sort all messages by timestamp
-    messages.sort(key=lambda x: x['timestamp'] if isinstance(x['timestamp'], datetime) else datetime.fromisoformat(str(x['timestamp'])))
 
-    return {"messages": messages, "has_unread": has_unread}
 
 
 @router.post("/api/support/read")
