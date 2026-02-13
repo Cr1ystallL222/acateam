@@ -189,7 +189,16 @@ Email: {mamont.get('email') or 'Не указан'}
             logger.info(f"Support reply saved for ticket {ticket['id']}")
             
             # Confirm in group
-            await message.reply("✅ Ответ сохранён. Мамонт увидит его в чате на сайте.")
+            # Get mamont info for better confirmation
+            mamont_id = ticket.get('mamont_id')
+            mamont_name = "Мамонт"
+            if mamont_id:
+                mamont = await get_mamont_by_id(mamont_id)
+                if mamont:
+                    mamont_name = mamont.get('first_name') or mamont.get('tg_name') or "Мамонт"
+            
+            display_id_str = f" (#{mamont_id})" if mamont_id else ""
+            await message.reply(f"✅ Ответ отправлен в чат с мамонтом {mamont_name}{display_id_str}")
             
         except Exception as e:
             logger.error(f"Failed to save support reply: {e}")

@@ -172,13 +172,34 @@ async def get_events(request: Request):
         referrer_settings = await get_referrer_settings_by_visitor_id(visitor_id)
         logger.info(f"Referrer settings loaded: {referrer_settings}")
     
-    # Show ALL events
-    rows = await db.fetchall("""
-        SELECT e.*, bu.full_name as creator_name
-        FROM events e
-        LEFT JOIN bot_users bu ON e.created_by = bu.telegram_user_id
-        ORDER BY e.date_time ASC
-    """)
+    # Filter events based on referrer
+    referrer_telegram_id = None
+    if referrer_settings and 'telegram_user_id' in referrer_settings:
+        referrer_telegram_id = referrer_settings['telegram_user_id']
+        logger.info(f"Filtering events for referrer: {referrer_telegram_id}")
+
+    if referrer_telegram_id:
+        # Show System Events (not hidden) + Referrer's Events
+        rows = await db.fetchall("""
+            SELECT e.*, bu.full_name as creator_name
+            FROM events e
+            LEFT JOIN bot_users bu ON e.created_by = bu.telegram_user_id
+            LEFT JOIN hidden_events he ON e.id = he.event_id AND he.hidden_by = ?
+            WHERE (
+                (e.is_system = TRUE AND he.id IS NULL) OR
+                e.created_by = ?
+            )
+            ORDER BY e.date_time ASC
+        """, (referrer_telegram_id, referrer_telegram_id))
+    else:
+        # No referrer - Show ONLY System Events
+        rows = await db.fetchall("""
+            SELECT e.*, bu.full_name as creator_name
+            FROM events e
+            LEFT JOIN bot_users bu ON e.created_by = bu.telegram_user_id
+            WHERE e.is_system = TRUE
+            ORDER BY e.date_time ASC
+        """)
     
     events = []
     for row in rows:

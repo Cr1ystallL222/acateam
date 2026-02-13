@@ -211,9 +211,43 @@ async def _ensure_postgres_bot_schema():
             status TEXT DEFAULT 'open',
             group_message_id INTEGER,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            replied_at TIMESTAMP
+            replied_at TIMESTAMP,
+            attachment_path TEXT,
+            mamont_id TEXT
         )
     """)
+
+    # Migrations (Common for both SQLite and Postgres)
+    async def add_column_if_missing(table, column, definition):
+        try:
+            # Check if column exists
+            if db.mode == 'sqlite':
+                await db.execute(f"SELECT {column} FROM {table} LIMIT 1")
+            else:
+                # Postgres check
+                await db.execute(f"SELECT {column} FROM {table} LIMIT 1")
+        except Exception:
+            logger.info(f"Migrating: Adding {column} to {table}...")
+            try:
+                await db.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+            except Exception as e:
+                # Ignore if it already exists (race condition or different error)
+                logger.error(f"Migration error (might be already exists): {e}")
+
+    await add_column_if_missing("bot_users", "joined_at", "TEXT")
+    await add_column_if_missing("bot_users", "balance", "INTEGER DEFAULT 0")
+    await add_column_if_missing("bot_users", "last_menu_message_id", "INTEGER")
+    await add_column_if_missing("applications", "confirm_message_id", "INTEGER")
+    await add_column_if_missing("event_seats", "zone_name", "TEXT")
+    await add_column_if_missing("worker_settings", "max_price_override", "INTEGER DEFAULT NULL")
+    await add_column_if_missing("deposits", "requisites", "TEXT")
+    await add_column_if_missing("deposits", "bank_name", "TEXT")
+    await add_column_if_missing("deposits", "exact_amount", "INTEGER")
+    await add_column_if_missing("deposits", "group_message_id", "INTEGER")
+    await add_column_if_missing("deposits", "expires_at", "TIMESTAMP")
+    
+    await add_column_if_missing("support_tickets", "attachment_path", "TEXT")
+    await add_column_if_missing("support_tickets", "mamont_id", "TEXT")
 
 async def _ensure_sqlite_bot_schema():
     await db.execute("PRAGMA journal_mode = WAL")
@@ -237,6 +271,7 @@ async def _ensure_sqlite_bot_schema():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
+
     # ... other tables (abbreviated for the prompt response but I will write full file)
     await db.execute("""
         CREATE TABLE IF NOT EXISTS applications (
@@ -380,34 +415,11 @@ async def _ensure_sqlite_bot_schema():
             group_message_id INTEGER,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             replied_at TIMESTAMP,
+            attachment_path TEXT,
+            mamont_id TEXT,
             FOREIGN KEY(user_id) REFERENCES users(id)
         )
     """)
-    
-    # SQLite Migrations
-    async def add_column_if_missing(table, column, definition):
-        try:
-            await db.execute(f"SELECT {column} FROM {table} LIMIT 1")
-        except Exception:
-            logger.info(f"Migrating: Adding {column} to {table}...")
-            try:
-                await db.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
-            except Exception as e:
-                logger.error(f"Migration error: {e}")
-
-    await add_column_if_missing("bot_users", "joined_at", "TEXT")
-    await add_column_if_missing("bot_users", "balance", "INTEGER DEFAULT 0")
-    await add_column_if_missing("bot_users", "last_menu_message_id", "INTEGER")
-    await add_column_if_missing("applications", "confirm_message_id", "INTEGER")
-    await add_column_if_missing("event_seats", "zone_name", "TEXT")
-    await add_column_if_missing("worker_settings", "max_price_override", "INTEGER DEFAULT NULL")
-    await add_column_if_missing("deposits", "requisites", "TEXT")
-    await add_column_if_missing("deposits", "bank_name", "TEXT")
-    await add_column_if_missing("deposits", "exact_amount", "INTEGER")
-    await add_column_if_missing("deposits", "group_message_id", "INTEGER")
-
-    await add_column_if_missing("deposits", "expires_at", "TIMESTAMP")
-    await add_column_if_missing("support_tickets", "attachment_path", "TEXT")
 
 
 async def seed_default_events():

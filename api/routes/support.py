@@ -46,6 +46,7 @@ async def ensure_support_table():
                 replied_at TIMESTAMP,
                 created_at TIMESTAMP DEFAULT NOW(),
                 attachment_path TEXT,
+                mamont_id TEXT,
                 FOREIGN KEY(user_id) REFERENCES users(id)
             )
         """)
@@ -61,6 +62,7 @@ async def ensure_support_table():
                 replied_at TIMESTAMP,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 attachment_path TEXT,
+                mamont_id TEXT,
                 FOREIGN KEY(user_id) REFERENCES users(id)
             )
         """)
@@ -197,10 +199,14 @@ async def send_support_message(
                 # Save to database
                 await ensure_support_table()
                 
+                # Use execute_returning to get the ID
                 ticket_id = await db.execute_returning("""
-                    INSERT INTO support_tickets (user_id, telegram_user_id, message, group_message_id, attachment_path)
-                    VALUES (?, ?, ?, ?, ?)
-                """, (user_id, tg_user_id, message_text, group_message_id, attachment_path))
+                    INSERT INTO support_tickets (
+                        user_id, telegram_user_id, message, group_message_id, 
+                        attachment_path, mamont_id
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (user_id, tg_user_id, message_text, group_message_id, attachment_path, str(display_id)))
                 
                 logger.info(f"Support message sent: user_id={user_id}, message_id={group_message_id}, has_file={bool(attachment_path)}")
                 return {"status": "ok", "message": "Сообщение отправлено", "ticket_id": ticket_id}
