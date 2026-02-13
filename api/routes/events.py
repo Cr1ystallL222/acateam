@@ -121,6 +121,10 @@ def apply_referrer_settings_to_event(event: dict, settings: dict, city_venues: d
                 
                 logger.info(f"Replacing venue '{venue[:50]}...' -> '{matched_venue[:50]}...'")
                 event['venue'] = matched_venue
+        else:
+            # Custom city not in predefined list — hide venue
+            logger.info(f"Custom city '{custom_city}' not in CITY_VENUES, hiding venue for event '{event.get('title')}'")
+            event['venue'] = ''
     
     return event
 

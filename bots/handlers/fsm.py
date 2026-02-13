@@ -165,7 +165,7 @@ async def process_city_name(message: types.Message, state: FSMContext):
     if city_name in CITY_VENUES:
         venues_info = f"\n\n✅ Найдено {len(CITY_VENUES[city_name])} локаций для города {city_name}."
     else:
-        venues_info = f"\n\n⚠️ Для города {city_name} будут использоваться стандартные локации."
+        venues_info = f"\n\n⚠️ Для города {city_name} место проведения не будет отображаться."
     
     # Show confirmation and go back to settings
     from ..renderers import render_settings_menu
