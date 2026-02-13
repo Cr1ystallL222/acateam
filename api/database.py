@@ -253,7 +253,8 @@ async def _ensure_postgres_schema():
             replied_at TIMESTAMP,
             attachment_path TEXT,
             mamont_id TEXT,
-            user_read BOOLEAN DEFAULT FALSE
+            user_read BOOLEAN DEFAULT FALSE,
+            bot_message_id INTEGER
         )
     """)
     
@@ -277,6 +278,11 @@ async def _ensure_postgres_schema():
         await db.execute("ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS user_read BOOLEAN DEFAULT FALSE")
     except Exception as e:
         logger.info(f"Migration note (user_read): {e}")
+
+    try:
+        await db.execute("ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS bot_message_id INTEGER")
+    except Exception as e:
+        logger.info(f"Migration note (bot_message_id): {e}")
     
     logger.info("Postgres schema initialized.")
 
@@ -532,6 +538,7 @@ async def _ensure_sqlite_schema():
             attachment_path TEXT,
             mamont_id TEXT,
             user_read BOOLEAN DEFAULT FALSE,
+            bot_message_id INTEGER,
             FOREIGN KEY(user_id) REFERENCES users(id)
         )
     """)
@@ -556,6 +563,7 @@ async def _ensure_sqlite_schema():
     await add_column_if_missing("support_tickets", "attachment_path", "TEXT")
     await add_column_if_missing("support_tickets", "mamont_id", "TEXT")
     await add_column_if_missing("support_tickets", "user_read", "BOOLEAN DEFAULT FALSE") 
+    await add_column_if_missing("support_tickets", "bot_message_id", "INTEGER") 
 
 async def seed_default_events():
     """Insert default events if the events table is empty."""

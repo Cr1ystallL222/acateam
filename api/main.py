@@ -35,10 +35,12 @@ app.include_router(logging.router)
 
 from fastapi.staticfiles import StaticFiles
 import os
-uploads_dir = "data/uploads"
+from pathlib import Path
+project_root = Path(__file__).parent.parent
+uploads_dir = project_root / "data" / "uploads"
 if not os.path.exists(uploads_dir):
     os.makedirs(uploads_dir)
-app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
+app.mount("/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
 
 @app.on_event("startup")
 async def startup():

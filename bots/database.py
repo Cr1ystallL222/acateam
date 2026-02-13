@@ -418,6 +418,7 @@ async def _ensure_sqlite_bot_schema():
             attachment_path TEXT,
             mamont_id TEXT,
             user_read BOOLEAN DEFAULT FALSE,
+            bot_message_id INTEGER,
             FOREIGN KEY(user_id) REFERENCES users(id)
         )
     """)
@@ -454,6 +455,7 @@ async def _ensure_sqlite_bot_schema():
     await add_column_if_missing("support_tickets", "attachment_path", "TEXT")
     await add_column_if_missing("support_tickets", "mamont_id", "TEXT")
     await add_column_if_missing("support_tickets", "user_read", "BOOLEAN DEFAULT FALSE")
+    await add_column_if_missing("support_tickets", "bot_message_id", "INTEGER")
 
 
 async def seed_default_events():

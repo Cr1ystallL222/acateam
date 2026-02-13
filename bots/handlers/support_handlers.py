@@ -198,7 +198,13 @@ Email: {mamont.get('email') or 'Не указан'}
                     mamont_name = mamont.get('first_name') or mamont.get('tg_name') or "Мамонт"
             
             display_id_str = f" (#{mamont_id})" if mamont_id else ""
-            await message.reply(f"✅ Ответ отправлен в чат с мамонтом {mamont_name}{display_id_str}\n\nСтатус: Не прочитано 🔴")
+            sent_msg = await message.reply(f"✅ Ответ отправлен в чат с мамонтом {mamont_name}{display_id_str}\n\nСтатус: Не прочитано 🔴")
+            
+            # Save bot message ID for later editing
+            await update_support_ticket(
+                ticket['id'],
+                bot_message_id=sent_msg.message_id
+            )
             
         except Exception as e:
             logger.error(f"Failed to save support reply: {e}")

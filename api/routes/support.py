@@ -316,6 +316,13 @@ async def mark_support_read(request: Request):
     
     # Update all replied tickets where user_read is false
     try:
+        # First select the messages to update in Telegram
+        unread_tickets = await db.fetchall("""
+            SELECT id, bot_message_id, reply_text, mamont_id 
+            FROM support_tickets 
+            WHERE user_id = ? AND reply_text IS NOT NULL AND (user_read = FALSE OR user_read IS NULL OR user_read = 0)
+        """, (user_id,))
+
         if db.is_postgres:
             await db.execute("""
                 UPDATE support_tickets 
@@ -329,6 +336,49 @@ async def mark_support_read(request: Request):
                 WHERE user_id = ? AND reply_text IS NOT NULL AND (user_read = 0 OR user_read IS NULL)
             """, (user_id,))
             
+        # Trigger Telegram edits asynchronously
+        if unread_tickets:
+            async with aiohttp.ClientSession() as session:
+                for ticket in unread_tickets:
+                    if not ticket.get('bot_message_id'):
+                        continue
+                        
+                    try:
+                        # Construct the new text (Green status)
+                        # We need to reconstruct the message mostly, or just append properly if we can.
+                        # Actually we should reconstruct it to be safe.
+                        # Wait, we need the original text? No, we know the format.
+                        
+                        mamont_name = "Мамонт" # We don't have name easily here without join, but we can keep it simple or fetch.
+                        # Let's just update the status part if possible? No, editMessageText replaces whole text.
+                        # We can try to keep it simple: "✅ Ответ отправлен ...\n\nСтатус: Прочитано 🟢"
+                        # We need mamont_name.
+                        
+                        # Let's just use a generic success message or fetch details if critical.
+                        # The user saw: "✅ Ответ отправлен в чат с мамонтом {mamont_name} (#{mamont_id})\n\nСтатус: Не прочитано 🔴"
+                        
+                        # We can fetch mamont name from mamonts table using mamont_id from ticket
+                        mamont_name_str = "Мамонт"
+                        mamont_id = ticket.get('mamont_id')
+                        display_id_str = f" (#{mamont_id})" if mamont_id else ""
+                        
+                        if mamont_id:
+                            m_row = await db.fetchone("SELECT first_name, tg_name FROM mamonts WHERE mamont_id = ?", (str(mamont_id),))
+                            if m_row:
+                                mamont_name_str = m_row.get('first_name') or m_row.get('tg_name') or "Мамонт"
+                        
+                        new_text = f"✅ Ответ отправлен в чат с мамонтом {mamont_name_str}{display_id_str}\n\nСтатус: Прочитано 🟢"
+                        
+                        url = f"https://api.telegram.org/bot{BOT_TOKEN}/editMessageText"
+                        payload = {
+                            "chat_id": SUPPORT_CHAT_ID,
+                            "message_id": ticket['bot_message_id'],
+                            "text": new_text
+                        }
+                        await session.post(url, json=payload)
+                    except Exception as e:
+                        logger.error(f"Failed to edit TG message {ticket.get('bot_message_id')}: {e}")
+
         return {"status": "ok"}
     except Exception as e:
         logger.error(f"Error marking messages read: {e}")
