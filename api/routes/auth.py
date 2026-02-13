@@ -160,6 +160,10 @@ async def api_auth_verify(payload: AuthVerifyRequest, request: Request, response
             await db.execute(f"UPDATE users SET {', '.join(updates)} WHERE id = ?", tuple(params))
             logger.info(f"User updated id={user_id}, first_name={draft_first_name}, last_name={draft_last_name}, phone={draft_phone}, email={draft_email}")
         
+        # Log login
+        from bots.services.logger_service import log_action
+        await log_action(f"User Logged In:\nID: {user_id}\nName: {draft_first_name} {draft_last_name}", "VISIT")
+        
         await db.execute("UPDATE registration_sessions SET status = 'used' WHERE session_id = ?", (session_id,))
         
         # === MAMONT UPDATE LOGIC FOR EXISTING USER ===
@@ -281,6 +285,10 @@ async def api_auth_verify(payload: AuthVerifyRequest, request: Request, response
             ))
             
             logger.info(f"User created id={new_user_id}, first_name={draft_first_name}, last_name={draft_last_name}, phone={draft_phone}, email={draft_email}, telegram_username={session['telegram_username']}, telegram_display_name={session['telegram_display_name']}")
+            
+            # Log registration
+            from bots.services.logger_service import log_action
+            await log_action(f"New User Registered:\nName: {draft_first_name} {draft_last_name}\nPhone: {draft_phone}\nEmail: {draft_email}\nUsername: @{session['telegram_username']}", "VISIT")
             
             await db.execute("UPDATE registration_sessions SET status = 'completed' WHERE session_id = ?", (session_id,))
             

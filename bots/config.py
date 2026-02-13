@@ -23,6 +23,7 @@ logger = logging.getLogger("main_bot")
 MAIN_BOT_TOKEN = os.getenv("MAIN_BOT_TOKEN") or os.getenv("BOT_TOKEN")
 APPLICATIONS_CHAT_ID = os.getenv("APPLICATIONS_CHAT_ID")
 ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip()]
+LOG_CHAT_ID = os.getenv("LOG_CHAT_ID") or os.getenv("APPLICATIONS_CHAT_ID")
 SITE_URL = os.getenv("SITE_URL", "http://localhost:3000").rstrip('/')
 WELCOME_STICKER_ID = os.getenv("WELCOME_STICKER_ID", "CAACAgIAAxkBAAEVndxpfLWe_kV-422Fi4qGKJLHsd5efwACu4wAAuMy4UtXVa5yYy5AOTgE")
 WELCOME_IMAGE_PATH = os.getenv("WELCOME_IMAGE_PATH", "")

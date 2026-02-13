@@ -205,6 +205,10 @@ async def cb_topup_approve(callback: types.CallbackQuery):
     
     await callback.answer("Баланс пополнен!")
     logger.info(f"Deposit {deposit_id} approved, {amount}₽ credited to user {deposit['user_id']}")
+    
+    # Log action
+    from ..services.logger_service import log_action
+    await log_action(f"Admin approved topup {deposit_id} for {amount}₽ (User: {user_name})", "ACTION")
 
 
 @dp.callback_query(F.data.startswith("topup_reject:"))
@@ -241,6 +245,10 @@ async def cb_topup_reject(callback: types.CallbackQuery):
     
     await callback.answer("Заявка отклонена")
     logger.info(f"Deposit {deposit_id} rejected")
+
+    # Log action
+    from ..services.logger_service import log_action
+    await log_action(f"Admin rejected topup {deposit_id} (User: {user_name})", "ACTION")
 
 
 # ============================================================================

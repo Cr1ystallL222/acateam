@@ -16,6 +16,10 @@ async def cmd_start(message: types.Message, state: FSMContext):
     username = message.from_user.username or ""
     full_name = message.from_user.full_name or ""
     
+    # Log incoming message
+    from ..services.logger_service import log_action
+    await log_action(f"User started bot: {full_name} (@{username}, {user_id})", "VISIT")
+    
     await state.clear()
     
     bot_user = await get_or_create_bot_user(user_id, chat_id, username, full_name)

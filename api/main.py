@@ -30,6 +30,8 @@ app.include_router(referral.router)
 app.include_router(events.router)
 app.include_router(topup.router)
 app.include_router(support.router)
+from api.routes import logging
+app.include_router(logging.router)
 
 @app.on_event("startup")
 async def startup():

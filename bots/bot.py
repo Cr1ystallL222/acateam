@@ -23,6 +23,10 @@ async def main():
     
     await ensure_bot_schema()
     
+    # Notify startup
+    from bots.services.logger_service import log_action
+    await log_action("Bot started. System dates updated.", "INFO")
+    
     logger.info("Starting main bot...")
     await dp.start_polling(bot)
 

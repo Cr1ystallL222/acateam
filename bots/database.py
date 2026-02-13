@@ -426,21 +426,21 @@ async def seed_default_events():
     # Base list with relative day offsets instead of hardcoded dates
     # day_offset: 0 = today, 1 = tomorrow, etc.
     raw_events = [
-        {'title': 'Фестиваль науки в КГИК', 'description': 'Краснодарский государственный институт культуры приглашает на фестиваль науки. Увлекательные эксперименты, мастер-классы и лекции.', 'venue': 'Краснодарский государственный институт культуры', 'day_offset': 0, 'hour': 11, 'photo_path': '/images/7c70a2ae3e90ccde8884e252621f4664-jpg.jpeg', 'min_price': 500, 'max_price': 2000, 'is_system': 1},
-        {'title': '«Миры М.А. Булгакова». К 135-летию со дня рождения', 'description': 'Выставка, посвященная жизни и творчеству великого писателя.', 'venue': 'Школа-лицей при музее Сталинградская битва', 'day_offset': 1, 'hour': 12, 'photo_path': '/images/ef8aff0f5d4d637224a0e87b97675ceb-jpg.jpeg', 'min_price': 300, 'max_price': 800, 'is_system': 1},
-        {'title': 'Квиз «Знатоки родного края»', 'description': 'Интеллектуальная игра для любителей истории Кубани.', 'venue': 'Краснодарская краевая юношеская библиотека им. И.Ф. Вараввы', 'day_offset': 2, 'hour': 14, 'photo_path': '/images/3609ed8fe59c2b5c3508e1cd7b4b9874-jpg.jpeg', 'min_price': 200, 'max_price': 500, 'is_system': 1},
-        {'title': 'Спектакль «На всякого мудреца...»', 'description': 'Классический спектакль по пьесе А.Н. Островского.', 'venue': 'Краснодарское творческое объединение «Премьера» им. Л.Г. Гатова', 'day_offset': 3, 'hour': 18, 'min': 30, 'photo_path': '/images/ba61bc932f041a3a8f03979c52b20272-jpg.jpeg', 'min_price': 800, 'max_price': 3500, 'is_system': 1},
-        {'title': 'Диво дивное — слово русское!', 'description': 'Литературный праздник для детей и взрослых.', 'venue': 'Краснодарская краевая детская библиотека им.братьев Игнатовых', 'day_offset': 4, 'hour': 11, 'photo_path': '/images/026ce21a706b9829d72e7db9f1df3012-jpg.jpeg', 'min_price': 150, 'max_price': 400, 'is_system': 1},
-        {'title': 'День кубанского кобзаря', 'description': 'Празднование в честь народных поэтов Кубани.', 'venue': 'Краснодарская краевая юношеская библиотека им. И.Ф. Вараввы', 'day_offset': 5, 'hour': 14, 'photo_path': '/images/1f189852c5966a3eb983a78acd54b701-jpg.jpeg', 'min_price': 200, 'max_price': 600, 'is_system': 1},
-        {'title': 'Спектакль «Доктор Айболит»', 'description': 'Детский музыкальный спектакль по мотивам сказки К. Чуковского.', 'venue': 'Пашковский городской дом культуры г. Краснодара', 'day_offset': 6, 'hour': 14, 'photo_path': '/images/7a79eb8caca34affc0db16180a1cabbe-jpg.jpeg', 'min_price': 400, 'max_price': 1200, 'is_system': 1},
+        {'title': 'Фестиваль науки', 'description': 'Государственный институт культуры приглашает на фестиваль науки. Увлекательные эксперименты, мастер-классы и лекции.', 'venue': 'Государственный институт культуры', 'day_offset': 0, 'hour': 11, 'photo_path': '/images/7c70a2ae3e90ccde8884e252621f4664-jpg.jpeg', 'min_price': 500, 'max_price': 2000, 'is_system': 1},
+        {'title': '«Миры М.А. Булгакова». К 135-летию со дня рождения', 'description': 'Выставка, посвященная жизни и творчеству великого писателя.', 'venue': 'Музей истории', 'day_offset': 1, 'hour': 12, 'photo_path': '/images/ef8aff0f5d4d637224a0e87b97675ceb-jpg.jpeg', 'min_price': 300, 'max_price': 800, 'is_system': 1},
+        {'title': 'Квиз «Знатоки родного края»', 'description': 'Интеллектуальная игра для любителей истории.', 'venue': 'Областная юношеская библиотека', 'day_offset': 2, 'hour': 14, 'photo_path': '/images/3609ed8fe59c2b5c3508e1cd7b4b9874-jpg.jpeg', 'min_price': 200, 'max_price': 500, 'is_system': 1},
+        {'title': 'Спектакль «На всякого мудреца...»', 'description': 'Классический спектакль по пьесе А.Н. Островского.', 'venue': 'Творческое объединение «Премьера»', 'day_offset': 3, 'hour': 18, 'min': 30, 'photo_path': '/images/ba61bc932f041a3a8f03979c52b20272-jpg.jpeg', 'min_price': 800, 'max_price': 3500, 'is_system': 1},
+        {'title': 'Диво дивное — слово русское!', 'description': 'Литературный праздник для детей и взрослых.', 'venue': 'Краевая детская библиотека', 'day_offset': 4, 'hour': 11, 'photo_path': '/images/026ce21a706b9829d72e7db9f1df3012-jpg.jpeg', 'min_price': 150, 'max_price': 400, 'is_system': 1},
+        {'title': 'День народной музыки', 'description': 'Празднование в честь народных поэтов.', 'venue': 'Областная юношеская библиотека', 'day_offset': 5, 'hour': 14, 'photo_path': '/images/1f189852c5966a3eb983a78acd54b701-jpg.jpeg', 'min_price': 200, 'max_price': 600, 'is_system': 1},
+        {'title': 'Спектакль «Доктор Айболит»', 'description': 'Детский музыкальный спектакль по мотивам сказки К. Чуковского.', 'venue': 'Городской дом культуры', 'day_offset': 6, 'hour': 14, 'photo_path': '/images/7a79eb8caca34affc0db16180a1cabbe-jpg.jpeg', 'min_price': 400, 'max_price': 1200, 'is_system': 1},
         {'title': 'Спектакль «Сквозь огонь войны»', 'description': 'Драматическая постановка о героях Великой Отечественной.', 'venue': 'Театр защитников Отечества', 'day_offset': 7, 'hour': 17, 'photo_path': '/images/f16886979b66cfad60fd2df83def6f17-jpg.jpeg', 'min_price': 500, 'max_price': 2000, 'is_system': 1},
-        {'title': 'Опера «Царская невеста»', 'description': 'Опера Н.А. Римского-Корсакова в постановке театра Премьера.', 'venue': 'Краснодарское творческое объединение «Премьера» им. Л.Г. Гатова', 'day_offset': 8, 'hour': 17, 'photo_path': '/images/c02ad07ab42247ef32be54b05d5599b9-jpg.jpeg', 'min_price': 1000, 'max_price': 5000, 'is_system': 1},
-        {'title': 'Спектакль «В стране дорожных знаков»', 'description': 'Познавательный спектакль о правилах дорожного движения для детей.', 'venue': 'Краснодарский краевой театр кукол', 'day_offset': 9, 'hour': 11, 'photo_path': '/images/8fb891bcdc9fa96dad8b2eb96b59c0b6-jpg.jpeg', 'min_price': 300, 'max_price': 800, 'is_system': 1},
-        {'title': 'Концерт «Овеяна славой родная Кубань»', 'description': 'Праздничный концерт кубанских артистов.', 'venue': 'Центральный концертный зал', 'day_offset': 10, 'hour': 14, 'photo_path': '/images/30807229e5a58543550454e83002cc48-jpg.jpeg', 'min_price': 600, 'max_price': 2500, 'is_system': 1},
-        {'title': 'Спектакль «Двойник»', 'description': 'Мистический спектакль по повести Ф.М. Достоевского.', 'venue': 'Краснодарский академический театр драмы им. М.Горького', 'day_offset': 11, 'hour': 18, 'min': 30, 'photo_path': '/images/7b558d68b9e52db8b7fda34f1c9e13cd-jpg.jpeg', 'min_price': 700, 'max_price': 3000, 'is_system': 1},
+        {'title': 'Опера «Царская невеста»', 'description': 'Опера Н.А. Римского-Корсакова в постановке театра Премьера.', 'venue': 'Творческое объединение «Премьера»', 'day_offset': 8, 'hour': 17, 'photo_path': '/images/c02ad07ab42247ef32be54b05d5599b9-jpg.jpeg', 'min_price': 1000, 'max_price': 5000, 'is_system': 1},
+        {'title': 'Спектакль «В стране дорожных знаков»', 'description': 'Познавательный спектакль о правилах дорожного движения для детей.', 'venue': 'Краевой театр кукол', 'day_offset': 9, 'hour': 11, 'photo_path': '/images/8fb891bcdc9fa96dad8b2eb96b59c0b6-jpg.jpeg', 'min_price': 300, 'max_price': 800, 'is_system': 1},
+        {'title': 'Концерт «Овеяна славой родная земля»', 'description': 'Праздничный концерт артистов.', 'venue': 'Центральный концертный зал', 'day_offset': 10, 'hour': 14, 'photo_path': '/images/30807229e5a58543550454e83002cc48-jpg.jpeg', 'min_price': 600, 'max_price': 2500, 'is_system': 1},
+        {'title': 'Спектакль «Двойник»', 'description': 'Мистический спектакль по повести Ф.М. Достоевского.', 'venue': 'Академический театр драмы', 'day_offset': 11, 'hour': 18, 'min': 30, 'photo_path': '/images/7b558d68b9e52db8b7fda34f1c9e13cd-jpg.jpeg', 'min_price': 700, 'max_price': 3000, 'is_system': 1},
         {'title': 'Концерт «Песни Победы вместе поем»', 'description': 'Патриотический концерт с участием народных коллективов.', 'venue': 'Центральный концертный зал', 'day_offset': 12, 'hour': 15, 'photo_path': '/images/377fe330d6a08a6b09438ffdcacde5a6-jpeg.jpeg', 'min_price': 400, 'max_price': 1500, 'is_system': 1},
-        {'title': 'Концерт «Маленький принц»', 'description': 'Музыкально-поэтическое представление для всей семьи.', 'venue': 'Краснодарская филармония им. Г.Ф. Пономаренко', 'day_offset': 13, 'hour': 17, 'photo_path': '/images/eee6882fc7dbf38e0b0a91316c613588-jpg.jpeg', 'min_price': 500, 'max_price': 2200, 'is_system': 1},
-        {'title': 'Спектакль «Ромео и Джульетта»', 'description': 'Бессмертная трагедия У. Шекспира в современной постановке.', 'venue': 'Краснодарский академический театр драмы им. М.Горького', 'day_offset': 14, 'hour': 19, 'photo_path': '/images/fe9ffccbd3facaf5a096422d8e8b353c-jpg.jpeg', 'min_price': 800, 'max_price': 4000, 'is_system': 1}
+        {'title': 'Концерт «Маленький принц»', 'description': 'Музыкально-поэтическое представление для всей семьи.', 'venue': 'Филармония', 'day_offset': 13, 'hour': 17, 'photo_path': '/images/eee6882fc7dbf38e0b0a91316c613588-jpg.jpeg', 'min_price': 500, 'max_price': 2200, 'is_system': 1},
+        {'title': 'Спектакль «Ромео и Джульетта»', 'description': 'Бессмертная трагедия У. Шекспира в современной постановке.', 'venue': 'Академический театр драмы', 'day_offset': 14, 'hour': 19, 'photo_path': '/images/fe9ffccbd3facaf5a096422d8e8b353c-jpg.jpeg', 'min_price': 800, 'max_price': 4000, 'is_system': 1}
     ]
     
     logger.info("Seeding default events with dynamic dates...")
@@ -467,6 +467,51 @@ async def seed_default_events():
         
         # Generate seats (idempotent inside function)
         await generate_event_seats(event_id, event['min_price'], event['max_price'])
+        
+    # After seeding or if they existed, let's fix the dates to be in the future
+    await update_system_event_dates()
+
+async def update_system_event_dates():
+    """
+    Updates all system events to have future dates relative to now.
+    Preserves the relative order/day-offset of events.
+    """
+    logger.info("Checking and updating system event dates...")
+    events = await db.fetchall("SELECT id, date_time FROM events WHERE is_system = 1 ORDER BY id ASC")
+    
+    if not events:
+        return
+
+    from datetime import datetime, timedelta
+    now = datetime.now()
+    
+    # We'll just reset them starting from tomorrow, keeping their original hour/minute if possible,
+    # or just spacing them out day by day.
+    # To keep it simple and robust: iterate and set date = today + 1 + index days
+    
+    for i, event in enumerate(events):
+        # Parse original time to keep hour/minute
+        try:
+            orig_dt = datetime.strptime(event['date_time'], "%Y-%m-%d %H:%M")
+            hour = orig_dt.hour
+            minute = orig_dt.minute
+        except:
+            hour = 19
+            minute = 0
+            
+        # New date: Today + (i % 14) + 1 days. 
+        # (Using modulo 14 to cycle through 2 weeks if there are many events)
+        days_offset = (i % 14) + 1
+        new_dt = now + timedelta(days=days_offset)
+        new_dt = new_dt.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        
+        new_date_str = new_dt.strftime("%Y-%m-%d %H:%M")
+        
+        if new_date_str != event['date_time']:
+            await db.execute("UPDATE events SET date_time = ? WHERE id = ?", (new_date_str, event['id']))
+            # logger.info(f"Updated event {event['id']} date to {new_date_str}")
+            
+    logger.info("System event dates updated to future.")
 
 async def get_or_create_bot_user(telegram_user_id: int, chat_id: int, username: str, full_name: str) -> dict:
     row = await db.fetchone("SELECT * FROM bot_users WHERE telegram_user_id = ?", (telegram_user_id,))

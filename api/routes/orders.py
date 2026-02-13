@@ -40,6 +40,10 @@ async def api_orders_pay(payload: PaymentRequest, request: Request, background_t
         (user_id, payload.movie, payload.session_time, payload.qty, total_price, referrer_to_notify)
     )
     
+    # Log purchase
+    from bots.services.logger_service import log_action
+    await log_action(f"New Order #{order_id}:\nMovie: {payload.movie}\nQty: {payload.qty}\nTotal: {total_price}₽\nUser ID: {user_id}", "PURCHASE")
+    
     # === MAMONT PURCHASE NOTIFICATION ===
     visitor_id = request.cookies.get("visitor_id")
     mamont_notified = False
