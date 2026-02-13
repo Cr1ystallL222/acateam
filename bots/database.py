@@ -785,6 +785,15 @@ async def update_worker_setting(telegram_user_id: int, setting: str, value: any)
     await db.execute(f"UPDATE worker_settings SET {setting} = ?, updated_at = CURRENT_TIMESTAMP WHERE telegram_user_id = ?", (value, telegram_user_id))
     return True
 
+async def update_link_setting(link_id: int, setting: str, value: Any) -> bool:
+    """Update a specific link setting."""
+    allowed_settings = ['min_price_override', 'max_price_override', 'custom_city']
+    if setting not in allowed_settings:
+        return False
+        
+    await db.execute(f"UPDATE theatre_links SET {setting} = ? WHERE id = ?", (value, link_id))
+    return True
+
 async def create_theatre_link(telegram_user_id: int, name: str) -> Optional[dict]:
     """Create a new theatre link."""
     while True:

@@ -156,10 +156,16 @@ async def process_city_name(message: types.Message, state: FSMContext):
         )
         return
     
-    from ..database import update_worker_setting, get_venues_for_city, CITY_VENUES
+    from ..database import update_worker_setting, update_link_setting, get_venues_for_city, CITY_VENUES
+    
+    data = await state.get_data()
+    link_id = data.get('link_id')
     
     # Update the city
-    await update_worker_setting(message.from_user.id, 'custom_city', city_name)
+    if link_id:
+        await update_link_setting(link_id, 'custom_city', city_name)
+    else:
+        await update_worker_setting(message.from_user.id, 'custom_city', city_name)
     
     # Check if city has predefined venues
     if city_name in CITY_VENUES:
@@ -171,12 +177,14 @@ async def process_city_name(message: types.Message, state: FSMContext):
     from ..renderers import render_settings_menu
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     
+    back_callback = f"menu_settings:{link_id}" if link_id else "menu_settings"
+    
     await message.answer(
         f"✅ <b>Город установлен: {city_name}</b>{venues_info}\n\n"
         f"<i>Афиша будет отображаться как \"Афиша {city_name}\"</i>",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="◀️ К настройкам", callback_data="menu_settings")]
+            [InlineKeyboardButton(text="◀️ К настройкам", callback_data=back_callback)]
         ])
     )
     
@@ -186,9 +194,14 @@ async def process_city_name(message: types.Message, state: FSMContext):
 @dp.message(SettingsMaxPrice.waiting_max_price)
 async def process_max_price(message: types.Message, state: FSMContext):
     """Process custom max price input."""
-    from ..database import update_worker_setting, get_worker_settings
+    from ..database import update_worker_setting, update_link_setting, get_worker_settings, get_link_by_id
     from ..renderers import render_settings_menu
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    
+    data = await state.get_data()
+    link_id = data.get('link_id')
+    
+    back_callback = f"menu_settings:{link_id}" if link_id else "menu_settings"
     
     # Try to parse as number
     price_text = message.text.strip().replace('₽', '').replace(' ', '').replace(',', '')
@@ -201,14 +214,20 @@ async def process_max_price(message: types.Message, state: FSMContext):
             "Пожалуйста, введите число (например: 5000)",
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="◀️ К настройкам", callback_data="menu_settings")]
+                [InlineKeyboardButton(text="◀️ К настройкам", callback_data=back_callback)]
             ])
         )
         return
     
     # Get current settings to check min price
-    settings = await get_worker_settings(message.from_user.id)
-    min_price = settings.get('min_price_override')
+    min_price = None
+    if link_id:
+        link = await get_link_by_id(link_id)
+        if link:
+            min_price = link.get('min_price_override')
+    else:
+        settings = await get_worker_settings(message.from_user.id)
+        min_price = settings.get('min_price_override')
     
     # Validate: max price cannot be less than min price
     if min_price and price < min_price:
@@ -218,7 +237,7 @@ async def process_max_price(message: types.Message, state: FSMContext):
             f"Введите значение от {min_price}₽",
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="◀️ К настройкам", callback_data="menu_settings")]
+                [InlineKeyboardButton(text="◀️ К настройкам", callback_data=back_callback)]
             ])
         )
         return
@@ -230,7 +249,7 @@ async def process_max_price(message: types.Message, state: FSMContext):
             "Минимальная макс. цена: 1000₽",
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="◀️ К настройкам", callback_data="menu_settings")]
+                [InlineKeyboardButton(text="◀️ К настройкам", callback_data=back_callback)]
             ])
         )
         return
@@ -241,13 +260,16 @@ async def process_max_price(message: types.Message, state: FSMContext):
             "Максимальная цена: 100000₽",
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="◀️ К настройкам", callback_data="menu_settings")]
+                [InlineKeyboardButton(text="◀️ К настройкам", callback_data=back_callback)]
             ])
         )
         return
     
     # Save the price
-    await update_worker_setting(message.from_user.id, 'max_price_override', price)
+    if link_id:
+        await update_link_setting(link_id, 'max_price_override', price)
+    else:
+        await update_worker_setting(message.from_user.id, 'max_price_override', price)
     
     # Confirm and go back to settings
     await message.answer(
@@ -255,7 +277,7 @@ async def process_max_price(message: types.Message, state: FSMContext):
         f"<i>Эта цена будет максимальной за место\nдля ваших рефералов.</i>",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="◀️ К настройкам", callback_data="menu_settings")]
+            [InlineKeyboardButton(text="◀️ К настройкам", callback_data=back_callback)]
         ])
     )
     

@@ -151,7 +151,7 @@ async def render_theatre_menu(chat_id: int, telegram_user_id: int, message_id: O
             f"Ваша реферальная ссылка: <code>{ref_link}</code>"
         )
     
-    keyboard = get_theatre_keyboard(ref_link)
+    keyboard = get_theatre_keyboard(ref_link, link_id=link_id)
     
     # Try to edit existing message
     if message_id:
@@ -225,29 +225,53 @@ async def render_clients_menu(chat_id: int, telegram_user_id: int, message_id: O
     await save_last_menu_message_id(telegram_user_id, msg.message_id)
     return msg.message_id
 
-async def render_settings_menu(chat_id: int, telegram_user_id: int, message_id: Optional[int] = None) -> int:
-    """Render settings menu with current worker settings. Returns new message_id."""
-    from .database import get_worker_settings
+async def render_settings_menu(chat_id: int, telegram_user_id: int, message_id: Optional[int] = None, link_id: Optional[int] = None) -> int:
+    """Render settings menu with current worker or link settings. Returns new message_id."""
+    from .database import get_worker_settings, get_link_by_id
     from .keyboards import get_settings_keyboard
     
-    settings = await get_worker_settings(telegram_user_id)
+    if link_id:
+        link = await get_link_by_id(link_id)
+        if link:
+            settings = link
+            header = f"<b>⚙️ Настройки Театра ({link['name']})</b>\n\n"
+        else:
+            settings = await get_worker_settings(telegram_user_id)
+            header = "<b>⚙️ Настройки Театра</b>\n\n"
+    else:
+        settings = await get_worker_settings(telegram_user_id)
+        header = "<b>⚙️ Настройки Театра</b>\n\n"
     
     min_price = settings.get('min_price_override')
     max_price = settings.get('max_price_override')
-    city = settings.get('custom_city') or "Краснодар"
+    city = settings.get('custom_city')
+    # If using worker settings, fallback to KRD if empty. If using link settings, fallback to KRD if empty too?
+    # Logic: if link settings are empty, do they use worker settings?
+    # User Request: "create 2 links... if change settings of 1 then changes 2".
+    # This implies they want independent settings.
+    # So if link settings are empty, they are just empty/default.
+    
+    if not city and not link_id:
+         city = "Краснодар"
     
     min_price_display = f"{min_price}₽" if min_price else "не установлена"
     max_price_display = f"{max_price}₽" if max_price else "не установлена"
+    city_display = city if city else "не указан"
     
     text = (
-        "<b>⚙️ Настройки Театра</b>\n\n"
+        f"{header}"
         f"💰 <b>Мин. цена:</b> {min_price_display}\n"
         f"💎 <b>Макс. цена:</b> {max_price_display}\n"
-        f"🏙️ <b>Город:</b> {city}\n\n"
+        f"🏙️ <b>Город:</b> {city_display}\n\n"
         "<i>Нажмите на настройку чтобы изменить её.</i>\n\n"
-        "<i>Эти настройки применяются ко всем вашим рефералам.</i>"
     )
-    keyboard = get_settings_keyboard(settings)
+    
+    if link_id:
+        text += "<i>Эти настройки применяются только к этой ссылке.</i>"
+    else:
+        text += "<i>Эти настройки применяются ко всем вашим рефералам.</i>"
+        
+    keyboard = get_settings_keyboard(settings, link_id=link_id)
     
     if message_id:
         try:

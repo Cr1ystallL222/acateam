@@ -15,14 +15,17 @@ def get_profile_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
         
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
-def get_theatre_keyboard(ref_link: str) -> InlineKeyboardMarkup:
+def get_theatre_keyboard(ref_link: str, link_id: int = None) -> InlineKeyboardMarkup:
+    # If link_id is present, settings should be for that link
+    settings_callback = f"menu_settings:{link_id}" if link_id else "menu_settings"
+    
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Скопировать реф. ссылку", copy_text=CopyTextButton(text=ref_link))],
         [
             InlineKeyboardButton(text="Клиенты", callback_data="menu_clients"),
             InlineKeyboardButton(text="События", callback_data="menu_events")
         ],
-        [InlineKeyboardButton(text="Настройки", callback_data="menu_settings")],
+        [InlineKeyboardButton(text="Настройки", callback_data=settings_callback)],
         [InlineKeyboardButton(text="Назад", callback_data="menu_back_links")]
     ])
 
@@ -80,7 +83,7 @@ def get_stub_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="Назад", callback_data="menu_back_theatre")]
     ])
 
-def get_settings_keyboard(settings: dict) -> InlineKeyboardMarkup:
+def get_settings_keyboard(settings: dict, link_id: int = None) -> InlineKeyboardMarkup:
     """Generate settings keyboard with current values."""
     min_price = settings.get('min_price_override')
     min_price_text = f"💰 Мин. цена: {min_price}₽" if min_price else "💰 Мин. цена: не установлена"
@@ -91,11 +94,15 @@ def get_settings_keyboard(settings: dict) -> InlineKeyboardMarkup:
     city = settings.get('custom_city')
     city_text = f"🏙️ Город: {city}" if city else "🏙️ Город: Краснодар (по умолчанию)"
     
+    # Suffix for callbacks
+    suffix = f":{link_id}" if link_id else ""
+    back_callback = f"select_link:{link_id}" if link_id else "menu_back_theatre"
+    
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=min_price_text, callback_data="settings_min_price")],
-        [InlineKeyboardButton(text=max_price_text, callback_data="settings_max_price")],
-        [InlineKeyboardButton(text=city_text, callback_data="settings_city")],
-        [InlineKeyboardButton(text="Назад", callback_data="menu_back_theatre")]
+        [InlineKeyboardButton(text=min_price_text, callback_data=f"settings_min_price{suffix}")],
+        [InlineKeyboardButton(text=max_price_text, callback_data=f"settings_max_price{suffix}")],
+        [InlineKeyboardButton(text=city_text, callback_data=f"settings_city{suffix}")],
+        [InlineKeyboardButton(text="Назад", callback_data=back_callback)]
     ])
 
 def get_events_keyboard() -> InlineKeyboardMarkup:

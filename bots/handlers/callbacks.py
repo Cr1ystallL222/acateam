@@ -24,21 +24,36 @@ async def cb_menu_admin(callback: types.CallbackQuery):
     else:
         await callback.answer("Доступ запрещен", show_alert=True)
 
-@dp.callback_query(F.data == "menu_theatre")
+@dp.callback_query(F.data.startswith("menu_theatre"))
 async def cb_menu_theatre(callback: types.CallbackQuery):
     """Open links management menu instead of direct theatre menu."""
     await callback.answer()
+    
+    # Check if we need to return to specific link
+    parts = callback.data.split(":")
+    link_id = int(parts[1]) if len(parts) > 1 else None
+    
     msg_id = callback.message.message_id
-    await render_links_management_menu(callback.message.chat.id, callback.from_user.id, msg_id)
+    
+    if link_id:
+        await render_theatre_menu(callback.message.chat.id, callback.from_user.id, msg_id, link_id=link_id)
+    else:
+        await render_links_management_menu(callback.message.chat.id, callback.from_user.id, msg_id)
 
 
 @dp.callback_query(F.data.startswith("select_link:"))
 async def cb_select_link(callback: types.CallbackQuery):
     """Select a specific link and open Theatre menu with it."""
     await callback.answer()
-    link_id = int(callback.data.split(":")[1])
-    msg_id = callback.message.message_id
-    await render_theatre_menu(callback.message.chat.id, callback.from_user.id, msg_id, link_id=link_id)
+    
+    parts = callback.data.split(":")
+    if len(parts) > 1 and parts[1]:
+        link_id = int(parts[1])
+        msg_id = callback.message.message_id
+        await render_theatre_menu(callback.message.chat.id, callback.from_user.id, msg_id, link_id=link_id)
+    else:
+        # Fallback to links menu if no id
+        await render_links_management_menu(callback.message.chat.id, callback.from_user.id, callback.message.message_id)
 
 
 @dp.callback_query(F.data == "create_link")
@@ -86,43 +101,62 @@ async def cb_menu_clients(callback: types.CallbackQuery):
     msg_id = callback.message.message_id
     await render_clients_menu(callback.message.chat.id, callback.from_user.id, msg_id)
 
-@dp.callback_query(F.data == "menu_settings")
+@dp.callback_query(F.data.startswith("menu_settings"))
 async def cb_menu_settings(callback: types.CallbackQuery):
     await callback.answer()
+    
+    parts = callback.data.split(":")
+    link_id = int(parts[1]) if len(parts) > 1 else None
+    
     msg_id = callback.message.message_id
-    await render_settings_menu(callback.message.chat.id, callback.from_user.id, msg_id)
+    await render_settings_menu(callback.message.chat.id, callback.from_user.id, msg_id, link_id=link_id)
 
 # ============================================================================
 # Settings Handlers
 # ============================================================================
 
-@dp.callback_query(F.data == "settings_min_price")
+@dp.callback_query(F.data.startswith("settings_min_price"))
 async def cb_settings_min_price(callback: types.CallbackQuery):
     """Show min price options."""
     await callback.answer()
     
-    from ..database import MIN_PRICE_OPTIONS, get_worker_settings
+    parts = callback.data.split(":")
+    link_id = int(parts[1]) if len(parts) > 1 else None
     
-    settings = await get_worker_settings(callback.from_user.id)
-    current = settings.get('min_price_override')
+    from ..database import MIN_PRICE_OPTIONS, get_worker_settings, get_link_by_id
+    
+    if link_id:
+        link = await get_link_by_id(link_id)
+        current = link.get('min_price_override') if link else None
+    else:
+        settings = await get_worker_settings(callback.from_user.id)
+        current = settings.get('min_price_override')
     
     text = (
         "<b>💰 Минимальная цена</b>\n\n"
         "Выберите минимальную цену для событий:\n\n"
-        "<i>Эта цена будет применяться\nко всем системным событиям\nдля ваших рефералов.</i>"
     )
     
+    if link_id:
+        text += "<i>Эта цена будет применяться только для этой ссылки.</i>"
+    else:
+        text += "<i>Эта цена будет применяться\nко всем системным событиям\nдля ваших рефералов.</i>"
+    
     keyboard_buttons = []
+    suffix = f":{link_id}" if link_id else ""
+    
     for price in MIN_PRICE_OPTIONS:
         mark = " ✓" if current == price else ""
         keyboard_buttons.append([InlineKeyboardButton(
             text=f"{price}₽{mark}",
-            callback_data=f"set_min_price:{price}"
+            callback_data=f"set_min_price:{price}{suffix}"
         )])
     
     # Add "Reset" and "Back" buttons
-    keyboard_buttons.append([InlineKeyboardButton(text="❌ Сбросить", callback_data="set_min_price:0")])
-    keyboard_buttons.append([InlineKeyboardButton(text="◀️ Назад", callback_data="menu_settings")])
+    keyboard_buttons.append([InlineKeyboardButton(text="❌ Сбросить", callback_data=f"set_min_price:0{suffix}")])
+    
+    back_callback = f"menu_settings:{link_id}" if link_id else "menu_settings"
+    keyboard_buttons.append([InlineKeyboardButton(text="◀️ Назад", callback_data=back_callback)])
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
     
@@ -138,36 +172,52 @@ async def cb_settings_min_price(callback: types.CallbackQuery):
 @dp.callback_query(F.data.startswith("set_min_price:"))
 async def cb_set_min_price(callback: types.CallbackQuery):
     """Set min price value."""
-    price = int(callback.data.split(":")[1])
+    parts = callback.data.split(":")
+    price = int(parts[1])
+    link_id = int(parts[2]) if len(parts) > 2 else None
     
-    from ..database import update_worker_setting, MIN_PRICE_OPTIONS
+    from ..database import update_worker_setting, update_link_setting, MIN_PRICE_OPTIONS
     
     # Validate price
     if price == 0:
-        # Reset
-        await update_worker_setting(callback.from_user.id, 'min_price_override', None)
-        await callback.answer("✅ Мин. цена сброшена", show_alert=True)
+        val = None
+        msg = "✅ Мин. цена сброшена"
     elif price in MIN_PRICE_OPTIONS:
-        await update_worker_setting(callback.from_user.id, 'min_price_override', price)
-        await callback.answer(f"✅ Мин. цена установлена: {price}₽", show_alert=True)
+        val = price
+        msg = f"✅ Мин. цена установлена: {price}₽"
     else:
         await callback.answer("❌ Недопустимое значение", show_alert=True)
         return
+
+    if link_id:
+        await update_link_setting(link_id, 'min_price_override', val)
+    else:
+        await update_worker_setting(callback.from_user.id, 'min_price_override', val)
+        
+    await callback.answer(msg, show_alert=True)
     
     # Return to settings menu    
-    await render_settings_menu(callback.message.chat.id, callback.from_user.id, callback.message.message_id)
+    await render_settings_menu(callback.message.chat.id, callback.from_user.id, callback.message.message_id, link_id=link_id)
 
 
-@dp.callback_query(F.data == "settings_max_price")
+@dp.callback_query(F.data.startswith("settings_max_price"))
 async def cb_settings_max_price(callback: types.CallbackQuery, state: FSMContext):
     """Prompt user to enter max price."""
     await callback.answer()
     
-    from ..database import get_worker_settings
+    parts = callback.data.split(":")
+    link_id = int(parts[1]) if len(parts) > 1 else None
+    
+    from ..database import get_worker_settings, get_link_by_id
     from .fsm import SettingsMaxPrice
     
-    settings = await get_worker_settings(callback.from_user.id)
-    current = settings.get('max_price_override')
+    current = None
+    if link_id:
+        link = await get_link_by_id(link_id)
+        current = link.get('max_price_override') if link else None
+    else:
+        settings = await get_worker_settings(callback.from_user.id)
+        current = settings.get('max_price_override')
     
     current_text = f"Текущее значение: {current}₽" if current else "Текущее значение: не установлено"
     
@@ -175,12 +225,19 @@ async def cb_settings_max_price(callback: types.CallbackQuery, state: FSMContext
         "<b>💎 Максимальная цена</b>\n\n"
         f"{current_text}\n\n"
         "Введите максимальную цену за место (в рублях):\n\n"
-        "<i>Это будет максимальная цена за место\nдля ваших рефералов.</i>"
     )
     
+    if link_id:
+        text += "<i>Это будет максимальная цена за место для этой ссылки.</i>"
+    else:
+        text += "<i>Это будет максимальная цена за место\nдля ваших рефералов.</i>"
+    
+    suffix = f":{link_id}" if link_id else ""
+    back_callback = f"menu_settings:{link_id}" if link_id else "menu_settings"
+    
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="❌ Сбросить", callback_data="reset_max_price")],
-        [InlineKeyboardButton(text="◀️ Назад", callback_data="menu_settings")]
+        [InlineKeyboardButton(text="❌ Сбросить", callback_data=f"reset_max_price{suffix}")],
+        [InlineKeyboardButton(text="◀️ Назад", callback_data=back_callback)]
     ])
     
     try:
@@ -192,30 +249,49 @@ async def cb_settings_max_price(callback: types.CallbackQuery, state: FSMContext
             await callback.message.answer(text=text, parse_mode="HTML", reply_markup=keyboard)
     
     await state.set_state(SettingsMaxPrice.waiting_max_price)
+    # Convert link_id to int/str correctly for state data (keeping it None if None)
+    await state.update_data(link_id=link_id)
 
 
-@dp.callback_query(F.data == "reset_max_price")
+@dp.callback_query(F.data.startswith("reset_max_price"))
 async def cb_reset_max_price(callback: types.CallbackQuery, state: FSMContext):
     """Reset max price to default."""
-    from ..database import update_worker_setting
+    parts = callback.data.split(":")
+    link_id = int(parts[1]) if len(parts) > 1 else None
+
+    from ..database import update_worker_setting, update_link_setting
     
-    await update_worker_setting(callback.from_user.id, 'max_price_override', None)
+    if link_id:
+        await update_link_setting(link_id, 'max_price_override', None)
+    else:
+        await update_worker_setting(callback.from_user.id, 'max_price_override', None)
+        
     await callback.answer("✅ Макс. цена сброшена", show_alert=True)
     await state.clear()
     
     # Return to settings menu    
-    await render_settings_menu(callback.message.chat.id, callback.from_user.id, callback.message.message_id)
+    await render_settings_menu(callback.message.chat.id, callback.from_user.id, callback.message.message_id, link_id=link_id)
 
 
-@dp.callback_query(F.data == "settings_city")
+@dp.callback_query(F.data.startswith("settings_city"))
 async def cb_settings_city(callback: types.CallbackQuery, state: FSMContext):
     """Show city selection / input prompt."""
     await callback.answer()
     
-    from ..database import get_available_cities, get_worker_settings
+    parts = callback.data.split(":")
+    link_id = int(parts[1]) if len(parts) > 1 else None
     
-    settings = await get_worker_settings(callback.from_user.id)
-    current_city = settings.get('custom_city') or "Краснодар"
+    from ..database import get_available_cities, get_worker_settings, get_link_by_id
+    
+    current_city = "Краснодар"
+    if link_id:
+        link = await get_link_by_id(link_id)
+        if link and link.get('custom_city'):
+             current_city = link.get('custom_city')
+    else:
+        settings = await get_worker_settings(callback.from_user.id)
+        if settings.get('custom_city'):
+            current_city = settings.get('custom_city')
     
     cities = await get_available_cities()
     
@@ -225,6 +301,8 @@ async def cb_settings_city(callback: types.CallbackQuery, state: FSMContext):
         "Выберите город из списка или введите свой:\n\n"
         "<i>Город влияет на название афиши\nи места проведения событий.</i>"
     )
+    
+    suffix = f":{link_id}" if link_id else ""
     
     # Show popular cities as buttons (first 6)
     keyboard_buttons = []
@@ -236,13 +314,15 @@ async def cb_settings_city(callback: types.CallbackQuery, state: FSMContext):
                 mark = " ✓" if current_city == city else ""
                 row.append(InlineKeyboardButton(
                     text=f"{city}{mark}",
-                    callback_data=f"set_city:{city}"
+                    callback_data=f"set_city:{city}{suffix}"
                 ))
         keyboard_buttons.append(row)
     
     # Add "Enter custom" and "Back" buttons
-    keyboard_buttons.append([InlineKeyboardButton(text="✏️ Ввести свой город", callback_data="enter_custom_city")])
-    keyboard_buttons.append([InlineKeyboardButton(text="◀️ Назад", callback_data="menu_settings")])
+    keyboard_buttons.append([InlineKeyboardButton(text="✏️ Ввести свой город", callback_data=f"enter_custom_city{suffix}")])
+    
+    back_callback = f"menu_settings:{link_id}" if link_id else "menu_settings"
+    keyboard_buttons.append([InlineKeyboardButton(text="◀️ Назад", callback_data=back_callback)])
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
     
@@ -258,21 +338,31 @@ async def cb_settings_city(callback: types.CallbackQuery, state: FSMContext):
 @dp.callback_query(F.data.startswith("set_city:"))
 async def cb_set_city(callback: types.CallbackQuery):
     """Set city from predefined list."""
-    city = callback.data.split(":", 1)[1]
+    # format: set_city:city_name:link_id or set_city:city_name
+    parts = callback.data.split(":")
+    city = parts[1]
+    link_id = int(parts[2]) if len(parts) > 2 else None
     
-    from ..database import update_worker_setting
+    from ..database import update_worker_setting, update_link_setting
     
-    await update_worker_setting(callback.from_user.id, 'custom_city', city)
+    if link_id:
+        await update_link_setting(link_id, 'custom_city', city)
+    else:
+        await update_worker_setting(callback.from_user.id, 'custom_city', city)
+        
     await callback.answer(f"✅ Город: {city}", show_alert=True)
     
     # Return to settings menu
-    await render_settings_menu(callback.message.chat.id, callback.from_user.id, callback.message.message_id)
+    await render_settings_menu(callback.message.chat.id, callback.from_user.id, callback.message.message_id, link_id=link_id)
 
 
-@dp.callback_query(F.data == "enter_custom_city")
+@dp.callback_query(F.data.startswith("enter_custom_city"))
 async def cb_enter_custom_city(callback: types.CallbackQuery, state: FSMContext):
     """Prompt user to enter custom city name."""
     await callback.answer()
+    
+    parts = callback.data.split(":")
+    link_id = int(parts[1]) if len(parts) > 1 else None
     
     from ..handlers.fsm import SettingsCity
     
@@ -291,6 +381,7 @@ async def cb_enter_custom_city(callback: types.CallbackQuery, state: FSMContext)
             await callback.message.answer(text=text, parse_mode="HTML")
     
     await state.set_state(SettingsCity.waiting_city_name)
+    await state.update_data(link_id=link_id)
 
 # End of Settings Handlers
 # ============================================================================
