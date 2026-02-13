@@ -217,7 +217,7 @@ async def cb_settings_city(callback: types.CallbackQuery, state: FSMContext):
     settings = await get_worker_settings(callback.from_user.id)
     current_city = settings.get('custom_city') or "Краснодар"
     
-    cities = get_available_cities()
+    cities = await get_available_cities()
     
     text = (
         "<b>🏙️ Настройка города</b>\n\n"
