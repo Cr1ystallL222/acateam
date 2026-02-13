@@ -10,6 +10,7 @@ interface Message {
     isSupport: boolean;
     timestamp: Date;
     attachment_url?: string;
+    isRead?: boolean;
 }
 
 export default function SupportChat() {
@@ -27,7 +28,7 @@ export default function SupportChat() {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
-    const lastMessageCount = useRef(0);
+    // const lastMessageCount = useRef(0); // Removed in favor of server status
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -48,15 +49,15 @@ export default function SupportChat() {
                 timestamp: new Date(m.timestamp),
             }));
 
-            // Check for new replies
-            if (loadedMessages.length > lastMessageCount.current) {
-                const newMessages = loadedMessages.slice(lastMessageCount.current);
-                const hasSupport = newMessages.some((m) => m.isSupport);
-                if (hasSupport && !isOpen) {
-                    setHasNewReply(true);
-                }
+            // Server source of truth for unread
+            if (data.has_unread !== undefined) {
+                setHasNewReply(data.has_unread && !isOpen);
+            } else {
+                // Fallback (should not be needed after API update)
+                const hasSupport = loadedMessages.some(m => m.isSupport);
+                // Simple logic: if last message is support and we are closed? 
+                // Better to rely on server.
             }
-            lastMessageCount.current = loadedMessages.length;
 
             setMessages(loadedMessages);
         } catch (err) {
@@ -68,7 +69,10 @@ export default function SupportChat() {
     useEffect(() => {
         if (isOpen && user) {
             loadMessages();
-            setHasNewReply(false);
+            // Mark as read
+            api.support.read().then(() => {
+                setHasNewReply(false);
+            }).catch(() => { });
         }
     }, [isOpen, user, loadMessages]);
 
@@ -82,8 +86,9 @@ export default function SupportChat() {
 
     // Also poll when closed to show notification
     useEffect(() => {
-        if (isOpen || !user) return;
+        if (isOpen || !user) return; // Don't poll if open (already polling above) -> logic fix
 
+        // Actually we need to poll when closed to update Red Dot
         const interval = setInterval(loadMessages, 15000);
         return () => clearInterval(interval);
     }, [isOpen, user, loadMessages]);

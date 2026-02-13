@@ -47,6 +47,7 @@ async def ensure_support_table():
                 created_at TIMESTAMP DEFAULT NOW(),
                 attachment_path TEXT,
                 mamont_id TEXT,
+                user_read BOOLEAN DEFAULT FALSE,
                 FOREIGN KEY(user_id) REFERENCES users(id)
             )
         """)
@@ -63,6 +64,7 @@ async def ensure_support_table():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 attachment_path TEXT,
                 mamont_id TEXT,
+                user_read BOOLEAN DEFAULT FALSE,
                 FOREIGN KEY(user_id) REFERENCES users(id)
             )
         """)
@@ -109,6 +111,16 @@ async def send_support_message(
             # Ensure directory exists
             upload_dir.mkdir(parents=True, exist_ok=True)
             
+            # Check file size (Read into memory? Or check header?)
+            # FastAPI UploadFile is spooled. We can check size by seeking?
+            # Or just read and check len.
+            # Safety: Read in chunks or check content-length header if reliable.
+            # Let's read content.
+            
+            content = await file.read()
+            if len(content) > 5 * 1024 * 1024: # 5MB
+                raise HTTPException(status_code=400, detail="Файл слишком большой (макс. 5Мб)")
+
             # Generate filename
             ext = file.filename.split('.')[-1] if '.' in file.filename else "jpg"
             filename = f"{uuid.uuid4()}.{ext}"
@@ -238,7 +250,7 @@ async def get_support_messages(request: Request):
     # Try to select attachment_path, but handle if it doesn't exist yet (though we updated schema)
     try:
         rows = await db.fetchall("""
-            SELECT id, message, reply_text, created_at, replied_at, attachment_path
+            SELECT id, message, reply_text, created_at, replied_at, attachment_path, user_read
             FROM support_tickets
             WHERE user_id = ?
             ORDER BY created_at ASC
@@ -253,6 +265,8 @@ async def get_support_messages(request: Request):
         """, (user_id,))
     
     messages = []
+    has_unread = False
+    
     for row in rows:
         # Add user message
         msg = {
@@ -268,11 +282,55 @@ async def get_support_messages(request: Request):
         
         # Add support reply if exists
         if row['reply_text']:
+            # Check read status if available
+            is_read = True
+            if 'user_read' in row:
+                is_read = bool(row['user_read'])
+                if not is_read:
+                    has_unread = True
+
             messages.append({
                 "id": f"{row['id']}_reply",
                 "text": row['reply_text'],
                 "isSupport": True,
-                "timestamp": row['replied_at'] or row['created_at']
+                "timestamp": row['replied_at'] or row['created_at'],
+                "isRead": is_read
             })
     
-    return {"messages": messages}
+    return {"messages": messages, "has_unread": has_unread}
+
+
+@router.post("/api/support/read")
+async def mark_support_read(request: Request):
+    """Mark all support replies as read for current user."""
+    user = await get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Необходимо авторизоваться")
+    
+    if hasattr(user, 'keys'):
+        user = dict(user)
+    
+    user_id = user.get('id')
+    
+    await ensure_support_table()
+    
+    # Update all replied tickets where user_read is false
+    try:
+        if db.is_postgres:
+            await db.execute("""
+                UPDATE support_tickets 
+                SET user_read = TRUE 
+                WHERE user_id = ? AND reply_text IS NOT NULL AND user_read = FALSE
+            """, (user_id,))
+        else:
+            await db.execute("""
+                UPDATE support_tickets 
+                SET user_read = 1
+                WHERE user_id = ? AND reply_text IS NOT NULL AND (user_read = 0 OR user_read IS NULL)
+            """, (user_id,))
+            
+        return {"status": "ok"}
+    except Exception as e:
+        logger.error(f"Error marking messages read: {e}")
+        # Non-critical, just return ok
+        return {"status": "ok"}

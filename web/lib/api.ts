@@ -168,6 +168,8 @@ export const api = {
             });
         },
         messages: () =>
-            fetchJson<{ messages: Array<{ id: string | number; text: string; isSupport: boolean; timestamp: string; attachment_url?: string }> }>('/api/support/messages')
+            fetchJson<{ messages: Array<{ id: string | number; text: string; isSupport: boolean; timestamp: string; attachment_url?: string; isRead?: boolean }>; has_unread?: boolean }>('/api/support/messages'),
+        read: () =>
+            fetchJson<{ status: string }>('/api/support/read', { method: 'POST' })
     }
 };
