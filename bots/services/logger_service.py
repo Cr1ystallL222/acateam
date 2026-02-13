@@ -1,4 +1,4 @@
-from .loader import bot
+from ..loader import bot
 from ..config import LOG_CHAT_ID, logger
 import asyncio
 
