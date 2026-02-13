@@ -75,7 +75,7 @@ async def api_topup_status(deposit_id: int, request: Request):
         if created_at.tzinfo is None:
             created_at = created_at.replace(tzinfo=timezone.utc)
         
-        if datetime.now(timezone.utc) > created_at + timedelta(minutes=5):
+        if datetime.now(timezone.utc) > created_at + timedelta(minutes=10):
             await db.execute("UPDATE deposits SET status = 'expired' WHERE id = ?", (deposit_id,))
             deposit['status'] = 'expired'
             expired_reason = 'requisites_timeout'
@@ -104,7 +104,7 @@ async def api_topup_status(deposit_id: int, request: Request):
         created_at = datetime.fromisoformat(str(deposit['created_at']))
         if created_at.tzinfo is None:
             created_at = created_at.replace(tzinfo=timezone.utc)
-        deadline = created_at + timedelta(minutes=5)
+        deadline = created_at + timedelta(minutes=10)
         time_remaining = max(0, int((deadline - datetime.now(timezone.utc)).total_seconds()))
     
     return {

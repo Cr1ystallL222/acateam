@@ -48,9 +48,9 @@ async def handle_topup_reply(message: types.Message):
                 created_at = created_at.replace(tzinfo=timezone.utc)
             
             now = datetime.now(timezone.utc)
-            if (now - created_at).total_seconds() > 300:  # 5 minutes
+            if (now - created_at).total_seconds() > 600:  # 10 minutes
                 await db.execute("UPDATE deposits SET status = 'expired' WHERE id = ? AND status IN ('pending', 'awaiting_requisites')", (deposit['id'],))
-                await message.reply("❌ Заявка истекла (прошло более 5 минут). Реквизиты выдать нельзя.")
+                await message.reply("❌ Заявка истекла (прошло более 10 минут). Реквизиты выдать нельзя.")
                 return
         except Exception as e:
             logger.error(f"Error checking deposit expiry: {e}")
