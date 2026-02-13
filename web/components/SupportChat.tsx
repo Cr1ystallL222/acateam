@@ -9,6 +9,7 @@ interface Message {
     text: string;
     isSupport: boolean;
     timestamp: Date;
+    attachment_url?: string;
 }
 
 export default function SupportChat() {
@@ -19,6 +20,12 @@ export default function SupportChat() {
     const [isSending, setIsSending] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [hasNewReply, setHasNewReply] = useState(false);
+
+    // File upload state
+    const [file, setFile] = useState<File | null>(null);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const lastMessageCount = useRef(0);
 
@@ -28,7 +35,7 @@ export default function SupportChat() {
 
     useEffect(() => {
         scrollToBottom();
-    }, [messages, isOpen]);
+    }, [messages, isOpen, previewUrl]);
 
     // Load messages from API
     const loadMessages = useCallback(async () => {
@@ -81,8 +88,31 @@ export default function SupportChat() {
         return () => clearInterval(interval);
     }, [isOpen, user, loadMessages]);
 
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const selectedFile = e.target.files[0];
+            if (selectedFile.size > 5 * 1024 * 1024) {
+                setError("Файл слишком большой (макс. 5Мб)");
+                return;
+            }
+            setFile(selectedFile);
+            setPreviewUrl(URL.createObjectURL(selectedFile));
+        }
+    };
+
+    const removeFile = () => {
+        setFile(null);
+        if (previewUrl) {
+            URL.revokeObjectURL(previewUrl);
+            setPreviewUrl(null);
+        }
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
+    };
+
     const handleSend = async () => {
-        if (!inputText.trim() || isSending) return;
+        if ((!inputText.trim() && !file) || isSending) return;
 
         if (!user) {
             setError("Войдите в аккаунт, чтобы написать в поддержку");
@@ -90,7 +120,14 @@ export default function SupportChat() {
         }
 
         const text = inputText.trim();
+        const currentFile = file;
+        const currentPreview = previewUrl;
+
         setInputText("");
+        setFile(null);
+        setPreviewUrl(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+
         setError(null);
         setIsSending(true);
 
@@ -101,11 +138,12 @@ export default function SupportChat() {
             text,
             isSupport: false,
             timestamp: new Date(),
+            attachment_url: currentPreview || undefined
         };
         setMessages((prev) => [...prev, newMessage]);
 
         try {
-            await api.support.send(text);
+            await api.support.send(text, currentFile);
             // Reload messages to get the actual ID
             await loadMessages();
         } catch (err: any) {
@@ -113,6 +151,10 @@ export default function SupportChat() {
             // Remove the temp message on error
             setMessages((prev) => prev.filter((m) => m.id !== tempId));
             setInputText(text);
+            if (currentFile) {
+                setFile(currentFile);
+                setPreviewUrl(currentPreview);
+            }
         } finally {
             setIsSending(false);
         }
@@ -257,6 +299,15 @@ export default function SupportChat() {
                                                 : "bg-[#29a9eb] text-white rounded-2xl rounded-br-none"
                                                 }`}
                                         >
+                                            {msg.attachment_url && (
+                                                <div className="mb-2 rounded-lg overflow-hidden">
+                                                    <img
+                                                        src={msg.attachment_url}
+                                                        alt="attachment"
+                                                        className="max-w-full h-auto max-h-48 object-cover"
+                                                    />
+                                                </div>
+                                            )}
                                             <p className="text-[15px] leading-snug whitespace-pre-wrap break-words">
                                                 {msg.text}
                                             </p>
@@ -298,40 +349,69 @@ export default function SupportChat() {
                                 </a>
                             </div>
                         ) : (
-                            <div className="flex items-center gap-2 bg-gray-50 p-1 rounded-2xl border border-gray-200 focus-within:border-[#29a9eb] focus-within:ring-1 focus-within:ring-[#29a9eb] transition-all">
-                                <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                                    </svg>
-                                </button>
+                            <div className="relative">
+                                {/* Preview Area if file selected */}
+                                {previewUrl && (
+                                    <div className="absolute bottom-full left-0 right-0 p-2 bg-gray-50 border-t border-gray-200 mb-2 rounded-t-lg">
+                                        <div className="relative inline-block">
+                                            <img src={previewUrl} alt="Preview" className="h-16 w-auto rounded-lg border border-gray-300" />
+                                            <button
+                                                onClick={removeFile}
+                                                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-0.5 shadow-md hover:bg-red-600"
+                                            >
+                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
 
-                                <textarea
-                                    value={inputText}
-                                    onChange={(e) => setInputText(e.target.value)}
-                                    onKeyDown={handleKeyPress}
-                                    placeholder="Введите сообщение..."
-                                    rows={1}
-                                    className="flex-1 bg-transparent border-none text-gray-800 placeholder-gray-400 resize-none focus:ring-0 py-2.5 px-1 max-h-24"
-                                    style={{ minHeight: "44px" }}
-                                    disabled={isSending}
-                                />
+                                <div className="flex items-center gap-2 bg-gray-50 p-1 rounded-2xl border border-gray-200 focus-within:border-[#29a9eb] focus-within:ring-1 focus-within:ring-[#29a9eb] transition-all">
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        onChange={handleFileSelect}
+                                        className="hidden"
+                                        accept="image/*"
+                                    />
 
-                                <button
-                                    onClick={handleSend}
-                                    disabled={!inputText.trim() || isSending}
-                                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 ${inputText.trim()
-                                        ? "bg-[#29a9eb] text-white shadow-md hover:bg-[#2390c9] transform hover:scale-105 active:scale-95"
-                                        : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                                        }`}
-                                >
-                                    {isSending ? (
-                                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                    ) : (
-                                        <svg className="w-5 h-5 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                                    <button
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                                        title="Прикрепить фото"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                                         </svg>
-                                    )}
-                                </button>
+                                    </button>
+
+                                    <textarea
+                                        value={inputText}
+                                        onChange={(e) => setInputText(e.target.value)}
+                                        onKeyDown={handleKeyPress}
+                                        placeholder="Введите сообщение..."
+                                        rows={1}
+                                        className="flex-1 bg-transparent border-none text-gray-800 placeholder-gray-400 resize-none focus:ring-0 py-2.5 px-1 max-h-24"
+                                        style={{ minHeight: "44px" }}
+                                        disabled={isSending}
+                                    />
+
+                                    <button
+                                        onClick={handleSend}
+                                        disabled={(!inputText.trim() && !file) || isSending}
+                                        className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 ${inputText.trim() || file
+                                            ? "bg-[#29a9eb] text-white shadow-md hover:bg-[#2390c9] transform hover:scale-105 active:scale-95"
+                                            : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                                            }`}
+                                    >
+                                        {isSending ? (
+                                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                        ) : (
+                                            <svg className="w-5 h-5 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                                            </svg>
+                                        )}
+                                    </button>
+                                </div>
                             </div>
                         )}
                     </div>

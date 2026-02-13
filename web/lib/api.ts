@@ -155,13 +155,19 @@ export const api = {
     },
 
     support: {
-        send: (message: string) =>
-            fetchJson<{ status: string; message: string; ticket_id: number }>('/api/support/send', {
+        send: (message: string, file?: File | null) => {
+            const formData = new FormData();
+            formData.append('message', message);
+            if (file) {
+                formData.append('file', file);
+            }
+
+            return fetchJson<{ status: string; message: string; ticket_id: number }>('/api/support/send', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message })
-            }),
+                body: formData
+            });
+        },
         messages: () =>
-            fetchJson<{ messages: Array<{ id: string | number; text: string; isSupport: boolean; timestamp: string }> }>('/api/support/messages')
+            fetchJson<{ messages: Array<{ id: string | number; text: string; isSupport: boolean; timestamp: string; attachment_url?: string }> }>('/api/support/messages')
     }
 };
