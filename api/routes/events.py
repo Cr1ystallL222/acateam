@@ -512,25 +512,41 @@ async def get_event_photo(event_id: int):
     current_dir = pathlib.Path(__file__).parent.parent.parent
     
     # Resolution logic:
-    # 1. If absolute path, try it
-    # 2. If relative, try resolving from project root
+    # Always try multiple variations to be robust against different environments (local, docker, render)
     
     possible_paths = []
+    current_dir = pathlib.Path(__file__).parent.parent.parent
     
+    # Clean path (remove leading slash) for safe joining
+    clean_path = photo_path.lstrip('/')
+    
+    # 1. As absolute path (if applicable)
     if os.path.isabs(photo_path):
         possible_paths.append(pathlib.Path(photo_path))
-    else:
-        # Try relative to project root (most common for bots/images/...)
-        possible_paths.append(current_dir / photo_path)
-        # Try relative to web/public (legacy)
-        possible_paths.append(current_dir / "web" / "public" / photo_path.lstrip('/'))
+        
+    # 2. Relative to project root (e.g. "bots/images/...")
+    possible_paths.append(current_dir / clean_path)
     
+    # 3. Relative to web/public (e.g. "images/...") - Legacy/Seeded paths
+    possible_paths.append(current_dir / "web" / "public" / clean_path)
+    
+    # 4. As is (relative to CWD)
+    possible_paths.append(pathlib.Path(photo_path))
+
     final_path = None
     for p in possible_paths:
-        if p.exists():
+        if p.exists() and p.is_file():
             final_path = p
             break
             
+    if not final_path:
+        # Check if it was a default seed image (starts with /images) and try to map it specifically
+        if photo_path.startswith('/images/') or photo_path.startswith('images/'):
+             # Try forcing it into web/public
+             mapped = current_dir / "web" / "public" / clean_path
+             if mapped.exists():
+                 final_path = mapped
+
     if not final_path:
         logger.error(f"Image not found. Tried: {[str(p) for p in possible_paths]}")
         # Return default banner
