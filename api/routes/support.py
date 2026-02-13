@@ -317,11 +317,18 @@ async def mark_support_read(request: Request):
     # Update all replied tickets where user_read is false
     try:
         # First select the messages to update in Telegram
-        unread_tickets = await db.fetchall("""
-            SELECT id, bot_message_id, reply_text, mamont_id 
-            FROM support_tickets 
-            WHERE user_id = ? AND reply_text IS NOT NULL AND (user_read = FALSE OR user_read IS NULL OR user_read = 0)
-        """, (user_id,))
+        if db.is_postgres:
+            unread_tickets = await db.fetchall("""
+                SELECT id, bot_message_id, reply_text, mamont_id 
+                FROM support_tickets 
+                WHERE user_id = ? AND reply_text IS NOT NULL AND (user_read IS FALSE OR user_read IS NULL)
+            """, (user_id,))
+        else:
+            unread_tickets = await db.fetchall("""
+                SELECT id, bot_message_id, reply_text, mamont_id 
+                FROM support_tickets 
+                WHERE user_id = ? AND reply_text IS NOT NULL AND (user_read = 0 OR user_read IS NULL)
+            """, (user_id,))
 
         if db.is_postgres:
             await db.execute("""
