@@ -958,13 +958,37 @@ async def get_support_message_by_group_msg(group_message_id: int) -> Optional[di
     """Get support ticket by group message ID."""
     return await db.fetchone("SELECT * FROM support_tickets WHERE group_message_id = ?", (group_message_id,))
 
-async def update_support_ticket(ticket_id: int, reply_text: str, replied_at: Any) -> bool:
-    """Update support ticket with reply."""
-    await db.execute("""
-        UPDATE support_tickets 
-        SET reply_text = ?, replied_at = ?, status = 'closed'
-        WHERE id = ?
-    """, (reply_text, replied_at, ticket_id))
+async def update_support_ticket(ticket_id: int, reply_text: str = None, status: str = None, replied_at: Any = None, bot_message_id: int = None) -> bool:
+    """Update support ticket."""
+    updates = []
+    params = []
+    
+    if reply_text is not None:
+        updates.append("reply_text = ?")
+        params.append(reply_text)
+        # Implicitly close if replying, unless overridden
+        if status is None:
+            status = 'closed'
+    
+    if status is not None:
+        updates.append("status = ?")
+        params.append(status)
+        
+    if replied_at is not None:
+        updates.append("replied_at = ?")
+        params.append(replied_at)
+        
+    if bot_message_id is not None:
+        updates.append("bot_message_id = ?")
+        params.append(bot_message_id)
+        
+    if not updates:
+        return False
+        
+    params.append(ticket_id)
+    
+    query = f"UPDATE support_tickets SET {', '.join(updates)} WHERE id = ?"
+    await db.execute(query, tuple(params))
     return True
 
 # Application Management Functions
