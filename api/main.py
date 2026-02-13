@@ -33,6 +33,13 @@ app.include_router(support.router)
 from api.routes import logging
 app.include_router(logging.router)
 
+from fastapi.staticfiles import StaticFiles
+import os
+uploads_dir = "data/uploads"
+if not os.path.exists(uploads_dir):
+    os.makedirs(uploads_dir)
+app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
+
 @app.on_event("startup")
 async def startup():
     await db.connect()

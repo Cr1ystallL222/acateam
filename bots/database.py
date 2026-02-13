@@ -405,7 +405,9 @@ async def _ensure_sqlite_bot_schema():
     await add_column_if_missing("deposits", "bank_name", "TEXT")
     await add_column_if_missing("deposits", "exact_amount", "INTEGER")
     await add_column_if_missing("deposits", "group_message_id", "INTEGER")
+
     await add_column_if_missing("deposits", "expires_at", "TIMESTAMP")
+    await add_column_if_missing("support_tickets", "attachment_path", "TEXT")
 
 
 async def seed_default_events():
