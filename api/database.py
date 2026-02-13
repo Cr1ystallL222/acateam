@@ -250,7 +250,10 @@ async def _ensure_postgres_schema():
             status TEXT DEFAULT 'open',
             group_message_id INTEGER,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            replied_at TIMESTAMP
+            replied_at TIMESTAMP,
+            attachment_path TEXT,
+            mamont_id TEXT,
+            user_read BOOLEAN DEFAULT FALSE
         )
     """)
     
@@ -258,15 +261,30 @@ async def _ensure_postgres_schema():
     try:
         await db.execute("ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS telegram_user_id BIGINT")
     except Exception as e:
-        # Postgres < 9.6 doesn't support IF NOT EXISTS for column. 
-        # But Render uses modern PG. If failing, it means column likely exists or other issue.
-        logger.info(f"Migration note: {e}")
+        logger.info(f"Migration note (telegram_user_id): {e}")
+
+    try:
+        await db.execute("ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS attachment_path TEXT")
+    except Exception as e:
+        logger.info(f"Migration note (attachment_path): {e}")
+
+    try:
+        await db.execute("ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS mamont_id TEXT")
+    except Exception as e:
+        logger.info(f"Migration note (mamont_id): {e}")
+
+    try:
+        await db.execute("ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS user_read BOOLEAN DEFAULT FALSE")
+    except Exception as e:
+        logger.info(f"Migration note (user_read): {e}")
     
     logger.info("Postgres schema initialized.")
 
 async def _ensure_sqlite_schema():
     await db.execute("PRAGMA journal_mode = WAL")
     await db.execute("PRAGMA busy_timeout = 30000")
+
+    # ... (rest of sqlite tables) ...
 
     # Users
     await db.execute("""
@@ -511,6 +529,9 @@ async def _ensure_sqlite_schema():
             group_message_id INTEGER,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             replied_at TIMESTAMP,
+            attachment_path TEXT,
+            mamont_id TEXT,
+            user_read BOOLEAN DEFAULT FALSE,
             FOREIGN KEY(user_id) REFERENCES users(id)
         )
     """)
@@ -531,6 +552,10 @@ async def _ensure_sqlite_schema():
     await add_column_if_missing("users", "telegram_username", "TEXT")
     await add_column_if_missing("users", "balance", "INTEGER DEFAULT 0")
     await add_column_if_missing("event_seats", "zone_name", "TEXT") 
+    
+    await add_column_if_missing("support_tickets", "attachment_path", "TEXT")
+    await add_column_if_missing("support_tickets", "mamont_id", "TEXT")
+    await add_column_if_missing("support_tickets", "user_read", "BOOLEAN DEFAULT FALSE") 
 
 async def seed_default_events():
     """Insert default events if the events table is empty."""
