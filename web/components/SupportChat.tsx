@@ -52,6 +52,11 @@ export default function SupportChat() {
             // Server source of truth for unread
             if (data.has_unread !== undefined) {
                 setHasNewReply(data.has_unread && !isOpen);
+
+                // If chat is open and we have unread messages, mark them as read immediately
+                if (isOpen && data.has_unread) {
+                    api.support.read().catch(() => { });
+                }
             } else {
                 // Fallback (should not be needed after API update)
                 const hasSupport = loadedMessages.some(m => m.isSupport);
