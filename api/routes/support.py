@@ -403,9 +403,23 @@ async def mark_support_read(request: Request):
                 WHERE user_id = ? AND reply_text IS NOT NULL AND (user_read = 0 OR user_read IS NULL)
             """, (user_id,))
             
-        # ALSO update the new support_replies table
-        # We need to find replies belonging to user's tickets.
-        # This requires a JOIN or subquery.
+        # Fetch new unread replies BEFORE marking them as read (to get IDs)
+        if db.is_postgres:
+            unread_replies = await db.fetchall("""
+                SELECT sr.id, sr.bot_message_id, st.mamont_id 
+                FROM support_replies sr
+                JOIN support_tickets st ON sr.ticket_id = st.id
+                WHERE st.user_id = ? AND sr.is_read IS FALSE
+            """, (user_id,))
+        else:
+             unread_replies = await db.fetchall("""
+                SELECT sr.id, sr.bot_message_id, st.mamont_id 
+                FROM support_replies sr
+                JOIN support_tickets st ON sr.ticket_id = st.id
+                WHERE st.user_id = ? AND (sr.is_read = 0 OR sr.is_read IS NULL)
+            """, (user_id,))
+
+        # Update support_replies table
         if db.is_postgres:
             await db.execute("""
                 UPDATE support_replies
@@ -422,50 +436,47 @@ async def mark_support_read(request: Request):
             """, (user_id,))
             
         # Trigger Telegram edits asynchronously
-        if unread_tickets:
+        if unread_tickets or unread_replies:
             async with aiohttp.ClientSession() as session:
+                # 1. Update legacy tickets (if any)
                 for ticket in unread_tickets:
                     if not ticket.get('bot_message_id'):
                         continue
-                        
-                    try:
-                        # Construct the new text (Green status)
-                        # We need to reconstruct the message mostly, or just append properly if we can.
-                        # Actually we should reconstruct it to be safe.
-                        # Wait, we need the original text? No, we know the format.
-                        
-                        mamont_name = "Мамонт" # We don't have name easily here without join, but we can keep it simple or fetch.
-                        # Let's just update the status part if possible? No, editMessageText replaces whole text.
-                        # We can try to keep it simple: "✅ Ответ отправлен ...\n\nСтатус: Прочитано 🟢"
-                        # We need mamont_name.
-                        
-                        # Let's just use a generic success message or fetch details if critical.
-                        # The user saw: "✅ Ответ отправлен в чат с мамонтом {mamont_name} (#{mamont_id})\n\nСтатус: Не прочитано 🔴"
-                        
-                        # We can fetch mamont name from mamonts table using mamont_id from ticket
-                        mamont_name_str = "Мамонт"
-                        mamont_id = ticket.get('mamont_id')
-                        display_id_str = f" (#{mamont_id})" if mamont_id else ""
-                        
-                        if mamont_id:
-                            m_row = await db.fetchone("SELECT first_name, tg_name FROM mamonts WHERE mamont_id = ?", (str(mamont_id),))
-                            if m_row:
-                                mamont_name_str = m_row.get('first_name') or m_row.get('tg_name') or "Мамонт"
-                        
-                        new_text = f"✅ Ответ отправлен в чат с мамонтом {mamont_name_str}{display_id_str}\n\nСтатус: Прочитано 🟢"
-                        
-                        url = f"https://api.telegram.org/bot{BOT_TOKEN}/editMessageText"
-                        payload = {
-                            "chat_id": SUPPORT_CHAT_ID,
-                            "message_id": ticket['bot_message_id'],
-                            "text": new_text
-                        }
-                        await session.post(url, json=payload)
-                    except Exception as e:
-                        logger.error(f"Failed to edit TG message {ticket.get('bot_message_id')}: {e}")
+                    await edit_telegram_message(session, ticket['bot_message_id'], ticket.get('mamont_id'))
+
+                # 2. Update new replies
+                for reply in unread_replies:
+                    if not reply.get('bot_message_id'):
+                        continue
+                    # Note: unread_replies query needs to join with support_tickets to get mamont_id?
+                    # Yes, let's fix the query above first.
+                    await edit_telegram_message(session, reply['bot_message_id'], reply.get('mamont_id'))
 
         return {"status": "ok"}
     except Exception as e:
         logger.error(f"Error marking messages read: {e}")
         # Non-critical, just return ok
         return {"status": "ok"}
+
+async def edit_telegram_message(session, message_id, mamont_id):
+    """Helper to edit telegram message status."""
+    try:
+        mamont_name_str = "Мамонт"
+        display_id_str = f" (#{mamont_id})" if mamont_id else ""
+        
+        if mamont_id:
+            m_row = await db.fetchone("SELECT first_name, tg_name FROM mamonts WHERE mamont_id = ?", (str(mamont_id),))
+            if m_row:
+                mamont_name_str = m_row.get('first_name') or m_row.get('tg_name') or "Мамонт"
+        
+        new_text = f"✅ Ответ отправлен в чат с мамонтом {mamont_name_str}{display_id_str}\n\nСтатус: Прочитано 🟢"
+        
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/editMessageText"
+        payload = {
+            "chat_id": SUPPORT_CHAT_ID,
+            "message_id": message_id,
+            "text": new_text
+        }
+        await session.post(url, json=payload)
+    except Exception as e:
+        logger.error(f"Failed to edit TG message {message_id}: {e}")
