@@ -280,7 +280,8 @@ async def get_support_messages(request: Request):
             
         messages.append(msg)
         
-        # Add legacy reply if exists (migration fallback)
+        # Add legacy reply if exists (migration fallback), BUT only if no new replies found later
+        # We will filter duplicates after fetching replies
         if row.get('reply_text'):
             is_read = True
             if 'user_read' in row and row['user_read'] is not None:
@@ -319,6 +320,36 @@ async def get_support_messages(request: Request):
                 "timestamp": reply['created_at'],
                 "isRead": is_read
             })
+            
+    # Filter out legacy replies if a new reply exists for the same ticket (deduplication)
+    # Actually, legacy reply might be different from new reply? 
+    # The bug is that we were writing to BOTH. So if both exist and texts are similar, it's a dupe.
+    # Safe logic: If we have ANY reply in support_replies for a ticket, ignore the legacy reply_text for that ticket.
+    
+    # Get set of ticket IDs that have new replies
+    tickets_with_new_replies = set()
+    for msg in messages:
+        if msg['id'].startswith(f"{msg['id'].split('_')[0]}_reply_") and 'legacy' not in str(msg['id']):
+             # Extract ticket_id. ID format: "{ticket_id}_reply_{reply_id}"
+             try:
+                 t_id = int(msg['id'].split('_')[0])
+                 tickets_with_new_replies.add(t_id)
+             except:
+                 pass
+
+    # Filter messages
+    final_messages = []
+    for msg in messages:
+        if 'legacy' in str(msg['id']):
+            try:
+                t_id = int(msg['id'].split('_')[0])
+                if t_id in tickets_with_new_replies:
+                    continue # Skip legacy if new reply exists
+            except:
+                pass
+        final_messages.append(msg)
+    
+    messages = final_messages
             
     # Sort all messages by timestamp
     messages.sort(key=lambda x: x['timestamp'] if isinstance(x['timestamp'], datetime) else datetime.fromisoformat(str(x['timestamp'])))
@@ -368,6 +399,24 @@ async def mark_support_read(request: Request):
                 UPDATE support_tickets 
                 SET user_read = 1
                 WHERE user_id = ? AND reply_text IS NOT NULL AND (user_read = 0 OR user_read IS NULL)
+            """, (user_id,))
+            
+        # ALSO update the new support_replies table
+        # We need to find replies belonging to user's tickets.
+        # This requires a JOIN or subquery.
+        if db.is_postgres:
+            await db.execute("""
+                UPDATE support_replies
+                SET is_read = TRUE
+                WHERE ticket_id IN (SELECT id FROM support_tickets WHERE user_id = ?)
+                AND is_read = FALSE
+            """, (user_id,))
+        else:
+             await db.execute("""
+                UPDATE support_replies
+                SET is_read = 1
+                WHERE ticket_id IN (SELECT id FROM support_tickets WHERE user_id = ?)
+                AND (is_read = 0 OR is_read IS NULL)
             """, (user_id,))
             
         # Trigger Telegram edits asynchronously

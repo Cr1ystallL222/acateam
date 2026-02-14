@@ -347,7 +347,7 @@ export default function SupportChat() {
                             <div className="text-center py-3">
                                 <p className="text-sm text-gray-500 mb-2">Авторизуйтесь, чтобы начать чат</p>
                                 <a
-                                    href="/auth/login"
+                                    href="/auth/telegram"
                                     className="inline-block px-4 py-2 bg-[#29a9eb] text-white rounded-lg text-sm font-medium hover:bg-[#2390c9] transition-colors"
                                 >
                                     Войти

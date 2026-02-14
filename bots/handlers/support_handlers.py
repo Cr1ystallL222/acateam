@@ -182,7 +182,6 @@ Email: {mamont.get('email') or 'Не указан'}
             # Save reply to database - user will see it in widget via polling
             await update_support_ticket(
                 ticket['id'],
-                reply_text=reply_text.strip(),
                 replied_at=datetime.now(timezone.utc).replace(tzinfo=None)
             )
             
