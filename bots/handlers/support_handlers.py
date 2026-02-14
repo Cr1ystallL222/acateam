@@ -203,7 +203,7 @@ Email: {mamont.get('email') or 'Не указан'}
             # Save reply to support_replies table
             await add_support_reply(
                 ticket['id'],
-                msg.text,
+                reply_text,
                 sent_msg.message_id
             )
             
