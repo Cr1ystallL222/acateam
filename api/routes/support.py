@@ -329,10 +329,12 @@ async def get_support_messages(request: Request):
     # Get set of ticket IDs that have new replies
     tickets_with_new_replies = set()
     for msg in messages:
-        if msg['id'].startswith(f"{msg['id'].split('_')[0]}_reply_") and 'legacy' not in str(msg['id']):
+        # Convert ID to string for checking
+        msg_id_str = str(msg['id'])
+        if msg_id_str.startswith(f"{msg_id_str.split('_')[0]}_reply_") and 'legacy' not in msg_id_str:
              # Extract ticket_id. ID format: "{ticket_id}_reply_{reply_id}"
              try:
-                 t_id = int(msg['id'].split('_')[0])
+                 t_id = int(msg_id_str.split('_')[0])
                  tickets_with_new_replies.add(t_id)
              except:
                  pass
