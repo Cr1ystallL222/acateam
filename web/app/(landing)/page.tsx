@@ -269,8 +269,20 @@ function HomeContent() {
     };
   };
 
+  // Filter events based on search query
+  const searchQuery = searchParams.get('q')?.toLowerCase() || '';
+
+  const filteredEvents = databaseEvents.filter(event => {
+    if (!searchQuery) return true;
+    return (
+      event.title.toLowerCase().includes(searchQuery) ||
+      event.venue.toLowerCase().includes(searchQuery) ||
+      (event.description && event.description.toLowerCase().includes(searchQuery))
+    );
+  });
+
   // Only show database events (no static events)
-  const allEvents = databaseEvents.map(convertDatabaseEvent);
+  const allEvents = filteredEvents.map(convertDatabaseEvent);
 
   // Pagination logic
   const totalPages = Math.ceil(allEvents.length / eventsPerPage);

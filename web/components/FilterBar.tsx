@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Search, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 const months = ["ЯНВ", "ФЕВР", "МАРТ", "АПР", "МАЙ", "ИЮН", "ИЮЛ", "АВГ", "СЕНТ", "ОКТ", "НОЯБ", "ДЕК"];
 const weekDays = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
@@ -39,7 +40,25 @@ function getCityGenitive(city: string): string {
 export default function FilterBar() {
     const [days, setDays] = useState<DayItem[]>([]);
     const [city, setCity] = useState("Краснодар");
+
     const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    const [searchTerm, setSearchTerm] = useState(searchParams.get('q') || '');
+
+    // Debounce search update
+    useEffect(() => {
+        const timeoutId = setTimeout(() => {
+            const params = new URLSearchParams(searchParams.toString());
+            if (searchTerm) {
+                params.set('q', searchTerm);
+            } else {
+                params.delete('q');
+            }
+            router.push(`/?${params.toString()}`, { scroll: false });
+        }, 500);
+        return () => clearTimeout(timeoutId);
+    }, [searchTerm, router, searchParams]);
 
     // Fetch city from API
     useEffect(() => {
@@ -111,6 +130,8 @@ export default function FilterBar() {
                     <input
                         type="text"
                         placeholder="Поиск по событиям"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
                         className="w-full md:w-[280px] bg-[#F5F5F5] text-black text-sm py-2.5 pl-9 pr-4 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#E60000]"
                     />
                 </div>

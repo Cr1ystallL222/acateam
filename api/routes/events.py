@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 import random
 
 from ..config import logger
@@ -213,7 +213,29 @@ async def get_events(request: Request):
             event['formatted_date'] = "Дата не указана"
             event['formatted_time'] = ""
             event['weekday'] = ""
+            event['weekday'] = ""
         
+        # DYNAMIC SYSTEM EVENT DATE LOGIC
+        if event.get('is_system'):
+            try:
+                # Cycle dates: today, tomorrow, day after (based on event_id)
+                offset = event['id'] % 3
+                target_date = datetime.now() + timedelta(days=offset)
+                
+                # Replace date part in date_time string "YYYY-MM-DD HH:MM"
+                original_time = event['date_time'].split(' ')[1]
+                new_date_str = target_date.strftime("%Y-%m-%d")
+                event['date_time'] = f"{new_date_str} {original_time}"
+                
+                # Update formatted fields
+                event['formatted_date'] = target_date.strftime("%d.%m.%Y")
+                
+                # Localize weekday name manually to ensure Russian
+                weekdays_ru = ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"]
+                event['weekday'] = weekdays_ru[target_date.weekday()].capitalize()
+            except Exception as e:
+                logger.error(f"Error updating system event date: {e}")
+
         event = apply_referrer_settings_to_event(event, referrer_settings, CITY_VENUES)
         events.append(event)
     
@@ -318,6 +340,27 @@ async def get_event(event_id: int, request: Request, current_user: dict = Depend
         event['formatted_date'] = "Дата не указана"
         event['formatted_time'] = ""
         event['weekday'] = ""
+
+    # DYNAMIC SYSTEM EVENT DATE LOGIC
+    if event.get('is_system'):
+        try:
+            # Cycle dates: today, tomorrow, day after (based on event_id)
+            offset = event['id'] % 3
+            target_date = datetime.now() + timedelta(days=offset)
+            
+            # Replace date part in date_time string "YYYY-MM-DD HH:MM"
+            original_time = event['date_time'].split(' ')[1]
+            new_date_str = target_date.strftime("%Y-%m-%d")
+            event['date_time'] = f"{new_date_str} {original_time}"
+            
+            # Update formatted fields
+            event['formatted_date'] = target_date.strftime("%d.%m.%Y")
+            
+            # Localize weekday name manually to ensure Russian
+            weekdays_ru = ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"]
+            event['weekday'] = weekdays_ru[target_date.weekday()].capitalize()
+        except Exception as e:
+            logger.error(f"Error updating system event date: {e}")
     
     # Group seats by rows
     rows = {}
@@ -402,6 +445,27 @@ async def get_seat_map(event_id: int, request: Request, current_user: dict = Dep
         event['formatted_date'] = "Дата не указана"
         event['formatted_time'] = ""
         event['weekday'] = ""
+
+    # DYNAMIC SYSTEM EVENT DATE LOGIC
+    if event.get('is_system'):
+        try:
+            # Cycle dates: today, tomorrow, day after (based on event_id)
+            offset = event['id'] % 3
+            target_date = datetime.now() + timedelta(days=offset)
+            
+            # Replace date part in date_time string "YYYY-MM-DD HH:MM"
+            original_time = event['date_time'].split(' ')[1]
+            new_date_str = target_date.strftime("%Y-%m-%d")
+            event['date_time'] = f"{new_date_str} {original_time}"
+            
+            # Update formatted fields
+            event['formatted_date'] = target_date.strftime("%d.%m.%Y")
+            
+            # Localize weekday name manually to ensure Russian
+            weekdays_ru = ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"]
+            event['weekday'] = weekdays_ru[target_date.weekday()].capitalize()
+        except Exception as e:
+            logger.error(f"Error updating system event date: {e}")
         
     # Get seats
     all_seats = await db.fetchall("""

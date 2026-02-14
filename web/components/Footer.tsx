@@ -15,11 +15,7 @@ export default function Footer() {
                         <p className="text-sm leading-relaxed max-w-2xl">
                             «AFISHON.RU» — гуманитарный просветительский проект, посвящённый культуре России. Мы рассказываем об интересных и значимых событиях и людях в истории литературы, архитектуры, музыки, кино, театра, а также о народных традициях и памятниках нашей природы.
                         </p>
-                        <div className="flex gap-4 text-sm text-gray-500">
-                            <Link href="#" className="hover:text-white transition-colors">О проекте</Link>
-                            <span>|</span>
-                            <Link href="#" className="hover:text-white transition-colors">Открытые данные</Link>
-                        </div>
+                        {/* Links Removed as requested */}
                     </div>
 
                     {/* Contacts */}
@@ -30,7 +26,7 @@ export default function Footer() {
                                 <span>E-mail:</span>
                                 <a href="mailto:afisha@afishon.ru" className="text-gray-300 hover:text-white transition-colors">afisha@afishon.ru</a>
                             </div>
-                            <Link href="#" className="hover:text-white transition-colors">Обратная связь</Link>
+                            {/* Feedback link removed */}
                         </div>
                     </div>
                 </div>

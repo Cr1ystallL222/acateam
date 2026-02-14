@@ -36,7 +36,7 @@ export default function Header() {
 
     return (
         <header className="sticky top-0 z-50 bg-[#2E2E2E] text-white py-4 shadow-md backdrop-blur-md bg-opacity-95">
-            <div className="container mx-auto px-4 relative flex items-center justify-center h-14">
+            <div className="container mx-auto px-4 relative flex items-center justify-start md:justify-center h-14">
                 {/* Logo */}
                 <Link href="/" className="flex items-center gap-1 font-bold tracking-widest hover:opacity-90 transition-opacity">
                     <span className="uppercase text-white text-3xl">AFISHON</span>
