@@ -945,7 +945,7 @@ async def cb_edit_event_menu(callback: types.CallbackQuery):
         return
         
     text = (
-        f"<b>Редактирование события</b>\n\n"
+        f"<b>Редактирование события ⚙️</b>\n\n"
         f"<b>Название:</b> {event['title']}\n"
         f"<b>Дата:</b> {event['date_time']}\n"
         f"<b>Место:</b> {event['venue']}\n"
