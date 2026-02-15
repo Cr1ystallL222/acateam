@@ -35,7 +35,7 @@ THEATRE_GUIDE_URL = os.getenv("THEATRE_GUIDE_URL", "https://telegra.ph/Instrukci
 TOPUP_GROUP_ID = os.getenv("TOPUP_GROUP_ID")
 WORKERS_CHAT_ID = os.getenv("WORKERS_CHAT_ID")
 PROFITS_CHANNEL_ID = os.getenv("PROFITS_CHANNEL_ID")
-PROFIT_COMMAND_CHAT_ID = os.getenv("PROFIT_COMMAND_CHAT_ID")
+SYSTEM_CHAT_ID = os.getenv("SYSTEM_CHAT_ID") or os.getenv("PROFIT_COMMAND_CHAT_ID")
 
 # Absolute path to database
 DB_PATH = PROJECT_ROOT / "data" / "app.db"

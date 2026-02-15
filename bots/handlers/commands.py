@@ -5,9 +5,9 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, FSInputFil
 import asyncio
 
 from ..loader import bot, dp
-from ..config import WELCOME_STICKER_ID, RESOLVED_IMAGE_PATH, ADMIN_IDS, logger, PROFITS_CHANNEL_ID, WORKERS_CHAT_ID
+from ..config import WELCOME_STICKER_ID, RESOLVED_IMAGE_PATH, ADMIN_IDS, logger, PROFITS_CHANNEL_ID, WORKERS_CHAT_ID, SYSTEM_CHAT_ID
 from ..utils import is_cooldown_active, format_cooldown_remaining, calculate_days_in_team, generate_me_image
-from ..database import get_or_create_bot_user, has_pending_application, get_user_profits_stats, get_bot_user_by_any_id
+from ..database import get_or_create_bot_user, has_pending_application, get_user_profits_stats, get_bot_user_by_any_id, db
 from ..renderers import render_profile_menu
 from .fsm import ProfitProcess
 
@@ -312,6 +312,75 @@ async def cmd_top(message: types.Message):
     except:
         pass
 
+@dp.message(F.reply_to_message & (F.chat.id == int(SYSTEM_CHAT_ID) if SYSTEM_CHAT_ID else False))
+async def handle_system_chat_reply(message: types.Message):
+    """Handle admin reply in system chat (receipts)."""
+    # Check if reply is to a withdrawal notification
+    reply_to = message.reply_to_message
+    if not reply_to:
+        return
+        
+    # Get request by group_message_id
+    req = await db.fetchone("SELECT * FROM withdrawal_requests WHERE group_message_id = ?", (reply_to.message_id,))
+    if not req:
+        return
+        
+    if req['status'] != 'pending':
+        await message.reply("⚠️ Заявка уже обработана")
+        return
+        
+    # Check for link or photo (receipt)
+    # The user said "reply with link".
+    # We should look for entities or text containing http...
+    receipt_link = None
+    
+    if message.entities:
+        for entity in message.entities:
+            if entity.type == 'url':
+                receipt_link = message.text[entity.offset : entity.offset + entity.length]
+                break
+            elif entity.type == 'text_link':
+                receipt_link = entity.url
+                break
+                
+    if not receipt_link and "http" in message.text:
+         # simple fallback search
+         import re
+         urls = re.findall(r'(https?://\S+)', message.text)
+         if urls:
+             receipt_link = urls[0]
+             
+    if not receipt_link:
+        await message.reply("⚠️ В ответе не найдена ссылка на чек. Пожалуйста, отправьте ссылку.")
+        return
+        
+    # Finalize withdrawal
+    # Deduct from hold (burn funds)
+    amount = req['amount']
+    # user_id in requests is internal ID
+    user_row = await db.fetchone("SELECT telegram_user_id FROM users WHERE id = ?", (req['user_id'],))
+    worker_tg_id = user_row['telegram_user_id']
+    
+    await db.execute("""
+        UPDATE bot_users SET balance_hold = balance_hold - ? WHERE telegram_user_id = ?
+    """, (amount, worker_tg_id))
+    
+    # Update request
+    await db.execute("UPDATE withdrawal_requests SET status = 'completed' WHERE id = ?", (req['id'],))
+    
+    # Notify worker
+    try:
+        await bot.send_message(
+            worker_tg_id,
+            f"✅ <b>Вывод средств подтвержден!</b>\n\n"
+            f"Сумма: {amount} RUB\n"
+            f"Чек: {receipt_link}",
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        logger.error(f"Failed to notify worker {worker_tg_id}: {e}")
+        
+    await message.reply(f"✅ Вывод {amount} RUB подтвержден.\nВоркер уведомлен.")
 @dp.message(Command("help"))
 async def cmd_help(message: types.Message):
     """Help command for specific chat."""

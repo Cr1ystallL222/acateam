@@ -1,13 +1,16 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.types.copy_text_button import CopyTextButton
 
-def get_profile_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
+def get_profile_keyboard(balance: int = 0, is_admin: bool = False) -> InlineKeyboardMarkup:
     keyboard = [
         [
             InlineKeyboardButton(text="Театр", callback_data="menu_theatre"),
             InlineKeyboardButton(text="Кино", callback_data="menu_cinema")
         ]
     ]
+    
+    if balance > 0:
+        keyboard.insert(0, [InlineKeyboardButton(text="💸 Вывод", callback_data="menu_withdraw")])
     
     if is_admin:
         # Add Admin Panel button in a new row or same row? Let's add new row for visibility

@@ -35,17 +35,22 @@ async def render_profile_menu(chat_id: int, telegram_user_id: int, bot_user: dic
     stats = await get_user_profits_stats(telegram_user_id)
     days_in_team = calculate_days_in_team(bot_user.get('joined_at'))
     balance = bot_user.get('balance') or 0
+    balance_hold = bot_user.get('balance_hold') or 0
+    
+    balance_text = f"Баланс: <b>{balance}</b>"
+    if balance_hold > 0:
+        balance_text += f"\n  └ На удержании: <b>{balance_hold}</b>"
     
     caption = (
         f"🗃 <b>Твой профиль</b> <code>{telegram_user_id}</code>\n\n"
         f"💸 У тебя <b>{stats['profits_count']}</b> профитов на сумму <b>{stats['profits_sum']}</b> RUB\n"
         f"Средний профит: <b>{stats['profits_avg']}</b> RUB\n\n"
-        f"Баланс: <b>{balance}</b>\n\n"
+        f"{balance_text}\n\n"
         f"В команде: <b>{days_in_team}</b> дн."
     )
     
     is_admin = telegram_user_id in ADMIN_IDS
-    keyboard = get_profile_keyboard(is_admin=is_admin)
+    keyboard = get_profile_keyboard(balance=balance, is_admin=is_admin)
     
     # Always delete old message to ensure Sticker appears before Menu
     if message_id:

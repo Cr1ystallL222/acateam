@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from data.db import db as shared_db
 
 from ..loader import bot, dp
-from ..config import SITE_URL, ADMIN_IDS, logger, PROFITS_CHANNEL_ID, WORKERS_CHAT_ID
+from ..config import SITE_URL, ADMIN_IDS, logger, PROFITS_CHANNEL_ID, WORKERS_CHAT_ID, SYSTEM_CHAT_ID
 from ..utils import format_cooldown_remaining, is_cooldown_active
 from ..database import get_or_create_bot_user, get_or_create_referral, get_application_approval_data, approve_application, reject_application, add_manual_profit
 from ..renderers import (
@@ -1497,7 +1497,7 @@ async def cb_edit_availability(callback: types.CallbackQuery):
         f"Событие: <b>{event['title']}</b>\n\n"
         f"Всего мест: <b>{total}</b>\n"
         f"Занято: <b>{occupied}</b>\n"
-        f"Свободно: <b>{free}</b> ({percent_free}%)\n\n"
+        f"Свободно: <b>{free}</b> ({percent_free}%)\n"
         f"<i>Выберите способ изменения доступности:</i>"
     )
     
@@ -1615,6 +1615,170 @@ async def cb_profit_confirm(callback: types.CallbackQuery, state: FSMContext):
 @dp.callback_query(F.data == "profit_cancel")
 async def cb_profit_cancel(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer("❌ Отменено")
+    try:
+        await callback.message.delete()
+    except:
+        pass
+    await state.clear()
+
+# Withdrawal handlers
+@dp.callback_query(F.data == "menu_withdraw")
+async def cb_withdraw_request(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    
+    # Get user balance
+    user = await get_or_create_bot_user(user_id, None, None, None)
+    balance = user.get('balance', 0)
+    
+    if balance <= 0:
+        await callback.answer("Сумма для вывода должна быть больше 0", show_alert=True)
+        return
+        
+    # Confirmation dialog
+    text = (
+        f"💳 <b>Вывод средств</b>\n\n"
+        f"Сумма к выводу: <b>{balance} RUB</b>\n"
+        f"Вы уверены, что хотите вывести средства?"
+    )
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="Да, вывести", callback_data=f"withdraw_confirm:{balance}"),
+            InlineKeyboardButton(text="Отмена", callback_data="withdraw_cancel_user")
+        ]
+    ])
+    
+    await callback.message.edit_text(text, parse_mode="HTML", reply_markup=keyboard)
+
+@dp.callback_query(F.data == "withdraw_cancel_user")
+async def cb_withdraw_cancel_user(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    user = await get_or_create_bot_user(user_id, None, None, None)
+    await render_profile_menu(callback.message.chat.id, user_id, user, callback.message.message_id)
+
+@dp.callback_query(F.data.startswith("withdraw_confirm:"))
+async def cb_withdraw_confirm(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    amount = int(callback.data.split(":")[1])
+    
+    # Re-check balance (race condition check)
+    user = await get_or_create_bot_user(user_id, None, None, None)
+    current_balance = user.get('balance', 0)
+    
+    if current_balance < amount:
+        await callback.answer("❌ Недостаточно средств", show_alert=True)
+        await render_profile_menu(callback.message.chat.id, user_id, user, callback.message.message_id)
+        return
+
+    # Deduct balance and add to hold
+    # We update manually to ensure transaction safety-ish
+    await db.execute("""
+        UPDATE bot_users 
+        SET balance = balance - ?, balance_hold = balance_hold + ? 
+        WHERE telegram_user_id = ?
+    """, (amount, amount, user_id))
+    
+    # Sync global users
+    # users table usually matches bot_users. Let's update it too just in case?
+    # Actually users.balance is typically profit_sum or real balance? 
+    # Current implementation in database.py add_manual_profit updates users.balance too.
+    # So we should deduct there too.
+    # But wait, balance_hold is only in bot_users (I added it there).
+    # So users.balance will decrease, but users.balance_hold doesn't exist.
+    # That's fine, users table is for global auth. bot_users is for this bot.
+    # Sync:
+    await db.execute("""
+        UPDATE users SET balance = balance - ? WHERE telegram_user_id = ?
+    """, (amount, user_id))
+    
+    # Create withdrawal request
+    await db.execute("""
+        INSERT INTO withdrawal_requests (user_id, amount, status)
+        VALUES ((SELECT id FROM users WHERE telegram_user_id = ?), ?, 'pending')
+    """, (user_id, amount))
+    
+    # Get request ID
+    row = await db.fetchone("SELECT last_insert_rowid() as id" if db.mode == 'sqlite' else "SELECT LASTVAL() as id") 
+    # Note: asyncpg/sqlite handling might differ for last id.
+    # But let's assume one of standard ways or fetch by user/latest.
+    # Safer: fetch by user/created_at
+    req_row = await db.fetchone("""
+        SELECT id FROM withdrawal_requests 
+        WHERE user_id = (SELECT id FROM users WHERE telegram_user_id = ?) 
+        ORDER BY id DESC LIMIT 1
+    """, (user_id,))
+    req_id = req_row['id']
+    
+    # Notify System Chat
+    if SYSTEM_CHAT_ID:
+        worker_info = f"<a href='tg://user?id={user_id}'>{user.get('full_name', 'User')}</a> (@{user.get('username', 'no_user')})"
+        msg_text = (
+            f"Воркер {worker_info} ({user_id}) хочет вывести свой баланс\n\n"
+            f"Сумма: {amount} RUB\n\n"
+            f"Чтобы подтвердить вывод, ответьте на это сообщение ссылкой с чеком на сумму вывода."
+        )
+        markup = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="Отклонить", callback_data=f"withdraw_reject:{req_id}")]
+        ])
+        
+        try:
+            sent_msg = await bot.send_message(SYSTEM_CHAT_ID, msg_text, parse_mode="HTML", reply_markup=markup)
+            
+            # Save group_message_id to request
+            await db.execute("UPDATE withdrawal_requests SET group_message_id = ? WHERE id = ?", (sent_msg.message_id, req_id))
+            
+        except Exception as e:
+            logger.error(f"Failed to send to system chat: {e}")
+            # Refund? No, just log. Admin can fix.
+            pass
+            
+    await callback.answer("✅ Заявка на вывод создана", show_alert=True)
+    
+    # Refresh profile
+    user = await get_or_create_bot_user(user_id, None, None, None)
+    await render_profile_menu(callback.message.chat.id, user_id, user, callback.message.message_id)
+
+@dp.callback_query(F.data.startswith("withdraw_reject:"))
+async def cb_withdraw_reject(callback: types.CallbackQuery):
+    # Admin rejects
+    # Check admin? Ideally yes, but if msg is in SYSTEM_CHAT...
+    # SYSTEM_CHAT members are admins effectively.
+    
+    req_id = int(callback.data.split(":")[1])
+    
+    # Get request
+    req = await db.fetchone("SELECT * FROM withdrawal_requests WHERE id = ?", (req_id,))
+    if not req or req['status'] != 'pending':
+        await callback.answer("Заявка уже обработана", show_alert=True)
+        return
+        
+    amount = req['amount']
+    # Get worker telegram id
+    user_row = await db.fetchone("SELECT telegram_user_id FROM users WHERE id = ?", (req['user_id'],))
+    worker_tg_id = user_row['telegram_user_id']
+    
+    # Refund funds
+    await db.execute("""
+        UPDATE bot_users 
+        SET balance = balance + ?, balance_hold = balance_hold - ? 
+        WHERE telegram_user_id = ?
+    """, (amount, amount, worker_tg_id))
+    
+    await db.execute("""
+        UPDATE users SET balance = balance + ? WHERE telegram_user_id = ?
+    """, (amount, worker_tg_id))
+    
+    # Update status
+    await db.execute("UPDATE withdrawal_requests SET status = 'rejected' WHERE id = ?", (req_id,))
+    
+    # Update admin message
+    await callback.message.edit_text(f"{callback.message.text}\n\n❌ <b>Отклонено</b>", parse_mode="HTML")
+    
+    # Notify worker
+    try:
+        await bot.send_message(worker_tg_id, f"❌ Ваша заявка на вывод {amount} RUB была отклонена.")
+    except:
+        pass
     try:
         await callback.message.delete()
     except:

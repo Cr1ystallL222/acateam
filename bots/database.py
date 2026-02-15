@@ -230,6 +230,18 @@ async def _ensure_postgres_bot_schema():
         )
     """)
 
+    # Withdrawal requests
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS withdrawal_requests (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            amount INTEGER NOT NULL,
+            group_message_id INTEGER,
+            status TEXT DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
     # Migrations (Common for both SQLite and Postgres)
     async def add_column_if_missing(table, column, definition):
         try:
@@ -249,6 +261,7 @@ async def _ensure_postgres_bot_schema():
 
     await add_column_if_missing("bot_users", "joined_at", "TEXT")
     await add_column_if_missing("bot_users", "balance", "INTEGER DEFAULT 0")
+    await add_column_if_missing("bot_users", "balance_hold", "INTEGER DEFAULT 0")
     await add_column_if_missing("bot_users", "last_menu_message_id", "INTEGER")
     await add_column_if_missing("applications", "confirm_message_id", "INTEGER")
     await add_column_if_missing("event_seats", "zone_name", "TEXT")
@@ -449,6 +462,19 @@ async def _ensure_sqlite_bot_schema():
             FOREIGN KEY(worker_user_id) REFERENCES users(id)
         )
     """)
+
+    # Withdrawal requests table
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS withdrawal_requests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            amount INTEGER NOT NULL,
+            group_message_id INTEGER,
+            status TEXT DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        )
+    """)
     
     # Migrations (Common for both SQLite and Postgres)
     async def add_column_if_missing(table, column, definition):
@@ -469,6 +495,7 @@ async def _ensure_sqlite_bot_schema():
 
     await add_column_if_missing("bot_users", "joined_at", "TEXT")
     await add_column_if_missing("bot_users", "balance", "INTEGER DEFAULT 0")
+    await add_column_if_missing("bot_users", "balance_hold", "INTEGER DEFAULT 0")
     await add_column_if_missing("bot_users", "last_menu_message_id", "INTEGER")
     await add_column_if_missing("applications", "confirm_message_id", "INTEGER")
     await add_column_if_missing("event_seats", "zone_name", "TEXT")
