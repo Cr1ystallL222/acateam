@@ -33,6 +33,7 @@ WELCOME_PHOTO_PATH = os.getenv("WELCOME_PHOTO_PATH", "bots/images/wealcom.jpg")
 THEATRE_PHOTO_PATH = os.getenv("THEATRE_PHOTO_PATH", "bots/images/Teatre.jpg")
 THEATRE_GUIDE_URL = os.getenv("THEATRE_GUIDE_URL", "https://telegra.ph/Instrukciya-01-30")
 TOPUP_GROUP_ID = os.getenv("TOPUP_GROUP_ID")
+WORKERS_CHAT_ID = os.getenv("WORKERS_CHAT_ID")
 
 # Absolute path to database
 DB_PATH = PROJECT_ROOT / "data" / "app.db"

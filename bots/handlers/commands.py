@@ -83,7 +83,12 @@ async def cmd_me(message: types.Message):
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
-    chat_id = message.chat.id
+    # Only update chat_id if we are in private chat
+    if message.chat.type == 'private':
+        chat_id = message.chat.id
+    else:
+        chat_id = None
+
     username = message.from_user.username or ""
     full_name = message.from_user.full_name or ""
     
@@ -166,13 +171,84 @@ async def cmd_create_system_events(message: types.Message):
         logger.error(f"Error creating system events: {e}")
         await message.answer(f"Ошибка при создании событий: {e}")
 
+@dp.message(Command("curators"))
+async def cmd_curators(message: types.Message):
+    """Curators list command."""
+    # Check if we are in the correct chat
+    from ..config import WORKERS_CHAT_ID
+    
+    # Ensure WORKERS_CHAT_ID is int
+    try:
+        target_chat_id = int(WORKERS_CHAT_ID)
+    except:
+        logger.error(f"Invalid WORKERS_CHAT_ID: {WORKERS_CHAT_ID}")
+        return
+
+    if message.chat.id != target_chat_id:
+        return
+        
+    text = (
+        "<b>Кураторы:</b>\n\n"
+        "1. @afonac3\n"
+        "2. @c6rr7\n"
+        "3. @asfkolfgw"
+    )
+    
+    # Image path
+    from pathlib import Path
+    image_path = Path(__file__).parent.parent / "images" / "curators_command.png"
+    
+    if image_path.exists():
+        photo = FSInputFile(image_path)
+        await message.answer_photo(photo, caption=text, parse_mode="HTML")
+    else:
+        await message.answer(text, parse_mode="HTML")
+
+@dp.message(Command("curators"))
+async def cmd_curators(message: types.Message):
+    """Curators list command."""
+    # Check if we are in the correct chat
+    from ..config import WORKERS_CHAT_ID
+    
+    # Ensure WORKERS_CHAT_ID is int
+    try:
+        target_chat_id = int(WORKERS_CHAT_ID)
+    except:
+        logger.error(f"Invalid WORKERS_CHAT_ID: {WORKERS_CHAT_ID}")
+        return
+
+    if message.chat.id != target_chat_id:
+        return
+        
+    text = (
+        "<b>Кураторы:</b>\n\n"
+        "1. @afonac3\n"
+        "2. @c6rr7\n"
+        "3. @asfkolfgw"
+    )
+    
+    # Image path
+    from pathlib import Path
+    image_path = Path(__file__).parent.parent / "images" / "curators_command.png"
+    
+    if image_path.exists():
+        photo = FSInputFile(image_path)
+        await message.answer_photo(photo, caption=text, parse_mode="HTML")
+    else:
+        await message.answer(text, parse_mode="HTML")
+
 @dp.message(Command("top"))
 async def cmd_top(message: types.Message):
     """Top workers command."""
     # Check if we are in the correct chat
-    TARGET_CHAT_ID = -1003594485909
+    from ..config import WORKERS_CHAT_ID
     
-    if message.chat.id != TARGET_CHAT_ID:
+    try:
+        target_chat_id = int(WORKERS_CHAT_ID)
+    except:
+        return
+
+    if message.chat.id != target_chat_id:
         return
 
     from ..database import get_project_stats, get_top_workers
@@ -237,9 +313,14 @@ async def cmd_top(message: types.Message):
 async def cmd_help(message: types.Message):
     """Help command for specific chat."""
     # Check if we are in the correct chat
-    TARGET_CHAT_ID = -1003594485909
+    from ..config import WORKERS_CHAT_ID
     
-    if message.chat.id != TARGET_CHAT_ID:
+    try:
+        target_chat_id = int(WORKERS_CHAT_ID)
+    except:
+        return
+    
+    if message.chat.id != target_chat_id:
         return
 
     # Message content

@@ -587,17 +587,25 @@ async def update_system_event_dates():
             
     logger.info("System event dates updated to future.")
 
-async def get_or_create_bot_user(telegram_user_id: int, chat_id: int, username: str, full_name: str) -> dict:
+async def get_or_create_bot_user(telegram_user_id: int, chat_id: Optional[int], username: str, full_name: str) -> dict:
     row = await db.fetchone("SELECT * FROM bot_users WHERE telegram_user_id = ?", (telegram_user_id,))
     
     if row:
-        await db.execute("""
-            UPDATE bot_users SET chat_id = ?, username = ?, full_name = ? WHERE telegram_user_id = ?
-        """, (chat_id, username, full_name, telegram_user_id))
+        if chat_id is not None:
+             await db.execute("""
+                UPDATE bot_users SET chat_id = ?, username = ?, full_name = ? WHERE telegram_user_id = ?
+            """, (chat_id, username, full_name, telegram_user_id))
+        else:
+             await db.execute("""
+                UPDATE bot_users SET username = ?, full_name = ? WHERE telegram_user_id = ?
+            """, (username, full_name, telegram_user_id))
         
         row = await db.fetchone("SELECT * FROM bot_users WHERE telegram_user_id = ?", (telegram_user_id,))
         return row
     else:
+        # If creating new user, chat_id MUST be provided or we can't notify them. 
+        # But if it is None (e.g. from group and user not known), we might insert key fields.
+        # However, for 'create', let's assume valid chat_id or store None if db allows.
         await db.execute("""
             INSERT INTO bot_users (telegram_user_id, chat_id, username, full_name)
             VALUES (?, ?, ?, ?)
