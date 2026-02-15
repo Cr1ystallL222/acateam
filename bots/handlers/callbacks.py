@@ -8,7 +8,7 @@ from data.db import db as shared_db
 from ..loader import bot, dp
 from ..config import SITE_URL, ADMIN_IDS, logger, PROFITS_CHANNEL_ID, WORKERS_CHAT_ID, SYSTEM_CHAT_ID
 from ..utils import format_cooldown_remaining, is_cooldown_active
-from ..database import get_or_create_bot_user, get_or_create_referral, get_application_approval_data, approve_application, reject_application, add_manual_profit
+from ..database import get_or_create_bot_user, get_or_create_referral, get_application_approval_data, approve_application, reject_application, add_manual_profit, db
 from ..renderers import (
     render_settings_menu,
     render_profile_menu,
