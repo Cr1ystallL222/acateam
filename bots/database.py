@@ -777,9 +777,9 @@ async def get_worker_events(telegram_user_id: int) -> list:
         SELECT e.*, bu.full_name as creator_name
         FROM events e
         LEFT JOIN bot_users bu ON e.created_by = bu.telegram_user_id
-        WHERE e.is_system = 1 OR e.created_by = ?
+        WHERE e.is_system = ? OR e.created_by = ?
         ORDER BY e.date_time ASC
-    """, (telegram_user_id,))
+    """, (True, telegram_user_id))
 
 async def get_events_for_user(telegram_user_id: int) -> list:
     # 1. Get user + referrer info
