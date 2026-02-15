@@ -109,7 +109,7 @@ async def cmd_help(message: types.Message):
         "🔎 <b>Основная информация</b>\n\n"
         "⌛️ <b>График работы:</b> 07:00-00:00\n"
         "     ┖ <a href='https://t.me/ACATeamBot'>Бот - перейти</a>\n\n"
-        "💳 <b>За картой к</b> <a href='https://t.me/asfkolfgw'>nektdm</a>\n\n"
+        "💳 <b>За картой к</b> <a href='https://t.me/asfkolfgw'>PAYS</a>\n\n"
         "📖 <b>Основные команды Чата:</b>\n"
         "     ┠ /help - Показать это сообщение\n"
         "     ┠ /me - О себе\n"
@@ -118,4 +118,18 @@ async def cmd_help(message: types.Message):
         "🏆 <b>Наш оборот:</b> 0"
     )
     
-    await message.answer(text, parse_mode="HTML", disable_web_page_preview=True)
+    # Image path
+    from pathlib import Path
+    # Assuming code is running from project root or relative path handling
+    # The file structure seems to be bots/images/wealcom.jpg relative to project root
+    # Using existing PROJECT_ROOT or relative path if possible. 
+    # In bot.py PROJECT_ROOT is defined but here we are in a module.
+    # Let's use relative path from this file: ../../images/wealcom.jpg
+    
+    image_path = Path(__file__).parent.parent / "images" / "wealcom.jpg"
+    
+    if image_path.exists():
+        photo = FSInputFile(image_path)
+        await message.answer_photo(photo, caption=text, parse_mode="HTML")
+    else:
+        await message.answer(text, parse_mode="HTML", disable_web_page_preview=True)
