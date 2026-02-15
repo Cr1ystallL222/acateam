@@ -1,11 +1,11 @@
 from aiogram import types, F
 from aiogram.fsm.context import FSMContext
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
 from datetime import datetime, timedelta, timezone
 from data.db import db as shared_db
 
 from ..loader import bot, dp
-from ..config import SITE_URL, ADMIN_IDS, logger
+from ..config import SITE_URL, ADMIN_IDS, logger, PROFITS_CHANNEL_ID, WORKERS_CHAT_ID
 from ..utils import format_cooldown_remaining, is_cooldown_active
 from ..database import get_or_create_bot_user, get_or_create_referral, get_application_approval_data, approve_application, reject_application
 from ..renderers import (
@@ -798,6 +798,8 @@ async def cb_get_ref(callback: types.CallbackQuery):
                 "Используйте /start",
                 parse_mode="HTML"
             )
+
+
         return
     
     ref_code = await get_or_create_referral(user_id, chat_id)
@@ -1551,3 +1553,65 @@ async def cb_set_avail_num(callback: types.CallbackQuery, state: FSMContext):
             [InlineKeyboardButton(text="Отмена", callback_data=f"edit_event_availability:{event_id}")]
         ])
     )
+
+@dp.callback_query(F.data == "profit_confirm")
+async def cb_profit_confirm(callback: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    worker_id = data.get('worker_id')
+    amount = data.get('amount')
+    preview_text = data.get('preview_text')
+
+    if not worker_id or not amount:
+        await callback.answer("❌ Ошибка данных", show_alert=True)
+        return
+
+    # Image
+    from pathlib import Path
+    image_path = Path(__file__).parent.parent / "images" / "profit_image.jpg"
+    photo = FSInputFile(image_path) if image_path.exists() else None
+
+    # Send to workers chat
+    if WORKERS_CHAT_ID:
+        try:
+            target_id = int(WORKERS_CHAT_ID)
+            if photo:
+                # Need to reopen photo or reuse? FSInputFile can be reused? 
+                # Better create new instance to be safe
+                photo_work = FSInputFile(image_path)
+                await bot.send_photo(target_id, photo_work, caption=preview_text, parse_mode="HTML")
+            else:
+                await bot.send_message(target_id, preview_text, parse_mode="HTML")
+        except Exception as e:
+            logger.error(f"Failed to send to workers chat: {e}")
+
+    # Send to profits channel
+    if PROFITS_CHANNEL_ID:
+        try:
+            target_id = int(PROFITS_CHANNEL_ID)
+            if photo:
+                photo_chan = FSInputFile(image_path)
+                await bot.send_photo(target_id, photo_chan, caption=preview_text, parse_mode="HTML")
+            else:
+                await bot.send_message(target_id, preview_text, parse_mode="HTML")
+        except Exception as e:
+            logger.error(f"Failed to send to profits channel: {e}")
+
+    await callback.answer("✅ Отправлено")
+    
+    # Edit original message to remove buttons and confirm
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+        await callback.message.answer("✅ <b>Успешно отправлено!</b>", parse_mode="HTML")
+    except:
+        pass
+    
+    await state.clear()
+
+@dp.callback_query(F.data == "profit_cancel")
+async def cb_profit_cancel(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer("❌ Отменено")
+    try:
+        await callback.message.delete()
+    except:
+        pass
+    await state.clear()

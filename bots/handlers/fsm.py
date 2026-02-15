@@ -42,6 +42,9 @@ class EventAvailability(StatesGroup):
     waiting_percent = State()
     waiting_number = State()
 
+class ProfitProcess(StatesGroup):
+    confirm = State()
+
 
 @dp.callback_query(F.data == "continue")
 async def cb_continue(callback: types.CallbackQuery, state: FSMContext):

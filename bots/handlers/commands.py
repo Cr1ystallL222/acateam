@@ -5,10 +5,11 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, FSInputFil
 import asyncio
 
 from ..loader import bot, dp
-from ..config import WELCOME_STICKER_ID, RESOLVED_IMAGE_PATH, ADMIN_IDS, logger
+from ..config import WELCOME_STICKER_ID, RESOLVED_IMAGE_PATH, ADMIN_IDS, logger, PROFITS_CHANNEL_ID, WORKERS_CHAT_ID
 from ..utils import is_cooldown_active, format_cooldown_remaining, calculate_days_in_team, generate_me_image
-from ..database import get_or_create_bot_user, has_pending_application, get_user_profits_stats
+from ..database import get_or_create_bot_user, has_pending_application, get_user_profits_stats, get_bot_user_by_any_id
 from ..renderers import render_profile_menu
+from .fsm import ProfitProcess
 
 @dp.message(Command("me"))
 async def cmd_me(message: types.Message):
@@ -353,3 +354,74 @@ async def cmd_help(message: types.Message):
         await message.answer_photo(photo, caption=text, parse_mode="HTML")
     else:
         await message.answer(text, parse_mode="HTML", disable_web_page_preview=True)
+
+@dp.message(Command("profit"))
+async def cmd_profit(message: types.Message, state: FSMContext):
+    """Admin profit command: /profit {id} {amount} {note}"""
+    if message.from_user.id not in ADMIN_IDS:
+        return
+
+    args = message.text.split(maxsplit=3)
+    # /profit id amount note -> len = 4
+    if len(args) < 4:
+        await message.answer("⚠️ Использование: /profit {id_воркера} {сумма} {примечание}")
+        return
+
+    worker_input = args[1]
+    amount_str = args[2]
+    note = args[3]
+
+    try:
+        amount = int(amount_str)
+    except ValueError:
+        await message.answer("⚠️ Сумма должна быть числом")
+        return
+
+    # Find worker
+    worker = await get_bot_user_by_any_id(worker_input)
+    if not worker:
+        await message.answer("⚠️ Работник не найден (по ID или username)")
+        return
+
+    # Get nickname
+    worker_name = worker.get('username')
+    if not worker_name:
+        worker_name = worker.get('full_name') or "Без имени"
+    else:
+        worker_name = f"@{worker_name}"
+
+    # Preview Text
+    preview_text = (
+        "✅ <b>Профит зачислен</b>\n"
+        f"└ {note}\n\n"
+        f"💳 <b>Сумма:</b> {amount} ₽\n"
+        f"👤 <b>Работник:</b> {worker_name}"
+    )
+
+    # Keyboard
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="Подтвердить", callback_data="profit_confirm"),
+            InlineKeyboardButton(text="Отклонить", callback_data="profit_cancel")
+        ]
+    ])
+
+    # Image
+    from pathlib import Path
+    image_path = Path(__file__).parent.parent / "images" / "profit_image.jpg"
+    
+    # Save state data
+    await state.set_state(ProfitProcess.confirm)
+    await state.update_data(
+        worker_id=worker['telegram_user_id'],
+        worker_name=worker_name,
+        amount=amount,
+        note=note,
+        preview_text=preview_text
+    )
+
+    if image_path.exists():
+        photo = FSInputFile(image_path)
+        await message.answer_photo(photo, caption=preview_text, parse_mode="HTML", reply_markup=keyboard)
+    else:
+        await message.answer(preview_text, parse_mode="HTML", reply_markup=keyboard)

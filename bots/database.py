@@ -607,6 +607,8 @@ async def get_or_create_bot_user(telegram_user_id: int, chat_id: Optional[int], 
         
         row = await db.fetchone("SELECT * FROM bot_users WHERE telegram_user_id = ?", (telegram_user_id,))
         return row
+
+
     else:
         # If creating new user, chat_id MUST be provided or we can't notify them. 
         # But if it is None (e.g. from group and user not known), we might insert key fields.
@@ -634,6 +636,19 @@ async def get_or_create_bot_user(telegram_user_id: int, chat_id: Optional[int], 
         row = await db.fetchone("SELECT * FROM bot_users WHERE telegram_user_id = ?", (telegram_user_id,))
         logger.info(f"Bot user created: telegram_user_id={telegram_user_id}, username={username}")
         return row
+
+
+async def get_bot_user_by_any_id(user_input: str) -> Optional[dict]:
+    """Find user by telegram_user_id or username."""
+    # Try as integer (Telegram ID)
+    try:
+        user_id = int(user_input)
+        row = await db.fetchone("SELECT * FROM bot_users WHERE telegram_user_id = ?", (user_id,))
+        if row: return row
+    except ValueError:
+        pass
+
+    return None
 
 async def save_last_menu_message_id(telegram_user_id: int, message_id: int):
     await db.execute("""
