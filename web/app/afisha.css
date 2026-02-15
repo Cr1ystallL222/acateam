@@ -1,7 +1,21 @@
 /* Afisha Styles - Культура.РФ design */
 
 /* Fonts */
-@import url('https://fonts.googleapis.com/css2?family=PT+Sans:wght@400;700&display=swap');
+@font-face {
+  font-family: 'PT Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/pt-sans-regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'PT Sans';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/pt-sans-bold.ttf') format('truetype');
+}
 
 :root {
   --header-bg: #24272a;
