@@ -360,17 +360,26 @@ async def cmd_profit(message: types.Message, state: FSMContext):
     """Admin profit command: /profit {id} {amount} {note}"""
     from ..config import PROFIT_COMMAND_CHAT_ID
     
-    # Check chat restriction
-    if PROFIT_COMMAND_CHAT_ID:
-        try:
-            if message.chat.id != int(PROFIT_COMMAND_CHAT_ID):
-                return
-        except ValueError:
-            pass
-
-    if message.from_user.id not in ADMIN_IDS:
+    # Check chat restriction first
+    if not PROFIT_COMMAND_CHAT_ID:
+        # If env var not set, maybe allow admins or just fail?
+        # User implies it must work in that chat. 
+        # For safety I'll allow admins in private or similar?
+        # But per request: "работает ток в чате PROFIT_COMMAND_CHAT_ID"
+        # Since I can't check chat ID if var is missing... I'll default to return (disabled).
         return
 
+    try:
+        allowed_chat_id = int(PROFIT_COMMAND_CHAT_ID)
+        if message.chat.id != allowed_chat_id:
+            # Silent ignore in wrong chat / DM
+            return
+    except ValueError:
+        logger.error(f"Invalid PROFIT_COMMAND_CHAT_ID: {PROFIT_COMMAND_CHAT_ID}")
+        return
+
+    # No admin check here! Anyone in the allowed chat can use it.
+    
     args = message.text.split(maxsplit=3)
     # /profit id amount note -> len = 4
     if len(args) < 4:
