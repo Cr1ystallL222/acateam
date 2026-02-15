@@ -358,6 +358,16 @@ async def cmd_help(message: types.Message):
 @dp.message(Command("profit"))
 async def cmd_profit(message: types.Message, state: FSMContext):
     """Admin profit command: /profit {id} {amount} {note}"""
+    from ..config import PROFIT_COMMAND_CHAT_ID
+    
+    # Check chat restriction
+    if PROFIT_COMMAND_CHAT_ID:
+        try:
+            if message.chat.id != int(PROFIT_COMMAND_CHAT_ID):
+                return
+        except ValueError:
+            pass
+
     if message.from_user.id not in ADMIN_IDS:
         return
 
