@@ -94,3 +94,28 @@ async def cmd_create_system_events(message: types.Message):
     except Exception as e:
         logger.error(f"Error creating system events: {e}")
         await message.answer(f"Ошибка при создании событий: {e}")
+
+@dp.message(Command("help"))
+async def cmd_help(message: types.Message):
+    """Help command for specific chat."""
+    # Check if we are in the correct chat
+    TARGET_CHAT_ID = -1003594485909
+    
+    if message.chat.id != TARGET_CHAT_ID:
+        return
+
+    # Message content
+    text = (
+        "🔎 <b>Основная информация</b>\n\n"
+        "⌛️ <b>График работы:</b> 07:00-00:00\n"
+        "     ┖ <a href='https://t.me/ACATeamBot'>Бот - перейти</a>\n\n"
+        "💳 <b>За картой к</b> <a href='https://t.me/asfkolfgw'>nektdm</a>\n\n"
+        "📖 <b>Основные команды Чата:</b>\n"
+        "     ┠ /help - Показать это сообщение\n"
+        "     ┠ /me - О себе\n"
+        "     ┠ /top(d|w|m) - Топ проекта\n"
+        "     ┖ /curators - наставники\n\n"
+        "🏆 <b>Наш оборот:</b> 0"
+    )
+    
+    await message.answer(text, parse_mode="HTML", disable_web_page_preview=True)
