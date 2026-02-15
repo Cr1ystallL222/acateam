@@ -1038,7 +1038,7 @@ async def cb_edit_venue(callback: types.CallbackQuery, state: FSMContext):
     # Get venues for user's city
     settings = await get_worker_settings(callback.from_user.id)
     city = settings.get('custom_city', 'Краснодар')
-    venues = get_venues_for_city(city)
+    venues = await get_venues_for_city(city)
     
     venues_text = "\n".join([f"• <code>{v}</code>" for v in venues])
     

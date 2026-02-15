@@ -210,11 +210,28 @@ async def cmd_top(message: types.Message):
     from pathlib import Path
     image_path = Path(__file__).parent.parent / "images" / "top_command.jpg"
     
+    sent_msg = None
     if image_path.exists():
         photo = FSInputFile(image_path)
-        await message.answer_photo(photo, caption=text, parse_mode="HTML")
+        sent_msg = await message.answer_photo(photo, caption=text, parse_mode="HTML")
     else:
-        await message.answer(text, parse_mode="HTML")
+        sent_msg = await message.answer(text, parse_mode="HTML")
+        
+    # Auto-deletion after 20 seconds
+    await asyncio.sleep(20)
+    
+    # Delete bot response
+    if sent_msg:
+        try:
+            await sent_msg.delete()
+        except:
+            pass
+            
+    # Delete user command message
+    try:
+        await message.delete()
+    except:
+        pass
 
 @dp.message(Command("help"))
 async def cmd_help(message: types.Message):
