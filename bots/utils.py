@@ -90,7 +90,7 @@ def generate_me_image(nickname: str, total_profits: int, avg_profit: int, days_i
     
     # Load Font
     try:
-        font = ImageFont.truetype(str(font_path), 70)
+        font = ImageFont.truetype(str(font_path), 50)
     except IOError:
         # Fallback if font not found
         font = ImageFont.load_default()
@@ -106,7 +106,7 @@ def generate_me_image(nickname: str, total_profits: int, avg_profit: int, days_i
     
     draw.text((920, 280), f"Ник: {nickname}", font=font, fill=text_color)
     draw.text((920, 420), f"Сумма профитов: {total_profits} P", font=font, fill=text_color)
-    draw.text((920, 560), f"Средний профит: {avg_profit} P", font=font, fill=text_color)
+    draw.text((920, 560), f"Ср. профит: {avg_profit} P", font=font, fill=text_color)
     draw.text((920, 700), f"Дней в команде: {days_in_team}", font=font, fill=text_color)
     
     bio = BytesIO()
