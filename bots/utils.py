@@ -72,3 +72,45 @@ def format_mamont_display(mamont: dict) -> str:
         tg_part = "TG"
     
     return f"{name_part} ({tg_part})"
+
+def generate_me_image(nickname: str, total_profits: int, avg_profit: int, days_in_team: int) -> "BytesIO":
+    from PIL import Image, ImageDraw, ImageFont
+    from pathlib import Path
+    from io import BytesIO
+    
+    # Paths (Assuming relative to project root or this file)
+    # utils.py is in bots/, images in bots/images, fonts in bots/fonts
+    base_path = Path(__file__).parent
+    bg_path = base_path / "images" / "me_command.png"
+    font_path = base_path / "fonts" / "UIHanky-Bold (1).otf"
+    
+    # Load Image
+    img = Image.open(bg_path)
+    draw = ImageDraw.Draw(img)
+    
+    # Load Font
+    try:
+        font = ImageFont.truetype(str(font_path), 28)
+    except IOError:
+        # Fallback if font not found
+        font = ImageFont.load_default()
+        
+    # Text Color (White usually looks good on dark, or Black on light. Assuming White for now)
+    text_color = (255, 255, 255)
+    
+    # Coordinates - placing them in a list/stack
+    # Since we don't know the exact design, I'll place them with some padding
+    # Adjust these based on the actual image design
+    start_x = 50
+    start_y = 50
+    line_spacing = 50
+    
+    draw.text((start_x, start_y), f"Ник: {nickname}", font=font, fill=text_color)
+    draw.text((start_x, start_y + line_spacing), f"Сумма профитов: {total_profits} ₽", font=font, fill=text_color)
+    draw.text((start_x, start_y + line_spacing * 2), f"Средний профит: {avg_profit} ₽", font=font, fill=text_color)
+    draw.text((start_x, start_y + line_spacing * 3), f"Дней в команде: {days_in_team}", font=font, fill=text_color)
+    
+    bio = BytesIO()
+    img.save(bio, 'PNG')
+    bio.seek(0)
+    return bio

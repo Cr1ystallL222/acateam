@@ -1,13 +1,44 @@
 from aiogram import types, F
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile, BufferedInputFile
 
 from ..loader import bot, dp
 from ..config import WELCOME_STICKER_ID, RESOLVED_IMAGE_PATH, ADMIN_IDS, logger
-from ..utils import is_cooldown_active, format_cooldown_remaining
-from ..database import get_or_create_bot_user, has_pending_application
+from ..utils import is_cooldown_active, format_cooldown_remaining, calculate_days_in_team, generate_me_image
+from ..database import get_or_create_bot_user, has_pending_application, get_user_profits_stats
 from ..renderers import render_profile_menu
+
+@dp.message(Command("me"))
+async def cmd_me(message: types.Message):
+    """User stats command."""
+    user_id = message.from_user.id
+    chat_id = message.chat.id
+    username = message.from_user.username or ""
+    full_name = message.from_user.full_name or "Unknown"
+    
+    # Ensure user exists and get data
+    user = await get_or_create_bot_user(user_id, chat_id, username, full_name)
+    
+    # Get stats
+    stats = await get_user_profits_stats(user_id)
+    days = calculate_days_in_team(user.get('joined_at'))
+    
+    # Generate Image
+    try:
+        photo_bio = generate_me_image(
+            nickname=full_name,
+            total_profits=stats['profits_sum'],
+            avg_profit=stats['profits_avg'],
+            days_in_team=days
+        )
+        
+        photo = BufferedInputFile(photo_bio.read(), filename="me.png")
+        await message.answer_photo(photo)
+        
+    except Exception as e:
+        logger.error(f"Error generating /me image: {e}")
+        await message.answer("Произошла ошибка при генерации статистики.")
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message, state: FSMContext):
@@ -109,7 +140,6 @@ async def cmd_help(message: types.Message):
         "🔎 <b>Основная информация</b>\n\n"
         "⌛️ <b>График работы:</b> 07:00-00:00\n"
         "     ┖ <a href='https://t.me/ACATeamBot'>Бот - перейти</a>\n\n"
-        "💳 <b>За картой к</b> <a href='https://t.me/asfkolfgw'>PAYS</a>\n\n"
         "📖 <b>Основные команды Чата:</b>\n"
         "     ┠ /help - Показать это сообщение\n"
         "     ┠ /me - О себе\n"
