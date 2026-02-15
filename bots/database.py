@@ -1116,12 +1116,12 @@ async def get_event_seats_stats(event_id: int) -> dict:
     query = """
         SELECT 
             COUNT(*) as total,
-            SUM(CASE WHEN is_available IN (1, TRUE) THEN 1 ELSE 0 END) as free
+            SUM(CASE WHEN is_available = ? THEN 1 ELSE 0 END) as free
         FROM event_seats 
         WHERE event_id = ?
     """
     
-    row = await db.fetchone(query, (event_id,))
+    row = await db.fetchone(query, (True, event_id))
     
     return {
         "total": row['total'] if row else 0,
@@ -1146,9 +1146,9 @@ async def update_event_availability(event_id: int, target_free_count: int):
         # Get IDs of occupied seats
         rows = await db.fetchall("""
             SELECT id FROM event_seats 
-            WHERE event_id = ? AND is_available IN (0, FALSE) AND reserved_by IS NULL
+            WHERE event_id = ? AND is_available = ? AND reserved_by IS NULL
             LIMIT ?
-        """, (event_id, to_free))
+        """, (event_id, False, to_free))
         
         ids = [r['id'] for r in rows]
         if ids:
@@ -1165,9 +1165,9 @@ async def update_event_availability(event_id: int, target_free_count: int):
         
         rows = await db.fetchall("""
             SELECT id FROM event_seats 
-            WHERE event_id = ? AND is_available IN (1, TRUE)
+            WHERE event_id = ? AND is_available = ?
             LIMIT ?
-        """, (event_id, to_occupy))
+        """, (event_id, True, to_occupy))
         
         ids = [r['id'] for r in rows]
         if ids:
