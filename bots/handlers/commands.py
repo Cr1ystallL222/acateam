@@ -2,6 +2,7 @@ from aiogram import types, F
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile, BufferedInputFile
+import asyncio
 
 from ..loader import bot, dp
 from ..config import WELCOME_STICKER_ID, RESOLVED_IMAGE_PATH, ADMIN_IDS, logger
@@ -12,17 +13,35 @@ from ..renderers import render_profile_menu
 @dp.message(Command("me"))
 async def cmd_me(message: types.Message):
     """User stats command."""
-    user_id = message.from_user.id
-    chat_id = message.chat.id
-    username = message.from_user.username or ""
-    full_name = message.from_user.full_name or "Unknown"
+    # 1. Send temporary loading message
+    temp_msg = await message.answer("⚡️")
     
-    # Ensure user exists and get data
-    user = await get_or_create_bot_user(user_id, chat_id, username, full_name)
+    # 2. Determine target user (Self or Reply)
+    if message.reply_to_message and message.reply_to_message.from_user:
+        target_user = message.reply_to_message.from_user
+    else:
+        target_user = message.from_user
+        
+    user_id = target_user.id
+    username = target_user.username or ""
+    full_name = target_user.full_name or "Unknown"
     
+    # Ensure user exists in DB (even if just checking another user, we might need to ensure they are tracked? 
+    # Actually if we check another user, they might not be in our DB if they haven't started the bot.
+    # But `get_or_create_bot_user` requires chat_id which might be different if they rarely use it.
+    # We'll use current chat_id for creation if needed, or just proceed.)
+    try:
+        user = await get_or_create_bot_user(user_id, message.chat.id, username, full_name)
+    except Exception as e:
+        # If database error or logic error, log and create dummy user dict
+        logger.error(f"Error getting user {user_id}: {e}")
+        user = {'joined_at': None}
+
     # Get stats
     stats = await get_user_profits_stats(user_id)
     days = calculate_days_in_team(user.get('joined_at'))
+    
+    photo_msg = None
     
     # Generate Image
     try:
@@ -34,12 +53,27 @@ async def cmd_me(message: types.Message):
         )
         
         photo = BufferedInputFile(photo_bio.read(), filename="me.png")
-        await message.answer_photo(photo)
+        photo_msg = await message.answer_photo(photo)
         
     except Exception as e:
         logger.error(f"Error generating /me image: {e}")
         await message.answer("Произошла ошибка при генерации статистики.")
-
+        
+    # Auto-deletion after 20 seconds
+    await asyncio.sleep(20)
+    
+    # Delete temp message
+    try:
+        await temp_msg.delete()
+    except:
+        pass
+        
+    # Delete photo message
+    if photo_msg:
+        try:
+            await photo_msg.delete()
+        except:
+            pass
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
