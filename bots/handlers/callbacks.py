@@ -1,6 +1,7 @@
 from aiogram import types, F
 from aiogram.fsm.context import FSMContext
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
+from aiogram.exceptions import TelegramBadRequest
 from datetime import datetime, timedelta, timezone
 from data.db import db as shared_db
 
@@ -1648,7 +1649,16 @@ async def cb_withdraw_request(callback: types.CallbackQuery):
         ]
     ])
     
-    await callback.message.edit_text(text, parse_mode="HTML", reply_markup=keyboard)
+    try:
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=keyboard)
+    except TelegramBadRequest:
+        # Message has media, so we can't edit text. 
+        # We could edit caption, but let's delete and send new text for clear dialog.
+        try:
+            await callback.message.delete()
+        except:
+            pass
+        await callback.message.answer(text, parse_mode="HTML", reply_markup=keyboard)
 
 @dp.callback_query(F.data == "withdraw_cancel_user")
 async def cb_withdraw_cancel_user(callback: types.CallbackQuery):
