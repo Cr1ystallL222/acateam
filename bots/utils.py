@@ -90,7 +90,7 @@ def generate_me_image(nickname: str, total_profits: int, avg_profit: int, days_i
     
     # Load Font
     try:
-        font = ImageFont.truetype(str(font_path), 28)
+        font = ImageFont.truetype(str(font_path), 40)
     except IOError:
         # Fallback if font not found
         font = ImageFont.load_default()
@@ -98,17 +98,16 @@ def generate_me_image(nickname: str, total_profits: int, avg_profit: int, days_i
     # Text Color (White usually looks good on dark, or Black on light. Assuming White for now)
     text_color = (255, 255, 255)
     
-    # Coordinates - placing them in a list/stack
-    # Since we don't know the exact design, I'll place them with some padding
-    # Adjust these based on the actual image design
-    start_x = 50
-    start_y = 50
-    line_spacing = 50
+    # Coordinates provided by user
+    # 1. Nick - 1150 300
+    # 2. Total Profits - 1150 440
+    # 3. Avg Profit - 1150 600
+    # 4. Days in Team - 1150 740
     
-    draw.text((start_x, start_y), f"Ник: {nickname}", font=font, fill=text_color)
-    draw.text((start_x, start_y + line_spacing), f"Сумма профитов: {total_profits} ₽", font=font, fill=text_color)
-    draw.text((start_x, start_y + line_spacing * 2), f"Средний профит: {avg_profit} ₽", font=font, fill=text_color)
-    draw.text((start_x, start_y + line_spacing * 3), f"Дней в команде: {days_in_team}", font=font, fill=text_color)
+    draw.text((1150, 300), f"{nickname}", font=font, fill=text_color)
+    draw.text((1150, 440), f"{total_profits} ₽", font=font, fill=text_color)
+    draw.text((1150, 600), f"{avg_profit} ₽", font=font, fill=text_color)
+    draw.text((1150, 740), f"{days_in_team}", font=font, fill=text_color)
     
     bio = BytesIO()
     img.save(bio, 'PNG')
