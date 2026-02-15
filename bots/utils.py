@@ -90,7 +90,7 @@ def generate_me_image(nickname: str, total_profits: int, avg_profit: int, days_i
     
     # Load Font
     try:
-        font = ImageFont.truetype(str(font_path), 40)
+        font = ImageFont.truetype(str(font_path), 70)
     except IOError:
         # Fallback if font not found
         font = ImageFont.load_default()
