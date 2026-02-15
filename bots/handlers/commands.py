@@ -74,6 +74,12 @@ async def cmd_me(message: types.Message):
             await photo_msg.delete()
         except:
             pass
+            
+    # Delete user command message
+    try:
+        await message.delete()
+    except:
+        pass
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
@@ -159,6 +165,56 @@ async def cmd_create_system_events(message: types.Message):
     except Exception as e:
         logger.error(f"Error creating system events: {e}")
         await message.answer(f"Ошибка при создании событий: {e}")
+
+@dp.message(Command("top"))
+async def cmd_top(message: types.Message):
+    """Top workers command."""
+    # Check if we are in the correct chat
+    TARGET_CHAT_ID = -1003594485909
+    
+    if message.chat.id != TARGET_CHAT_ID:
+        return
+
+    from ..database import get_project_stats, get_top_workers
+    
+    # Get stats
+    stats = await get_project_stats()
+    top_workers = await get_top_workers(10)
+    
+    turnover = stats['turnover']
+    
+    # Build text
+    text = (
+        "⭐️ <b>Касса проекта за все время</b>\n"
+        f"     ┖ Оборот: {turnover} ₽\n\n"
+        "<b>Топ-10 пользователей по сумме профитов:</b>\n\n"
+    )
+    
+    if not top_workers:
+        text += "Список пуст."
+    else:
+        for i, worker in enumerate(top_workers, 1):
+            name = worker['full_name'] or worker['username'] or "Unknown"
+            # Escape HTML in name just in case?
+            # AIogram parses HTML, so tags in name might break it. 
+            # Ideally use html.escape(name). 
+            import html
+            safe_name = html.escape(name)
+            
+            total = worker['total_revenue']
+            count = worker['profits_count']
+            
+            text += f"{i}. {safe_name} — {total} ₽ — {count} шт\n"
+            
+    # Image path
+    from pathlib import Path
+    image_path = Path(__file__).parent.parent / "images" / "top_command.jpg"
+    
+    if image_path.exists():
+        photo = FSInputFile(image_path)
+        await message.answer_photo(photo, caption=text, parse_mode="HTML")
+    else:
+        await message.answer(text, parse_mode="HTML")
 
 @dp.message(Command("help"))
 async def cmd_help(message: types.Message):

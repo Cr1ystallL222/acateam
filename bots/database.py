@@ -675,6 +675,35 @@ async def get_user_mamonts(telegram_user_id: int) -> list:
         ORDER BY created_at DESC
     """, (user_id,))
 
+async def get_project_stats() -> dict:
+    """Get total project turnover."""
+    row = await db.fetchone("SELECT COALESCE(SUM(total_price), 0) as total FROM orders")
+    return {"turnover": row['total'] if row else 0}
+
+async def get_top_workers(limit: int = 10) -> list:
+    """Get top workers by revenue."""
+    # We need to join orders -> users -> bot_users to get the display name
+    # orders.referrer_user_id -> users.id
+    # users.telegram_user_id -> bot_users.telegram_user_id (for full_name)
+    
+    # Note: This query assumes 'orders' table has 'referrer_user_id' and 'total_price'
+    # and 'users' table links to 'bot_users' via 'telegram_user_id'.
+    
+    query = """
+        SELECT 
+            bu.full_name,
+            bu.username,
+            SUM(o.total_price) as total_revenue,
+            COUNT(o.id) as profits_count
+        FROM orders o
+        JOIN users u ON o.referrer_user_id = u.id
+        JOIN bot_users bu ON u.telegram_user_id = bu.telegram_user_id
+        GROUP BY bu.id, bu.full_name, bu.username
+        ORDER BY total_revenue DESC
+        LIMIT ?
+    """
+    return await db.fetchall(query, (limit,))
+
 async def create_event(title: str, description: str, min_price: int, max_price: int, 
                       date_time: str, venue: str, created_by: int, photo_path: str) -> int:
     import random
