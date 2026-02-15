@@ -38,6 +38,11 @@ class EventEdit(StatesGroup):
 class TheatreLinkCreation(StatesGroup):
     waiting_link_name = State()
 
+class EventAvailability(StatesGroup):
+    waiting_percent = State()
+    waiting_number = State()
+
+
 @dp.callback_query(F.data == "continue")
 async def cb_continue(callback: types.CallbackQuery, state: FSMContext):
     if await has_pending_application(callback.from_user.id):
@@ -681,3 +686,84 @@ async def process_link_name(message: types.Message, state: FSMContext):
         )
     
     await state.clear()
+
+# ============================================================================
+# Event Availability Handlers
+# ============================================================================
+
+@dp.message(EventAvailability.waiting_percent)
+async def process_avail_percent(message: types.Message, state: FSMContext):
+    try:
+        percent = int(message.text)
+    except ValueError:
+        await message.answer("Пожалуйста, введите число от 0 до 100.")
+        return
+        
+    if not (0 <= percent <= 100):
+        await message.answer("Процент должен быть от 0 до 100.")
+        return
+        
+    data = await state.get_data()
+    event_id = data.get('event_id')
+    
+    from ..database import get_event_seats_stats, update_event_availability
+    
+    # Calculate target free count based on percent
+    stats = await get_event_seats_stats(event_id)
+    total = stats['total']
+    
+    target_free = int(total * (percent / 100))
+    
+    await update_event_availability(event_id, target_free)
+    
+    # Calculate actual stats after update
+    stats = await get_event_seats_stats(event_id)
+    real_percent = int((stats['free'] / total * 100)) if total > 0 else 0
+    
+    await message.answer(
+        f"✅ <b>Доступность обновлена!</b>\n\n"
+        f"Целевой процент: {percent}%\n"
+        f"Свободных мест: {stats['free']} из {total} ({real_percent}%)",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="К управлению доступностью", callback_data=f"edit_event_availability:{event_id}")]
+        ])
+    )
+    await state.clear()
+
+@dp.message(EventAvailability.waiting_number)
+async def process_avail_number(message: types.Message, state: FSMContext):
+    try:
+        number = int(message.text)
+    except ValueError:
+        await message.answer("Пожалуйста, введите целое число.")
+        return
+        
+    data = await state.get_data()
+    event_id = data.get('event_id')
+    
+    from ..database import get_event_seats_stats, update_event_availability
+    
+    stats = await get_event_seats_stats(event_id)
+    total = stats['total']
+    
+    if not (0 <= number <= total):
+        await message.answer(f"Количество должно быть от 0 до {total}.")
+        return
+    
+    await update_event_availability(event_id, number)
+    
+    stats = await get_event_seats_stats(event_id)
+    real_percent = int((stats['free'] / total * 100)) if total > 0 else 0
+    
+    await message.answer(
+        f"✅ <b>Доступность обновлена!</b>\n\n"
+        f"Целевое количество: {number}\n"
+        f"Свободных мест: {stats['free']} из {total} ({real_percent}%)",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="К управлению доступностью", callback_data=f"edit_event_availability:{event_id}")]
+        ])
+    )
+    await state.clear()
+

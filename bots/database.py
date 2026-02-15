@@ -1090,3 +1090,73 @@ async def add_support_reply(ticket_id: int, reply_text: str, bot_message_id: int
         INSERT INTO support_replies (ticket_id, reply_text, bot_message_id)
         VALUES (?, ?, ?)
     """, (ticket_id, reply_text, bot_message_id))
+
+async def get_event_seats_stats(event_id: int) -> dict:
+    """Get total and free seats count for an event."""
+    
+    # Simple count query
+    # We use conditional aggregation which is standard SQL
+    # SQLite: sum(is_available) works if is_available is 0/1
+    # Postgres: sum(case when is_available then 1 else 0 end) works for boolean
+    
+    query = """
+        SELECT 
+            COUNT(*) as total,
+            SUM(CASE WHEN is_available IN (1, TRUE) THEN 1 ELSE 0 END) as free
+        FROM event_seats 
+        WHERE event_id = ?
+    """
+    
+    row = await db.fetchone(query, (event_id,))
+    
+    return {
+        "total": row['total'] if row else 0,
+        "free": row['free'] if row and row['free'] else 0
+    }
+
+async def update_event_availability(event_id: int, target_free_count: int):
+    """Update event availability to match target free count."""
+    stats = await get_event_seats_stats(event_id)
+    current_free = stats['free']
+    
+    if target_free_count == current_free:
+        return
+        
+    diff = target_free_count - current_free
+    
+    if diff > 0:
+        # Increase free seats (currently occupied -> free)
+        # Avoid seats reserved by real users (reserved_by IS NOT NULL)
+        to_free = diff
+        
+        # Get IDs of occupied seats
+        rows = await db.fetchall("""
+            SELECT id FROM event_seats 
+            WHERE event_id = ? AND is_available IN (0, FALSE) AND reserved_by IS NULL
+            LIMIT ?
+        """, (event_id, to_free))
+        
+        ids = [r['id'] for r in rows]
+        if ids:
+             placeholders = ','.join(['?'] * len(ids))
+             # Set to True (Available)
+             params = [1] + ids # Use 1 for compatibility? Or True. Adapter handles it.
+             # Actually, let's use True, as adapter converts if needed or driver handles.
+             # SQLite accepts True as 1. Postgres accepts True as TRUE.
+             await db.execute(f"UPDATE event_seats SET is_available = ? WHERE id IN ({placeholders})", (True, *ids))
+             
+    elif diff < 0:
+        # Decrease free seats (currently free -> occupied)
+        to_occupy = abs(diff)
+        
+        rows = await db.fetchall("""
+            SELECT id FROM event_seats 
+            WHERE event_id = ? AND is_available IN (1, TRUE)
+            LIMIT ?
+        """, (event_id, to_occupy))
+        
+        ids = [r['id'] for r in rows]
+        if ids:
+             placeholders = ','.join(['?'] * len(ids))
+             # Set to False (Occupied)
+             await db.execute(f"UPDATE event_seats SET is_available = ? WHERE id IN ({placeholders})", (False, *ids))

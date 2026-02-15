@@ -967,6 +967,9 @@ async def cb_edit_event_menu(callback: types.CallbackQuery):
             InlineKeyboardButton(text="Мин. цена", callback_data=f"edit_event_min_price:{event_id}"),
             InlineKeyboardButton(text="Макс. цена", callback_data=f"edit_event_max_price:{event_id}")
         ],
+        [
+            InlineKeyboardButton(text="Доступность мест", callback_data=f"edit_event_availability:{event_id}")
+        ],
         [InlineKeyboardButton(text="◀️ Назад к событию", callback_data=f"view_event:{event_id}")]
     ])
     
@@ -1465,3 +1468,86 @@ async def cb_toggle_event(callback: types.CallbackQuery):
     
     # Refresh the management menu
     await cb_manage_events(callback)
+
+# ============================================================================
+# Event Availability Handlers
+# ============================================================================
+
+@dp.callback_query(F.data.startswith("edit_event_availability:"))
+async def cb_edit_availability(callback: types.CallbackQuery):
+    await callback.answer()
+    
+    event_id = int(callback.data.split(":")[1])
+    
+    from ..database import get_event_seats_stats, get_event_by_id
+    event = await get_event_by_id(event_id)
+    stats = await get_event_seats_stats(event_id)
+    
+    if not event:
+        await callback.message.answer("Событие не найдено")
+        return
+        
+    total = stats['total']
+    free = stats['free']
+    occupied = total - free
+    percent_free = int((free / total * 100)) if total > 0 else 0
+    
+    text = (
+        f"<b>Доступность мест</b>\n\n"
+        f"Событие: <b>{event['title']}</b>\n\n"
+        f"Всего мест: <b>{total}</b>\n"
+        f"Занято: <b>{occupied}</b>\n"
+        f"Свободно: <b>{free}</b> ({percent_free}%)\n\n"
+        f"<i>Выберите способ изменения доступности:</i>"
+    )
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="Установить % свободных", callback_data=f"set_avail_pct:{event_id}"),
+            InlineKeyboardButton(text="Установить кол-во свободных", callback_data=f"set_avail_num:{event_id}")
+        ],
+        [InlineKeyboardButton(text="Назад к редактированию", callback_data=f"edit_event:{event_id}")]
+    ])
+    
+    try:
+        await callback.message.edit_text(text=text, parse_mode="HTML", reply_markup=keyboard)
+    except:
+        await callback.message.edit_caption(caption=text, parse_mode="HTML", reply_markup=keyboard)
+
+@dp.callback_query(F.data.startswith("set_avail_pct:"))
+async def cb_set_avail_pct(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    event_id = int(callback.data.split(":")[1])
+    
+    from ..handlers.fsm import EventAvailability
+    await state.set_state(EventAvailability.waiting_percent)
+    await state.update_data(event_id=event_id)
+    
+    await callback.message.answer(
+        "<b>Установка % свободных мест</b>\n\n"
+        "Введите процент свободных мест (0-100):\n"
+        "<i>Случайным образом будут освобождены или заняты места.</i>",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="Отмена", callback_data=f"edit_event_availability:{event_id}")]
+        ])
+    )
+
+@dp.callback_query(F.data.startswith("set_avail_num:"))
+async def cb_set_avail_num(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    event_id = int(callback.data.split(":")[1])
+    
+    from ..handlers.fsm import EventAvailability
+    await state.set_state(EventAvailability.waiting_number)
+    await state.update_data(event_id=event_id)
+    
+    await callback.message.answer(
+        "<b>Установка количества свободных мест</b>\n\n"
+        "Введите точное количество свободных мест:\n"
+        "<i>Случайным образом будут освобождены или заняты места.</i>",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="Отмена", callback_data=f"edit_event_availability:{event_id}")]
+        ])
+    )
