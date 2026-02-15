@@ -1,21 +1,7 @@
 /* Afisha Styles - Культура.РФ design */
 
 /* Fonts */
-@font-face {
-  font-family: 'PT Sans';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url('/fonts/pt-sans-regular.ttf') format('truetype');
-}
-
-@font-face {
-  font-family: 'PT Sans';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url('/fonts/pt-sans-bold.ttf') format('truetype');
-}
+@import url('https://fonts.googleapis.com/css2?family=PT+Sans:wght@400;700&display=swap');
 
 :root {
   --header-bg: #24272a;
@@ -199,7 +185,7 @@ a {
 .hero-card__overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 60%);
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.7) 0%, transparent 60%);
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -748,11 +734,11 @@ a {
   .events-grid {
     grid-template-columns: repeat(3, 1fr);
   }
-  
+
   .hero-slider__grid {
     grid-template-columns: repeat(2, 1fr);
   }
-  
+
   .hero-slider__grid .hero-card:last-child {
     display: none;
   }
@@ -762,20 +748,20 @@ a {
   .events-grid {
     grid-template-columns: repeat(2, 1fr);
   }
-  
+
   .hero-slider__grid {
     grid-template-columns: 1fr;
   }
-  
+
   .hero-slider__grid .hero-card:nth-child(2),
   .hero-slider__grid .hero-card:last-child {
     display: none;
   }
-  
+
   .header__nav {
     display: none;
   }
-  
+
   .footer__content {
     grid-template-columns: 1fr;
     gap: 24px;
