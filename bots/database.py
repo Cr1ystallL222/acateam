@@ -217,6 +217,19 @@ async def _ensure_postgres_bot_schema():
         )
     """)
 
+    # Manual profits
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS manual_profits (
+            id SERIAL PRIMARY KEY,
+            worker_user_id INTEGER NOT NULL REFERENCES users(id),
+            amount INTEGER NOT NULL,
+            worker_share INTEGER,
+            note TEXT,
+            admin_id BIGINT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
     # Migrations (Common for both SQLite and Postgres)
     async def add_column_if_missing(table, column, definition):
         try:
@@ -420,6 +433,20 @@ async def _ensure_sqlite_bot_schema():
             user_read BOOLEAN DEFAULT FALSE,
             bot_message_id INTEGER,
             FOREIGN KEY(user_id) REFERENCES users(id)
+        )
+    """)
+
+    # Manual profits table
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS manual_profits (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            worker_user_id INTEGER NOT NULL,
+            amount INTEGER NOT NULL,
+            worker_share INTEGER,
+            note TEXT,
+            admin_id INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(worker_user_id) REFERENCES users(id)
         )
     """)
     
@@ -696,8 +723,20 @@ async def get_user_profits_stats(telegram_user_id: int) -> dict:
     # Adapter: return dict(row)
     # Postgres returns Record/dict. SQLite returns dict/Row.
     
-    profits_count = row['qty'] if row else 0
-    profits_sum = row['total'] if row else 0
+    profits_count_orders = row['qty'] if row else 0
+    profits_sum_orders = row['total'] if row else 0
+    
+    # Add manual profits
+    row_manual = await db.fetchone("""
+        SELECT COUNT(*) as count, COALESCE(SUM(amount), 0) as total
+        FROM manual_profits WHERE worker_user_id = ?
+    """, (user_id,))
+    
+    profits_count_manual = row_manual['count'] if row_manual else 0
+    profits_sum_manual = row_manual['total'] if row_manual else 0
+    
+    profits_count = profits_count_orders + profits_count_manual
+    profits_sum = profits_sum_orders + profits_sum_manual
     profits_avg = int(profits_sum / profits_count) if profits_count > 0 else 0
     
     return {
@@ -705,6 +744,31 @@ async def get_user_profits_stats(telegram_user_id: int) -> dict:
         "profits_sum": profits_sum,
         "profits_avg": profits_avg
     }
+
+async def add_manual_profit(admin_id: int, worker_tg_id: int, amount: int, worker_share: int, note: str):
+    """Adds a manual profit and updates worker balance."""
+    # Get internal user id
+    row = await db.fetchone("SELECT id FROM users WHERE telegram_user_id = ?", (worker_tg_id,))
+    if not row:
+        logger.error(f"Cannot add profit: user {worker_tg_id} not found in users table")
+        return
+    user_id = row['id']
+    
+    # Insert profit
+    await db.execute("""
+        INSERT INTO manual_profits (worker_user_id, amount, worker_share, note, admin_id)
+        VALUES (?, ?, ?, ?, ?)
+    """, (user_id, amount, worker_share, note, admin_id))
+    
+    # Update balance
+    await db.execute("""
+        UPDATE bot_users SET balance = balance + ? WHERE telegram_user_id = ?
+    """, (worker_share, worker_tg_id))
+    
+    # Sync balance to global users table if needed (optional, but good for consistency)
+    await db.execute("""
+        UPDATE users SET balance = balance + ? WHERE id = ?
+    """, (worker_share, user_id))
 
 async def get_user_mamonts(telegram_user_id: int) -> list:
     row = await db.fetchone("SELECT id FROM users WHERE telegram_user_id = ?", (telegram_user_id,))
@@ -736,10 +800,14 @@ async def get_top_workers(limit: int = 10) -> list:
         SELECT 
             bu.full_name,
             bu.username,
-            SUM(o.total_price) as total_revenue,
-            COUNT(o.id) as profits_count
-        FROM orders o
-        JOIN users u ON o.referrer_user_id = u.id
+            SUM(combined.amount) as total_revenue,
+            COUNT(combined.id) as profits_count
+        FROM (
+            SELECT id, referrer_user_id as user_id, total_price as amount FROM orders
+            UNION ALL
+            SELECT id, worker_user_id as user_id, amount FROM manual_profits
+        ) combined
+        JOIN users u ON combined.user_id = u.id
         JOIN bot_users bu ON u.telegram_user_id = bu.telegram_user_id
         GROUP BY bu.id, bu.full_name, bu.username
         ORDER BY total_revenue DESC

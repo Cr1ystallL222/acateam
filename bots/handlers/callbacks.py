@@ -7,10 +7,8 @@ from data.db import db as shared_db
 from ..loader import bot, dp
 from ..config import SITE_URL, ADMIN_IDS, logger, PROFITS_CHANNEL_ID, WORKERS_CHAT_ID
 from ..utils import format_cooldown_remaining, is_cooldown_active
-from ..database import get_or_create_bot_user, get_or_create_referral, get_application_approval_data, approve_application, reject_application
+from ..database import get_or_create_bot_user, get_or_create_referral, get_application_approval_data, approve_application, reject_application, add_manual_profit
 from ..renderers import (
-    render_theatre_menu,
-    render_clients_menu,
     render_settings_menu,
     render_profile_menu,
     render_events_menu,
@@ -1560,10 +1558,18 @@ async def cb_profit_confirm(callback: types.CallbackQuery, state: FSMContext):
     worker_id = data.get('worker_id')
     amount = data.get('amount')
     preview_text = data.get('preview_text')
+    worker_share = data.get('worker_share')
+    note = data.get('note')
 
     if not worker_id or not amount:
         await callback.answer("❌ Ошибка данных", show_alert=True)
         return
+        
+    if not worker_share:
+        worker_share = int(amount * 0.78)
+
+    # Save to DB
+    await add_manual_profit(callback.from_user.id, worker_id, amount, worker_share, note)
 
     # Image
     from pathlib import Path
@@ -1598,10 +1604,9 @@ async def cb_profit_confirm(callback: types.CallbackQuery, state: FSMContext):
 
     await callback.answer("✅ Отправлено")
     
-    # Edit original message to remove buttons and confirm
+    # Delete original message
     try:
-        await callback.message.edit_reply_markup(reply_markup=None)
-        await callback.message.answer("✅ <b>Успешно отправлено!</b>", parse_mode="HTML")
+        await callback.message.delete()
     except:
         pass
     

@@ -396,6 +396,9 @@ async def cmd_profit(message: types.Message, state: FSMContext):
         await message.answer("⚠️ Сумма должна быть числом")
         return
 
+    # Calculate share
+    worker_share = int(amount * 0.78)
+
     # Find worker
     worker = await get_bot_user_by_any_id(worker_input)
     if not worker:
@@ -414,6 +417,7 @@ async def cmd_profit(message: types.Message, state: FSMContext):
         "✅ <b>Профит зачислен</b>\n"
         f"└ {note}\n\n"
         f"💳 <b>Сумма:</b> {amount} ₽\n"
+        f"  └ Доля воркера: {worker_share} ₽\n"
         f"👤 <b>Работник:</b> {worker_name}"
     )
 
@@ -435,6 +439,7 @@ async def cmd_profit(message: types.Message, state: FSMContext):
         worker_id=worker['telegram_user_id'],
         worker_name=worker_name,
         amount=amount,
+        worker_share=worker_share,
         note=note,
         preview_text=preview_text
     )
