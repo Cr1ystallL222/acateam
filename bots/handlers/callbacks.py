@@ -407,8 +407,8 @@ async def cb_events_list_page(callback: types.CallbackQuery, page: int):
     user_id = callback.from_user.id
     
     # Get database events ONLY - no more hardcoded static events
-    from ..database import get_all_events
-    all_events = await get_all_events()
+    from ..database import get_worker_events
+    all_events = await get_worker_events(user_id)
     
     # Pagination settings
     events_per_page = 10
@@ -1387,8 +1387,8 @@ async def cb_manage_events(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     
     # Get all system events to show management options
-    from ..database import get_all_events, is_event_hidden_by_referrer
-    all_events = await get_all_events()
+    from ..database import get_worker_events, is_event_hidden_by_referrer
+    all_events = await get_worker_events(user_id)
     system_events = [e for e in all_events if e['is_system']]
     
     if not system_events:

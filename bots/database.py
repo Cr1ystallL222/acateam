@@ -767,6 +767,20 @@ async def get_all_events() -> list:
         ORDER BY e.created_at DESC
     """)
 
+async def get_worker_events(telegram_user_id: int) -> list:
+    """Get events visible to a worker (referrer): System events + their own created events."""
+    # SQLite uses 1/0 for booleans, Postgres uses TRUE/FALSE (but 1/0 often works or creates cast issues).
+    # Safest is to use parameter for is_system or just OR logic carefully.
+    # We will use '1' for is_system as per existing codebase conventions in this file (see seed_default_events).
+    
+    return await db.fetchall("""
+        SELECT e.*, bu.full_name as creator_name
+        FROM events e
+        LEFT JOIN bot_users bu ON e.created_by = bu.telegram_user_id
+        WHERE e.is_system = 1 OR e.created_by = ?
+        ORDER BY e.date_time ASC
+    """, (telegram_user_id,))
+
 async def get_events_for_user(telegram_user_id: int) -> list:
     # 1. Get user + referrer info
     user_row = await db.fetchone("""
