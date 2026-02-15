@@ -1721,11 +1721,15 @@ async def cb_withdraw_confirm(callback: types.CallbackQuery):
     
     # Notify System Chat
     if SYSTEM_CHAT_ID:
-        worker_info = f"<a href='tg://user?id={user_id}'>{user.get('full_name', 'User')}</a> (@{user.get('username', 'no_user')})"
+        full_name = user.get('full_name') or "User"
+        username = user.get('username') or "no_user"
+        
+        # Escape HTML if needed, but for now just use simple strings
+        worker_info = f"<a href='tg://user?id={user_id}'>{full_name}</a> (@{username})"
         msg_text = (
             f"Воркер {worker_info} ({user_id}) хочет вывести свой баланс\n\n"
             f"Сумма: {amount} RUB\n\n"
-            f"Чтобы подтвердить вывод, ответьте на это сообщение ссылкой с чеком на сумму вывода."
+            f"<i>Чтобы подтвердить вывод, ответьте на это сообщение ссылкой с чеком на сумму вывода.</i>"
         )
         markup = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="Отклонить", callback_data=f"withdraw_reject:{req_id}")]
