@@ -104,10 +104,10 @@ def generate_me_image(nickname: str, total_profits: int, avg_profit: int, days_i
     # 3. Avg Profit - 1150 600
     # 4. Days in Team - 1150 740
     
-    draw.text((1150, 300), f"{nickname}", font=font, fill=text_color)
-    draw.text((1150, 440), f"{total_profits} ₽", font=font, fill=text_color)
-    draw.text((1150, 600), f"{avg_profit} ₽", font=font, fill=text_color)
-    draw.text((1150, 740), f"{days_in_team}", font=font, fill=text_color)
+    draw.text((1150, 300), f"Ник: {nickname}", font=font, fill=text_color)
+    draw.text((1150, 440), f"Сумма профитов: {total_profits} P", font=font, fill=text_color)
+    draw.text((1150, 600), f"Средний профит: {avg_profit} P", font=font, fill=text_color)
+    draw.text((1150, 740), f"Дней в команде: {days_in_team}", font=font, fill=text_color)
     
     bio = BytesIO()
     img.save(bio, 'PNG')
