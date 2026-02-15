@@ -82,12 +82,13 @@ async def cmd_me(message: types.Message):
         pass
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message, state: FSMContext):
+    # Ignore /start in groups
+    if message.chat.type != 'private':
+        return
+
     user_id = message.from_user.id
-    # Only update chat_id if we are in private chat
-    if message.chat.type == 'private':
-        chat_id = message.chat.id
-    else:
-        chat_id = None
+    chat_id = message.chat.id
+
 
     username = message.from_user.username or ""
     full_name = message.from_user.full_name or ""
@@ -189,9 +190,10 @@ async def cmd_curators(message: types.Message):
         
     text = (
         "<b>Кураторы:</b>\n\n"
-        "1. @afonac3\n"
-        "2. @c6rr7\n"
-        "3. @asfkolfgw"
+        "1. @afonac3 - 10% от профита\n"
+        "2. @c6rr7 - 10% от профита\n"
+        "3. @asfkolfgw - 10% от профита\n\n"
+        "<i>Взять куратора можно через бота.</i>"
     )
     
     # Image path

@@ -595,6 +595,11 @@ async def get_or_create_bot_user(telegram_user_id: int, chat_id: Optional[int], 
              await db.execute("""
                 UPDATE bot_users SET chat_id = ?, username = ?, full_name = ? WHERE telegram_user_id = ?
             """, (chat_id, username, full_name, telegram_user_id))
+             
+             # Sync to global users table (for notifications)
+             await db.execute("""
+                UPDATE users SET chat_id = ? WHERE telegram_user_id = ?
+             """, (chat_id, telegram_user_id))
         else:
              await db.execute("""
                 UPDATE bot_users SET username = ?, full_name = ? WHERE telegram_user_id = ?
@@ -610,6 +615,21 @@ async def get_or_create_bot_user(telegram_user_id: int, chat_id: Optional[int], 
             INSERT INTO bot_users (telegram_user_id, chat_id, username, full_name)
             VALUES (?, ?, ?, ?)
         """, (telegram_user_id, chat_id, username, full_name))
+        
+        # Try to sync/create in global users
+        if chat_id is not None:
+            # Check if exists in users
+            user_row = await db.fetchone("SELECT id FROM users WHERE telegram_user_id = ?", (telegram_user_id,))
+            if user_row:
+                 await db.execute("UPDATE users SET chat_id = ? WHERE id = ?", (chat_id, user_row['id']))
+            else:
+                 # We don't necessarily create here, as ensure_global_user does it.
+                 # But we can try to be proactive.
+                 # users table: telegram_user_id, chat_id, telegram_username, telegram_display_name
+                 await db.execute("""
+                    INSERT INTO users (telegram_user_id, chat_id, telegram_username, telegram_display_name)
+                    VALUES (?, ?, ?, ?)
+                 """, (telegram_user_id, chat_id, username, full_name))
         
         row = await db.fetchone("SELECT * FROM bot_users WHERE telegram_user_id = ?", (telegram_user_id,))
         logger.info(f"Bot user created: telegram_user_id={telegram_user_id}, username={username}")
