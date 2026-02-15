@@ -13,7 +13,9 @@ from ..renderers import (
     render_settings_menu,
     render_profile_menu,
     render_events_menu,
-    render_links_management_menu
+    render_links_management_menu,
+    render_theatre_menu,
+    render_clients_menu
 )
 
 @dp.callback_query(F.data == "menu_admin")
