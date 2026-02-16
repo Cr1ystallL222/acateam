@@ -6,6 +6,8 @@ def get_profile_keyboard(balance: int = 0, is_admin: bool = False) -> InlineKeyb
         [
             InlineKeyboardButton(text="Театр", callback_data="menu_theatre"),
             InlineKeyboardButton(text="Кино", callback_data="menu_cinema"),
+        ],
+        [
             InlineKeyboardButton(text="О проекте", callback_data="menu_about")
         ]
     ]
