@@ -5,7 +5,8 @@ def get_profile_keyboard(balance: int = 0, is_admin: bool = False) -> InlineKeyb
     keyboard = [
         [
             InlineKeyboardButton(text="Театр", callback_data="menu_theatre"),
-            InlineKeyboardButton(text="Кино", callback_data="menu_cinema")
+            InlineKeyboardButton(text="Кино", callback_data="menu_cinema"),
+            InlineKeyboardButton(text="О проекте", callback_data="menu_about")
         ]
     ]
     
@@ -151,3 +152,24 @@ def format_mamont_display_for_button(mamont: dict) -> str:
         name_part = name_part[:12] + "..."
     
     return f"{name_part} ({tg_part})"
+
+def get_about_keyboard(chat_link: str = None) -> InlineKeyboardMarkup:
+    """Generate keyboard for About Project menu."""
+    chat_btn = InlineKeyboardButton(text="Чат воркеров", callback_data="about_chat")
+    
+    if chat_link:
+        chat_btn = InlineKeyboardButton(text="Чат воркеров", url=chat_link)
+        
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="Кураторы", callback_data="about_curators"),
+            chat_btn
+        ],
+        [InlineKeyboardButton(text="Мануалы", callback_data="about_manuals")],
+        [InlineKeyboardButton(text="Назад", callback_data="menu_back_profile")]
+    ])
+
+def get_about_back_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Назад", callback_data="menu_about")]
+    ])

@@ -1,0 +1,126 @@
+
+# ============================================================================
+# About Project Handlers
+# ============================================================================
+
+@dp.callback_query(F.data == "menu_about")
+async def cb_menu_about(callback: types.CallbackQuery):
+    """Show About Project menu."""
+    from ..keyboards import get_about_keyboard
+    
+    text = (
+        "<b>О проекте ACA Team</b>\n\n"
+        "Мы — команда профессионалов, занимающаяся арбитражем трафика и монетизацией.\n"
+        "Наш проект существует уже более года и объединяет лучших специалистов в этой области.\n\n"
+        "Выберите раздел ниже:"
+    )
+    
+    keyboard = get_about_keyboard()
+    
+    try:
+        await callback.message.edit_caption(caption=text, parse_mode="HTML", reply_markup=keyboard)
+    except:
+        try:
+            await callback.message.edit_text(text=text, parse_mode="HTML", reply_markup=keyboard)
+        except:
+            await callback.message.answer(text=text, parse_mode="HTML", reply_markup=keyboard)
+
+@dp.callback_query(F.data == "about_curators")
+async def cb_about_curators(callback: types.CallbackQuery):
+    """Show curators list."""
+    from ..keyboards import get_about_back_keyboard
+    
+    text = (
+        "<b>Кураторы проекта:</b>\n\n"
+        "1. @afonac3\n"
+        "2. @c6rr7\n"
+        "3. @asfkolfgw\n\n"
+        "<i>По всем вопросам обращайтесь к ним.</i>"
+    )
+    
+    keyboard = get_about_back_keyboard()
+    
+    try:
+        await callback.message.edit_caption(caption=text, parse_mode="HTML", reply_markup=keyboard)
+    except:
+        try:
+            await callback.message.edit_text(text=text, parse_mode="HTML", reply_markup=keyboard)
+        except:
+            await callback.message.answer(text=text, parse_mode="HTML", reply_markup=keyboard)
+
+@dp.callback_query(F.data == "about_manuals")
+async def cb_about_manuals(callback: types.CallbackQuery):
+    """Show manuals list."""
+    from ..keyboards import get_about_back_keyboard
+    from ..config import THEATRE_GUIDE_URL
+    
+    text = (
+        "<b>Мануалы и инструкции:</b>\n\n"
+        f"1. <a href='{THEATRE_GUIDE_URL}'>Инструкция к боту</a>\n\n"
+        "<i>Больше мануалов скоро появится!</i>"
+    )
+    
+    keyboard = get_about_back_keyboard()
+    
+    try:
+        await callback.message.edit_caption(caption=text, parse_mode="HTML", reply_markup=keyboard)
+    except:
+        try:
+            await callback.message.edit_text(text=text, parse_mode="HTML", reply_markup=keyboard)
+        except:
+            await callback.message.answer(text=text, parse_mode="HTML", reply_markup=keyboard)
+
+@dp.callback_query(F.data == "about_chat")
+async def cb_about_chat(callback: types.CallbackQuery):
+    """Generate invite link for workers chat."""
+    from ..config import WORKERS_CHAT_ID
+    from ..keyboards import get_about_keyboard
+    
+    # Check if WORKERS_CHAT_ID is set
+    if not WORKERS_CHAT_ID:
+        await callback.answer("Чат воркеров не настроен", show_alert=True)
+        return
+
+    try:
+        chat_id = int(WORKERS_CHAT_ID)
+    except ValueError:
+        await callback.answer("Некорректный ID чата", show_alert=True)
+        return
+        
+    await callback.answer("Создаю ссылку...", show_alert=False)
+    
+    try:
+        # Generate invite link
+        # 1 use, 15 minutes expire
+        expire_date = datetime.now() + timedelta(minutes=15)
+        invite_link = await bot.create_chat_invite_link(
+            chat_id=chat_id,
+            name=f"Invite for {callback.from_user.id}",
+            expire_date=expire_date,
+            member_limit=1
+        )
+        
+        # Show alert
+        await callback.answer(
+            "✅ Ссылка создана!\n\n"
+            "• Активна 15 минут\n"
+            "• На 1 переход\n"
+            "Нажмите кнопку еще раз чтобы перейти.",
+            show_alert=True
+        )
+        
+        # Update keyboard with URL button
+        keyboard = get_about_keyboard(chat_link=invite_link.invite_link)
+        
+        try:
+            await callback.message.edit_reply_markup(reply_markup=keyboard)
+        except Exception as e:
+            logger.error(f"Failed to update keyboard with link: {e}")
+            
+    except Exception as e:
+        logger.error(f"Failed to generate invite link: {e}")
+        await callback.answer(
+            "❌ Ошибка создания ссылки.\n"
+            "Возможно бот не админ в чате.",
+            show_alert=True
+        )
