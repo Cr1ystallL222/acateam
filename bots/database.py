@@ -72,6 +72,8 @@ async def _ensure_postgres_bot_schema():
             joined_at TEXT,
             balance INTEGER DEFAULT 0,
             last_menu_message_id INTEGER,
+            last_invite_link TEXT,
+            last_invite_created_at TIMESTAMP,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
@@ -294,6 +296,8 @@ async def _ensure_sqlite_bot_schema():
             joined_at TEXT,
             balance INTEGER DEFAULT 0,
             last_menu_message_id INTEGER,
+            last_invite_link TEXT,
+            last_invite_created_at TIMESTAMP,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
@@ -497,6 +501,8 @@ async def _ensure_sqlite_bot_schema():
     await add_column_if_missing("bot_users", "balance", "INTEGER DEFAULT 0")
     await add_column_if_missing("bot_users", "balance_hold", "INTEGER DEFAULT 0")
     await add_column_if_missing("bot_users", "last_menu_message_id", "INTEGER")
+    await add_column_if_missing("bot_users", "last_invite_link", "TEXT")
+    await add_column_if_missing("bot_users", "last_invite_created_at", "TIMESTAMP")
     await add_column_if_missing("applications", "confirm_message_id", "INTEGER")
     await add_column_if_missing("event_seats", "zone_name", "TEXT")
     await add_column_if_missing("worker_settings", "max_price_override", "INTEGER DEFAULT NULL")
@@ -798,6 +804,17 @@ async def add_manual_profit(admin_id: int, worker_tg_id: int, amount: int, worke
     """, (worker_share, user_id))
 
 async def get_user_mamonts(telegram_user_id: int) -> list:
+    # Function implementation... (placeholder, just need to insert BEFORE this function)
+    pass
+
+async def update_bot_user_invite_link(telegram_user_id: int, link: str, created_at: str):
+    """Update user's last invite link and creation time."""
+    await db.execute("""
+        UPDATE bot_users 
+        SET last_invite_link = ?, last_invite_created_at = ? 
+        WHERE telegram_user_id = ?
+    """, (link, created_at, telegram_user_id))
+
     row = await db.fetchone("SELECT id FROM users WHERE telegram_user_id = ?", (telegram_user_id,))
     if not row:
         return []
