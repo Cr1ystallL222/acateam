@@ -17,6 +17,7 @@ from ..loader import bot, dp
 from ..config import SITE_URL, ADMIN_IDS, logger, PROFITS_CHANNEL_ID, WORKERS_CHAT_ID, SYSTEM_CHAT_ID
 
 from ..utils import format_cooldown_remaining, is_cooldown_active
+from ..services.logger_service import log_action
 
 from ..database import get_or_create_bot_user, get_or_create_referral, get_application_approval_data, approve_application, reject_application, add_manual_profit, db
 
@@ -3215,21 +3216,38 @@ async def cb_profit_confirm(callback: types.CallbackQuery, state: FSMContext):
 
 
     await callback.answer("✅ Отправлено")
-
     
-
-    # Delete original message
+    # Edit original message with success status and admin info
+    admin_name = f"@{callback.from_user.username}" if callback.from_user.username else callback.from_user.full_name
+    worker_name = data.get('worker_name')
+    
+    new_text = (
+        "✅ <b>Профит зачислен</b>\n"
+        f"└ {note}\n\n"
+        f"💳 <b>Сумма:</b> {amount} ₽\n"
+        f"  └ Доля воркера: {worker_share} ₽\n"
+        f"👤 <b>Работник:</b> {worker_name}\n\n"
+        f"<i>Отрисовал {admin_name}</i>"
+    )
 
     try:
-
-        await callback.message.delete()
-
+        await callback.message.edit_caption(caption=new_text, parse_mode="HTML", reply_markup=None)
     except:
+        try:
+            await callback.message.edit_text(text=new_text, parse_mode="HTML", reply_markup=None)
+        except Exception as e:
+            logger.error(f"Failed to edit profit message: {e}")
 
-        pass
-
+    # Log action to logs chat
+    log_msg = (
+        f"PROFIT CONFIRMED request by {admin_name}\n"
+        f"Worker: {worker_name} ({worker_id})\n"
+        f"Amount: {amount} RUB\n"
+        f"Note: {note}"
+    )
+    # Using ACTION or SUCCESS level
+    await log_action(log_msg, "SUCCESS")
     
-
     await state.clear()
 
 
