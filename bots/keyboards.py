@@ -21,6 +21,20 @@ def get_profile_keyboard(balance: int = 0, is_admin: bool = False) -> InlineKeyb
         
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
+def get_theatre_keyboard(ref_link: str, link_id: int = None) -> InlineKeyboardMarkup:
+    # If link_id is present, settings should be for that link
+    settings_callback = f"menu_settings:{link_id}" if link_id else "menu_settings"
+    
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Скопировать реф. ссылку", copy_text=CopyTextButton(text=ref_link))],
+        [
+            InlineKeyboardButton(text="Клиенты", callback_data="menu_clients"),
+            InlineKeyboardButton(text="События", callback_data="menu_events")
+        ],
+        [InlineKeyboardButton(text="Настройки", callback_data=settings_callback)],
+        [InlineKeyboardButton(text="Назад", callback_data="menu_back_profile")]
+    ])
+
 def get_cinema_keyboard(ref_link: str, link_id: int = None) -> InlineKeyboardMarkup:
     # If link_id is present, settings should be for that link
     settings_callback = f"menu_settings_cinema:{link_id}" if link_id else "menu_settings_cinema"
