@@ -190,10 +190,98 @@ async def cb_back_to_links(callback: types.CallbackQuery):
 
 
 @dp.callback_query(F.data == "menu_cinema")
-
 async def cb_menu_cinema(callback: types.CallbackQuery):
+    """Render cinema links management menu."""
+    from ..renderers import render_cinema_links_management_menu
+    await render_cinema_links_management_menu(callback.message.chat.id, callback.from_user.id, callback.message.message_id)
+    await callback.answer()
 
-    await callback.answer("Скоро будет доступно", show_alert=True)
+@dp.callback_query(F.data == "create_link_cinema")
+async def cb_create_link_cinema(callback: types.CallbackQuery, state: FSMContext):
+    """Start cinema link creation flow."""
+    from .fsm import CinemaLinkCreation
+    await callback.message.answer("📝 Введите название для новой ссылки кино:")
+    await state.set_state(CinemaLinkCreation.waiting_link_name)
+    await callback.answer()
+
+@dp.callback_query(F.data.startswith("select_link_cinema:"))
+async def cb_select_link_cinema(callback: types.CallbackQuery):
+    """Select a specific cinema link to manage."""
+    from ..renderers import render_cinema_menu
+    link_id = int(callback.data.split(":")[1])
+    await render_cinema_menu(callback.message.chat.id, callback.from_user.id, callback.message.message_id, link_id=link_id)
+    await callback.answer()
+
+@dp.callback_query(F.data == "menu_back_links_cinema")
+async def cb_menu_back_links_cinema(callback: types.CallbackQuery):
+    """Back to cinema links management."""
+    from ..renderers import render_cinema_links_management_menu
+    await render_cinema_links_management_menu(callback.message.chat.id, callback.from_user.id, callback.message.message_id)
+    await callback.answer()
+
+@dp.callback_query(F.data.startswith("menu_settings_cinema"))
+async def cb_menu_settings_cinema(callback: types.CallbackQuery):
+    """Render cinema settings menu."""
+    from ..renderers import render_settings_menu_cinema
+    link_id = None
+    if ":" in callback.data:
+        link_id = int(callback.data.split(":")[1])
+    
+    await render_settings_menu_cinema(callback.message.chat.id, callback.from_user.id, callback.message.message_id, link_id=link_id)
+    await callback.answer()
+
+@dp.callback_query(F.data.startswith("settings_min_price_cinema"))
+@dp.callback_query(F.data.startswith("settings_max_price_cinema"))
+@dp.callback_query(F.data.startswith("settings_city_cinema"))
+async def cb_cinema_settings_edit(callback: types.CallbackQuery, state: FSMContext):
+    """Start editing a cinema setting."""
+    data = callback.data
+    parts = data.split(":")
+    link_id = int(parts[1]) if len(parts) > 1 else None
+    
+    from ..database import get_worker_settings, get_cinema_link_by_id
+    from .fsm import SettingsMaxPrice, SettingsCity
+    
+    await state.update_data(link_id=link_id, type='cinema')
+    
+    current = None
+    if "min_price" in data:
+        if link_id:
+            link = await get_cinema_link_by_id(link_id)
+            current = link.get('min_price_override') if link else None
+        else:
+            settings = await get_worker_settings(callback.from_user.id)
+            current = settings.get('min_price_override')
+        
+        current_text = f"Текущее значение: {current}₽" if current else "Текущее значение: не установлено"
+        await callback.message.answer(f"💰 Введите минимальную цену для <b>Кино</b>:\n\n{current_text}", parse_mode="HTML")
+        await state.set_state(SettingsMaxPrice.waiting_max_price) # Reuse same state but with type='cinema' in data
+        await state.update_data(setting='min_price_override')
+    elif "max_price" in data:
+        if link_id:
+            link = await get_cinema_link_by_id(link_id)
+            current = link.get('max_price_override') if link else None
+        else:
+            settings = await get_worker_settings(callback.from_user.id)
+            current = settings.get('max_price_override')
+        
+        current_text = f"Текущее значение: {current}₽" if current else "Текущее значение: не установлено"
+        await callback.message.answer(f"💎 Введите максимальную цену для <b>Кино</b>:\n\n{current_text}", parse_mode="HTML")
+        await state.set_state(SettingsMaxPrice.waiting_max_price)
+        await state.update_data(setting='max_price_override')
+    else: # city
+        if link_id:
+            link = await get_cinema_link_by_id(link_id)
+            current = link.get('custom_city') if link else None
+        else:
+            settings = await get_worker_settings(callback.from_user.id)
+            current = settings.get('custom_city')
+            
+        current_text = f"Текущий город: {current}" if current else "Текущий город: не указан"
+        await callback.message.answer(f"🏙️ Введите город для <b>Кино</b>:\n\n{current_text}", parse_mode="HTML")
+        await state.set_state(SettingsCity.waiting_city_name)
+    
+    await callback.answer()
 
 
 

@@ -58,6 +58,28 @@ async def api_referral_track(
                         "max_price_override": row['max_price_override']
                     }
                 }
+        else:
+            # Check cinema links
+            row = await db.fetchone("""
+                SELECT cl.telegram_user_id, bu.chat_id, cl.custom_city, cl.min_price_override, cl.max_price_override
+                FROM cinema_links cl
+                JOIN bot_users bu ON bu.telegram_user_id = cl.telegram_user_id
+                WHERE cl.link_code = ?
+            """, (link_code,))
+            if row:
+                from ..utils import ensure_global_user
+                user_row = await ensure_global_user(row['telegram_user_id'])
+                if user_row:
+                    referrer_info = {
+                        "user_id": user_row['id'],
+                        "telegram_user_id": row['telegram_user_id'],
+                        "chat_id": row['chat_id'],
+                        "link_settings": {
+                            "custom_city": row['custom_city'],
+                            "min_price_override": row['min_price_override'],
+                            "max_price_override": row['max_price_override']
+                        }
+                    }
     elif ref_code:
         # Classic referral code lookup
         row = await db.fetchone("SELECT id, telegram_user_id, chat_id FROM users WHERE referral_code = ?", (ref_code,))

@@ -21,34 +21,34 @@ def get_profile_keyboard(balance: int = 0, is_admin: bool = False) -> InlineKeyb
         
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
-def get_theatre_keyboard(ref_link: str, link_id: int = None) -> InlineKeyboardMarkup:
+def get_cinema_keyboard(ref_link: str, link_id: int = None) -> InlineKeyboardMarkup:
     # If link_id is present, settings should be for that link
-    settings_callback = f"menu_settings:{link_id}" if link_id else "menu_settings"
+    settings_callback = f"menu_settings_cinema:{link_id}" if link_id else "menu_settings_cinema"
     
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Скопировать реф. ссылку", copy_text=CopyTextButton(text=ref_link))],
         [
-            InlineKeyboardButton(text="Клиенты", callback_data="menu_clients"),
-            InlineKeyboardButton(text="События", callback_data="menu_events")
+            InlineKeyboardButton(text="Клиенты", callback_data="menu_clients_cinema"),
+            InlineKeyboardButton(text="События", callback_data="menu_events_cinema")
         ],
         [InlineKeyboardButton(text="Настройки", callback_data=settings_callback)],
-        [InlineKeyboardButton(text="Назад", callback_data="menu_back_links")]
+        [InlineKeyboardButton(text="Назад", callback_data="menu_back_links_cinema")]
     ])
 
-def get_links_management_keyboard(links: list) -> InlineKeyboardMarkup:
-    """Generate keyboard for links management menu.
-    
-    Button numbers (1, 2, 3...) are visual order in the list,
-    callback_data contains internal id for lookup.
-    """
+def get_links_management_keyboard(links: list, type: str = "theatre") -> InlineKeyboardMarkup:
+    """Generate keyboard for links management menu."""
     keyboard = []
+    
+    # Prefix for callbacks
+    prefix = "select_link" if type == "theatre" else "select_link_cinema"
+    create_callback = "create_link" if type == "theatre" else "create_link_cinema"
     
     # Add link buttons (3 per row)
     row = []
     for idx, link in enumerate(links, start=1):
         row.append(InlineKeyboardButton(
-            text=str(idx),  # Visual number = order in list
-            callback_data=f"select_link:{link['id']}"  # Internal id
+            text=str(idx),
+            callback_data=f"{prefix}:{link['id']}"
         ))
         if len(row) == 3:
             keyboard.append(row)
@@ -57,7 +57,7 @@ def get_links_management_keyboard(links: list) -> InlineKeyboardMarkup:
         keyboard.append(row)
     
     # Add create and back buttons
-    keyboard.append([InlineKeyboardButton(text="➕ Создать ссылку", callback_data="create_link")])
+    keyboard.append([InlineKeyboardButton(text="➕ Создать ссылку", callback_data=create_callback)])
     keyboard.append([InlineKeyboardButton(text="◀️ Назад", callback_data="menu_back_profile")])
     
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
@@ -102,12 +102,15 @@ def get_settings_keyboard(settings: dict, link_id: int = None) -> InlineKeyboard
     
     # Suffix for callbacks
     suffix = f":{link_id}" if link_id else ""
-    back_callback = f"select_link:{link_id}" if link_id else "menu_back_theatre"
+    
+    # Back button logic based on type
+    type_suffix = "_cinema" if "cinema" in (settings.get('type') or "") else ""
+    back_callback = f"select_link{type_suffix}:{link_id}" if link_id else f"menu_back{type_suffix}_links"
     
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=min_price_text, callback_data=f"settings_min_price{suffix}")],
-        [InlineKeyboardButton(text=max_price_text, callback_data=f"settings_max_price{suffix}")],
-        [InlineKeyboardButton(text=city_text, callback_data=f"settings_city{suffix}")],
+        [InlineKeyboardButton(text=min_price_text, callback_data=f"settings_min_price{type_suffix}{suffix}")],
+        [InlineKeyboardButton(text=max_price_text, callback_data=f"settings_max_price{type_suffix}{suffix}")],
+        [InlineKeyboardButton(text=city_text, callback_data=f"settings_city{type_suffix}{suffix}")],
         [InlineKeyboardButton(text="Назад", callback_data=back_callback)]
     ])
 

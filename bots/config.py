@@ -32,6 +32,8 @@ WELCOME_IMAGE_PATH = os.getenv("WELCOME_IMAGE_PATH", "")
 WELCOME_PHOTO_PATH = os.getenv("WELCOME_PHOTO_PATH", "bots/images/wealcom.jpg")
 THEATRE_PHOTO_PATH = os.getenv("THEATRE_PHOTO_PATH", "bots/images/Teatre.jpg")
 THEATRE_GUIDE_URL = os.getenv("THEATRE_GUIDE_URL", "https://telegra.ph/Manual-po-rabote-s-botom-ACA-Team-02-15")
+CINEMA_PHOTO_PATH = os.getenv("CINEMA_PHOTO_PATH", "bots/images/Teatre.jpg")
+CINEMA_GUIDE_URL = os.getenv("CINEMA_GUIDE_URL", "https://telegra.ph/Manual-po-rabote-s-botom-ACA-Team-02-15")
 TOPUP_GROUP_ID = os.getenv("TOPUP_GROUP_ID")
 WORKERS_CHAT_ID = os.getenv("WORKERS_CHAT_ID")
 PROFITS_CHANNEL_ID = os.getenv("PROFITS_CHANNEL_ID")
@@ -71,6 +73,13 @@ def get_theatre_photo_path():
         return p
     return PROJECT_ROOT / p
 
+def get_cinema_photo_path():
+    p = Path(CINEMA_PHOTO_PATH)
+    if p.is_absolute():
+        return p
+    return PROJECT_ROOT / p
+
 RESOLVED_IMAGE_PATH = get_welcome_image_path()
 PROFILE_PHOTO_PATH = get_profile_photo_path()
 THEATRE_PHOTO_RESOLVED = get_theatre_photo_path()
+CINEMA_PHOTO_RESOLVED = get_cinema_photo_path()

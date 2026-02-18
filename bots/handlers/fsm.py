@@ -38,6 +38,9 @@ class EventEdit(StatesGroup):
 class TheatreLinkCreation(StatesGroup):
     waiting_link_name = State()
 
+class CinemaLinkCreation(StatesGroup):
+    waiting_link_name = State()
+
 class EventAvailability(StatesGroup):
     waiting_percent = State()
     waiting_number = State()
@@ -164,14 +167,18 @@ async def process_city_name(message: types.Message, state: FSMContext):
         )
         return
     
-    from ..database import update_worker_setting, update_link_setting, get_venues_for_city, CITY_VENUES
+    from ..database import update_worker_setting, update_link_setting, update_cinema_link_setting, get_venues_for_city, CITY_VENUES
     
     data = await state.get_data()
     link_id = data.get('link_id')
+    link_type = data.get('type', 'theatre')
     
     # Update the city
     if link_id:
-        await update_link_setting(link_id, 'custom_city', city_name)
+        if link_type == 'cinema':
+            await update_cinema_link_setting(link_id, 'custom_city', city_name)
+        else:
+            await update_link_setting(link_id, 'custom_city', city_name)
     else:
         await update_worker_setting(message.from_user.id, 'custom_city', city_name)
     
@@ -185,7 +192,7 @@ async def process_city_name(message: types.Message, state: FSMContext):
     from ..renderers import render_settings_menu
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     
-    back_callback = f"menu_settings:{link_id}" if link_id else "menu_settings"
+    back_callback = f"menu_settings{'_cinema' if link_type == 'cinema' else ''}:{link_id}" if link_id else f"menu_settings{'_cinema' if link_type == 'cinema' else ''}"
     
     await message.answer(
         f"✅ <b>Город установлен: {city_name}</b>{venues_info}\n\n"
@@ -208,8 +215,10 @@ async def process_max_price(message: types.Message, state: FSMContext):
     
     data = await state.get_data()
     link_id = data.get('link_id')
+    link_type = data.get('type', 'theatre')
+    setting_key = data.get('setting', 'max_price_override')
     
-    back_callback = f"menu_settings:{link_id}" if link_id else "menu_settings"
+    back_callback = f"menu_settings{'_cinema' if link_type == 'cinema' else ''}:{link_id}" if link_id else f"menu_settings{'_cinema' if link_type == 'cinema' else ''}"
     
     # Try to parse as number
     price_text = message.text.strip().replace('₽', '').replace(' ', '').replace(',', '')
@@ -227,10 +236,14 @@ async def process_max_price(message: types.Message, state: FSMContext):
         )
         return
     
-    # Get current settings to check min price
+    # Get current settings to check min/max price constraints
     min_price = None
     if link_id:
-        link = await get_link_by_id(link_id)
+        if link_type == 'cinema':
+            from ..database import get_cinema_link_by_id
+            link = await get_cinema_link_by_id(link_id)
+        else:
+            link = await get_link_by_id(link_id)
         if link:
             min_price = link.get('min_price_override')
     else:
@@ -274,10 +287,14 @@ async def process_max_price(message: types.Message, state: FSMContext):
         return
     
     # Save the price
+    from ..database import update_cinema_link_setting
     if link_id:
-        await update_link_setting(link_id, 'max_price_override', price)
+        if link_type == 'cinema':
+            await update_cinema_link_setting(link_id, setting_key, price)
+        else:
+            await update_link_setting(link_id, setting_key, price)
     else:
-        await update_worker_setting(message.from_user.id, 'max_price_override', price)
+        await update_worker_setting(message.from_user.id, setting_key, price)
     
     # Confirm and go back to settings
     await message.answer(

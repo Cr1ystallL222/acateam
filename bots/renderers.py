@@ -18,12 +18,15 @@ from .database import (
     save_last_menu_message_id,
     get_user_mamonts,
     get_theatre_links,
-    get_link_by_id
+    get_cinema_links,
+    get_link_by_id,
+    get_cinema_link_by_id
 )
 from .utils import calculate_days_in_team, format_mamont_display
 from .keyboards import (
     get_profile_keyboard, 
-    get_theatre_keyboard, 
+    get_theatre_keyboard,
+    get_cinema_keyboard,
     get_clients_keyboard,
     get_stub_keyboard,
     get_events_keyboard,
@@ -316,6 +319,166 @@ async def render_events_menu(chat_id: int, telegram_user_id: int, message_id: Op
                     await bot.delete_message(chat_id=chat_id, message_id=message_id)
                 except:
                     pass
+    
+    msg = await bot.send_message(chat_id, text, parse_mode="HTML", reply_markup=keyboard)
+    await save_last_menu_message_id(telegram_user_id, msg.message_id)
+    return msg.message_id
+
+async def render_cinema_links_management_menu(chat_id: int, telegram_user_id: int, message_id: Optional[int] = None) -> int:
+    """Render cinema links management menu. Returns new message_id."""
+    links = await get_cinema_links(telegram_user_id)
+    
+    # Build links list text
+    if links:
+        links_text = ""
+        for idx, link in enumerate(links, start=1):
+            city = link.get('custom_city') or "не указан"
+            links_text += f"\n<b>Промокод №{idx}:</b> {link['name']}\n"
+            links_text += f"<i>Адрес:</i> {city}\n"
+    else:
+        links_text = "\n<i>У вас пока нет ссылок.\nСоздайте первую ссылку!</i>\n"
+    
+    caption = (
+        "🔗 <b>Ссылки для Кино</b>\n\n"
+        "Ниже указаны ссылки и номера ваших конфигов\n\n"
+        "🏷 <b>Текущие ссылки:</b>"
+        f"{links_text}\n"
+        "<i>Для настройки ссылки нажмите на соответствующий номер</i>"
+    )
+    
+    keyboard = get_links_management_keyboard(links, type="cinema")
+    
+    # Try to edit existing message
+    if message_id:
+        try:
+            await bot.edit_message_caption(chat_id=chat_id, message_id=message_id, caption=caption, parse_mode="HTML", reply_markup=keyboard)
+            return message_id
+        except Exception:
+            try:
+                await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=caption, parse_mode="HTML", reply_markup=keyboard)
+                return message_id
+            except Exception:
+                pass
+    
+    # Send new message
+    msg = await bot.send_message(chat_id, caption, parse_mode="HTML", reply_markup=keyboard)
+    await save_last_menu_message_id(telegram_user_id, msg.message_id)
+    return msg.message_id
+
+async def render_cinema_menu(chat_id: int, telegram_user_id: int, message_id: Optional[int] = None, link_id: Optional[int] = None) -> int:
+    """Render cinema menu."""
+    from .config import CINEMA_GUIDE_URL, CINEMA_PHOTO_RESOLVED
+    
+    # Get link by id or fallback
+    if link_id:
+        link = await get_cinema_link_by_id(link_id)
+        if link:
+            ref_link = f"{SITE_URL}_cinema/?cl={link['link_code']}" # Assuming separate URL or prefix
+            link_name = link.get('name', 'Без названия')
+        else:
+            ref_code = await get_or_create_referral(telegram_user_id, chat_id)
+            ref_link = f"{SITE_URL}_cinema/?ref={ref_code}"
+            link_name = None
+    else:
+        ref_code = await get_or_create_referral(telegram_user_id, chat_id)
+        ref_link = f"{SITE_URL}_cinema/?ref={ref_code}"
+        link_name = None
+    
+    if link_name:
+        caption = (
+            f"<b>Cinema</b> — {link_name}\n\n"
+            f"Инструкция: <a href=\"{CINEMA_GUIDE_URL}\">ТЫК</a>\n"
+            f"Ваша реферальная ссылка: <code>{ref_link}</code>"
+        )
+    else:
+        caption = (
+            "<b>Cinema</b>\n\n"
+            f"Инструкция: <a href=\"{CINEMA_GUIDE_URL}\">ТЫК</a>\n"
+            f"Ваша реферальная ссылка: <code>{ref_link}</code>"
+        )
+    
+    keyboard = get_cinema_keyboard(ref_link, link_id=link_id)
+    
+    # Try to edit existing message
+    if message_id:
+        try:
+            if CINEMA_PHOTO_RESOLVED.exists():
+                photo = FSInputFile(CINEMA_PHOTO_RESOLVED)
+                media = InputMediaPhoto(media=photo, caption=caption, parse_mode="HTML")
+                await bot.edit_message_media(chat_id=chat_id, message_id=message_id, media=media, reply_markup=keyboard)
+                return message_id
+            else:
+                await bot.edit_message_caption(chat_id=chat_id, message_id=message_id, caption=caption, parse_mode="HTML", reply_markup=keyboard)
+                return message_id
+        except Exception:
+            pass
+    
+    # Send new message
+    if CINEMA_PHOTO_RESOLVED.exists():
+        photo = FSInputFile(CINEMA_PHOTO_RESOLVED)
+        msg = await bot.send_photo(chat_id, photo, caption=caption, parse_mode="HTML", reply_markup=keyboard)
+    else:
+        msg = await bot.send_message(chat_id, caption, parse_mode="HTML", reply_markup=keyboard)
+    
+    await save_last_menu_message_id(telegram_user_id, msg.message_id)
+    return msg.message_id
+
+async def render_settings_menu_cinema(chat_id: int, telegram_user_id: int, message_id: Optional[int] = None, link_id: Optional[int] = None) -> int:
+    """Render cinema settings menu."""
+    from .database import get_worker_settings, get_cinema_link_by_id
+    from .keyboards import get_settings_keyboard
+    
+    if link_id:
+        link = await get_cinema_link_by_id(link_id)
+        if link:
+            settings = dict(link)
+            settings['type'] = 'cinema'
+            header = f"<b>⚙️ Настройки Кино ({link['name']})</b>\n\n"
+        else:
+            settings = await get_worker_settings(telegram_user_id)
+            settings['type'] = 'cinema'
+            header = "<b>⚙️ Настройки Кино</b>\n\n"
+    else:
+        settings = await get_worker_settings(telegram_user_id)
+        settings['type'] = 'cinema'
+        header = "<b>⚙️ Настройки Кино</b>\n\n"
+    
+    min_price = settings.get('min_price_override')
+    max_price = settings.get('max_price_override')
+    city = settings.get('custom_city')
+    
+    if not city and not link_id:
+         city = "Краснодар"
+    
+    min_price_display = f"{min_price}₽" if min_price else "не установлена"
+    max_price_display = f"{max_price}₽" if max_price else "не установлена"
+    city_display = city if city else "не указан"
+    
+    text = (
+        f"{header}"
+        f"💰 <b>Мин. цена:</b> {min_price_display}\n"
+        f"💎 <b>Макс. цена:</b> {max_price_display}\n"
+        f"🏙️ <b>Город:</b> {city_display}\n\n"
+        "<i>Нажмите на настройку чтобы изменить её.</i>\n\n"
+    )
+    
+    if link_id:
+        text += "<i>Эти настройки применяются только к этой ссылке.</i>"
+    else:
+        text += "<i>Эти настройки применяются ко всем вашим рефералам.</i>"
+        
+    keyboard = get_settings_keyboard(settings, link_id=link_id)
+    
+    if message_id:
+        try:
+            await bot.edit_message_caption(chat_id=chat_id, message_id=message_id, caption=text, parse_mode="HTML", reply_markup=keyboard)
+            return message_id
+        except Exception:
+            try:
+                await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=text, parse_mode="HTML", reply_markup=keyboard)
+                return message_id
+            except Exception:
+                pass
     
     msg = await bot.send_message(chat_id, text, parse_mode="HTML", reply_markup=keyboard)
     await save_last_menu_message_id(telegram_user_id, msg.message_id)

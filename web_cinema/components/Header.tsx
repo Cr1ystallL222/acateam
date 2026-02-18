@@ -1,8 +1,34 @@
+"use client";
+
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
 
 export default function Header() {
+    const [top, setTop] = useState(0);
+
+    useEffect(() => {
+        const handleScroll = () => {
+            const currentScrollY = window.scrollY;
+            if (currentScrollY > 50) {
+                setTop(0);
+            } else {
+                // Approximate banner height - could be more dynamic but this is simple
+                setTop(Math.max(0, 80 - currentScrollY));
+            }
+        };
+
+        // Initial set
+        handleScroll();
+
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
+
     return (
-        <header className="fixed top-0 left-0 w-full z-50 bg-[#1A1A1A] border-b border-[#333]">
+        <header
+            className="fixed left-0 w-full z-50 bg-[#1A1A1A] border-b border-[#333] transition-all duration-300 ease-in-out"
+            style={{ top: `${top}px` }}
+        >
             <div className="container mx-auto px-4 h-16 flex items-center justify-between relative">
 
                 {/* Mobile: Use order to keep it left. Desktop: Centered absolutely */}

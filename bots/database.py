@@ -187,6 +187,20 @@ async def _ensure_postgres_bot_schema():
         )
     """)
     
+    # Cinema links
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS cinema_links (
+            id SERIAL PRIMARY KEY,
+            telegram_user_id BIGINT NOT NULL REFERENCES bot_users(telegram_user_id),
+            name TEXT NOT NULL,
+            link_code TEXT UNIQUE NOT NULL,
+            custom_city TEXT DEFAULT NULL,
+            min_price_override INTEGER DEFAULT NULL,
+            max_price_override INTEGER DEFAULT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    
     # Deposits
     await db.execute("""
         CREATE TABLE IF NOT EXISTS deposits (
@@ -405,6 +419,21 @@ async def _ensure_sqlite_bot_schema():
     # Theatre links table
     await db.execute("""
         CREATE TABLE IF NOT EXISTS theatre_links (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            telegram_user_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            link_code TEXT UNIQUE NOT NULL,
+            custom_city TEXT DEFAULT NULL,
+            min_price_override INTEGER DEFAULT NULL,
+            max_price_override INTEGER DEFAULT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(telegram_user_id) REFERENCES bot_users(telegram_user_id)
+        )
+    """)
+
+    # Cinema links table
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS cinema_links (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             telegram_user_id INTEGER NOT NULL,
             name TEXT NOT NULL,
@@ -1358,3 +1387,41 @@ async def update_event_availability(event_id: int, target_free_count: int):
              placeholders = ','.join(['?'] * len(ids))
              # Set to False (Occupied)
              await db.execute(f"UPDATE event_seats SET is_available = ? WHERE id IN ({placeholders})", (False, *ids))
+
+async def get_cinema_links(telegram_user_id: int) -> list:
+    """Get all cinema links for a user."""
+    return await db.fetchall("""
+        SELECT * FROM cinema_links 
+        WHERE telegram_user_id = ? 
+        ORDER BY created_at ASC
+    """, (telegram_user_id,))
+
+async def get_cinema_link_by_id(link_id: int) -> Optional[dict]:
+    """Get cinema link by ID."""
+    return await db.fetchone("SELECT * FROM cinema_links WHERE id = ?", (link_id,))
+
+async def create_cinema_link(telegram_user_id: int, name: str) -> Optional[dict]:
+    """Create a new cinema link."""
+    while True:
+        link_code = secrets.token_urlsafe(8)
+        # Verify uniqueness in both link tables to be safe
+        exists_t = await db.fetchone("SELECT id FROM theatre_links WHERE link_code = ?", (link_code,))
+        exists_c = await db.fetchone("SELECT id FROM cinema_links WHERE link_code = ?", (link_code,))
+        if not exists_t and not exists_c:
+            break
+            
+    await db.execute("""
+        INSERT INTO cinema_links (telegram_user_id, name, link_code)
+        VALUES (?, ?, ?)
+    """, (telegram_user_id, name, link_code))
+    
+    return await db.fetchone("SELECT * FROM cinema_links WHERE link_code = ?", (link_code,))
+
+async def update_cinema_link_setting(link_id: int, setting: str, value: Any) -> bool:
+    """Update a specific cinema link setting."""
+    allowed_settings = ['min_price_override', 'max_price_override', 'custom_city']
+    if setting not in allowed_settings:
+        return False
+        
+    await db.execute(f"UPDATE cinema_links SET {setting} = ? WHERE id = ?", (value, link_id))
+    return True

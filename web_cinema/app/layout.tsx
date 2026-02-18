@@ -6,6 +6,9 @@ import Footer from "@/components/Footer";
 import Sidebar from "@/components/Sidebar";
 import MobileNav from "@/components/MobileNav";
 import SvgSprite from "@/components/SvgSprite";
+import TopBanner from "@/components/TopBanner";
+import { ReferralTracker } from "@/components/ReferralTracker";
+import { Suspense } from "react";
 
 const inter = Inter({ subsets: ["latin", "cyrillic"] });
 
@@ -22,6 +25,10 @@ export default function RootLayout({
   return (
     <html lang="ru">
       <body className={`${inter.className} bg-black text-white`}>
+        <Suspense fallback={null}>
+          <ReferralTracker />
+        </Suspense>
+        <TopBanner />
         <SvgSprite />
         <Header />
 
