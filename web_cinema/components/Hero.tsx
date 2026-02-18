@@ -21,124 +21,130 @@ export default function Hero() {
 
     const events = [
         {
-            id: 1,
-            title: "Квиз «Знатоки родного края»",
-            place: "Краснодарская краевая юношеская библиотека им. И.Ф. Вараввы",
+            id: "grozovoy-pereval",
+            title: "Грозовой перевал",
+            image: "/movies_files/s7185.jpg",
+            place: "мелодрама, драма",
+            time: "19:00",
+            age: "18+",
+            format: "2D",
+            price: 450,
+            labels: [{ text: "Премьера" }]
+        },
+        {
+            id: "uvolit-zhoru",
+            title: "Уволить Жору",
             image: "/main_files/p7232.jpg",
-            price: "от 200 руб.",
-            date: "19 Февр",
-            day: "Чт",
-            time: "14:00"
+            place: "комедия",
+            time: "14:10",
+            age: "16+",
+            format: "2D",
+            price: 350,
+            labels: [{ text: "Меморандум", icon: "/main_files/memo.svg" }]
         },
         {
-            id: 2,
-            title: "Спектакль «На всякого мудреца...»",
-            place: "Краснодарское творческое объединение «Премьера» им. Л.Г. Гатова",
+            id: "ubezhishche",
+            title: "Убежище",
             image: "/main_files/p7217.jpg",
-            price: "от 800 руб.",
-            date: "20 Февр",
-            day: "Пт",
-            time: "18:30"
+            place: "триллер, экшн",
+            time: "16:30",
+            age: "18+",
+            format: "2D",
+            price: 650
         },
         {
-            id: 3,
-            title: "Диво дивное — слово русское!",
-            place: "Краснодарская краевая детская библиотека им.братьев Игнатовых",
+            id: "zdes-byl-yura",
+            title: "Здесь был Юра",
             image: "/main_files/p7210.jpg",
-            price: "от 150 руб.",
-            date: "18 Февр",
-            day: "Ср",
-            time: "11:00"
+            place: "комедия, драма, музыка",
+            time: "16:45",
+            age: "18+",
+            format: "2D",
+            price: 350
         },
         {
-            id: 4,
-            title: "День кубанского кобзаря",
-            place: "Краснодарская краевая юношеская библиотека им. И.Ф. Вараввы",
+            id: "gornichnaya",
+            title: "Горничная",
             image: "/main_files/p7167.jpg",
-            price: "от 200 руб.",
-            date: "19 Февр",
-            day: "Чт",
-            time: "14:00"
+            place: "триллер",
+            time: "17:10",
+            age: "18+",
+            format: "2D",
+            price: 430
         },
         {
-            id: 5,
-            title: "Фестиваль науки в КГИК",
-            place: "Краснодарский государственный институт культуры",
+            id: "schastliv-kogda-ty-net",
+            title: "Счастлив, когда ты нет",
             image: "/main_files/p7231.jpg",
-            price: "от 500 руб.",
-            date: "20 Февр",
-            day: "Пт",
-            time: "11:00"
+            place: "романтическая комедия",
+            time: "21:45",
+            age: "18+",
+            format: "2D",
+            price: 750
         },
         {
-            id: 6,
-            title: "Спектакль «Доктор Айболит»",
-            place: "Пашковский городской дом культуры г. Краснодара",
+            id: "greenland-2",
+            title: "Гренландия 2: Миграция",
             image: "/main_files/p7200.jpg",
-            price: "от 400 руб.",
-            date: "20 Февр",
-            day: "Пт",
-            time: "14:00"
+            place: "триллер, экшн",
+            time: "21:50",
+            age: "18+",
+            format: "2D",
+            price: 430
         },
         {
-            id: 7,
-            title: "Спектакль «Сквозь огонь войны»",
-            place: "Театр защитников Отечества",
-            image: "/main_files/p7180.jpg",
-            price: "от 500 руб.",
-            date: "18 Февр",
-            day: "Ср",
-            time: "17:00"
-        },
-        {
-            id: 8,
-            title: "Опера «Царская невеста»",
-            place: "Краснодарское творческое объединение «Премьера» им. Л.Г. Гатова",
-            image: "/main_files/p7230.jpg",
-            price: "от 1 000 руб.",
-            date: "19 Февр",
-            day: "Чт",
-            time: "17:00"
-        },
-        {
-            id: 9,
-            title: "Спектакль «В стране дорожных знаков»",
-            place: "Краснодарский краевой театр кукол",
+            id: "avatar-fire-ash",
+            title: "Аватар: Пламя и пепел",
             image: "/main_files/p7013.jpg",
-            price: "от 300 руб.",
-            date: "20 Февр",
-            day: "Пт",
-            time: "11:00"
+            place: "боевик, триллер, фантастика",
+            time: "15:45",
+            age: "16+",
+            format: "2D",
+            price: 1300,
+            labels: [{ text: "То Кино!", icon: "/main_files/tokino.svg" }]
         },
         {
-            id: 10,
-            title: "Концерт «Овеяна славой родная Кубань»",
-            place: "Центральный концертный зал",
+            id: "stray-kids",
+            title: "Stray Kids: The dominATE Experience",
             image: "/main_files/p7252.jpg",
-            price: "от 600 руб.",
-            date: "18 Февр",
-            day: "Ср",
-            time: "14:00"
+            place: "музыка, концерт",
+            time: "16:10",
+            age: "12+",
+            format: "2D",
+            price: 350,
+            labels: [{ text: "То Кино!", icon: "/main_files/tokino.svg" }]
         },
         {
-            id: 11,
-            title: "Концерт «Песни Победы вместе поем»",
-            place: "Центральный концертный зал",
+            id: "pervaya",
+            title: "Первая",
             image: "/main_files/p7229.jpg",
-            price: "от 400 руб.",
-            date: "20 Февр",
-            day: "Пт",
-            time: "15:00"
+            place: "романтическая драма",
+            time: "14:25",
+            age: "16+",
+            format: "2D",
+            price: 650
         },
         {
-            id: 12,
-            title: "Концерт «Маленький принц»",
-            place: "Краснодарская филармония им. Г.Ф. Пономаренко",
-            image: "/main_files/p6620.jpg",
-            price: "от 500 руб.",
-            date: "18 Февр",
-            day: "Ср",
-            time: "17:00"
+            id: "ravioli-oli",
+            title: "Равиоли Оли",
+            image: "/main_files/p7213.jpg",
+            place: "романтическая комедия",
+            time: "14:45",
+            age: "16+",
+            format: "2D",
+            price: 200,
+            labels: [{ text: "Фильм недели", icon: "/main_files/fn.svg" }]
+        },
+        {
+            id: "lotr-fellowship",
+            title: "Властелин колец: Братство Кольца",
+            image: "/main_files/p7228.jpg",
+            place: "фэнтези, приключения",
+            time: "18:00",
+            age: "12+",
+            format: "IMAX",
+            price: 500,
+            labels: [{ text: "Классика" }]
         }
     ];
 
@@ -170,7 +176,7 @@ export default function Hero() {
                 style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
                 {events.map((event) => (
-                    <div key={event.id} className="snap-start w-[300px] md:w-[385px] shrink-0 h-[550px]">
+                    <div key={event.id} className="snap-start w-[300px] md:w-[385px] shrink-0">
                         <Link href={`#`} className="block h-full">
                             <EventCard {...event} />
                         </Link>

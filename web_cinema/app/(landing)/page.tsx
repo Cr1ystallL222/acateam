@@ -8,170 +8,144 @@ import EventCard from "@/components/EventCard";
 import { X } from 'lucide-react';
 
 // Static events data (existing events from the site)
+// Static events data (imported from web_cinema2/data/movies.ts structure)
 const staticEvents = [
   {
-    id: "100001",
-    title: "Фестиваль науки в КГИК",
-    place: "Краснодарский государственный институт культуры",
-    date: "06 Февр",
-    day: "Пт",
-    time: "11:00",
-    price: "от 0 руб.",
-    image: "/images/026ce21a706b9829d72e7db9f1df3012-jpg.jpeg",
-    isStatic: true
-  },
-  {
-    id: "100002",
-    title: "«Миры М.А. Булгакова». К 135-летию со дня рождения...",
-    place: "Школа-лицей при музее Сталинградская битва",
-    date: "13 Мар",
-    day: "Чт",
-    time: "00:00",
-    price: "от 350 руб.",
-    image: "/images/0e8052455655d9aaca6315f378362cdf-jpg.jpeg",
-    isStatic: true
-  },
-  {
-    id: "100003",
-    title: "Квиз «Знатоки родного края»",
-    place: "Краснодарская краевая юношеская библиотека им. И.Ф. Вараввы",
-    date: "04 Февр",
-    day: "Ср",
-    time: "14:00",
-    price: "от 250 руб.",
-    image: "/images/1-jpeg.jpeg",
-    isStatic: true
-  },
-  {
-    id: "100004",
-    title: "Спектакль «На всякого мудреца...»",
-    place: "Краснодарское творческое объединение «Премьера» им. Л.Г. Гатова",
-    date: "04 Февр",
-    day: "Ср",
-    time: "18:30",
-    price: "",
-    image: "/images/1572446586138e701da3254e277dd9f0-jpg.jpeg",
-    isStatic: true
-  },
-  {
-    id: "100005",
-    title: "Диво дивное — слово русское!",
-    place: "Краснодарская краевая детская библиотека им.братьев Игнатовых",
-    date: "05 Февр",
-    day: "Чт",
-    time: "11:00",
-    price: "от 0 руб.",
-    image: "/images/1f189852c5966a3eb983a78acd54b701-jpg.jpeg",
-    isStatic: true
-  },
-  {
-    id: "100006",
-    title: "День кубанского кобзаря",
-    place: "Краснодарская краевая юношеская библиотека им. И.Ф. Вараввы",
-    date: "05 Февр",
-    day: "Чт",
-    time: "14:00",
-    price: "от 0 руб.",
-    image: "/images/26c35e1eecc195b202a606f9728060bb-jpg.jpeg",
-    isStatic: true
-  },
-  {
-    id: "100007",
-    title: "Спектакль «Доктор Айболит»",
-    place: "Пашковский городской дом культуры г. Краснодара",
-    date: "07 Февр",
-    day: "Сб",
-    time: "14:00",
-    price: "от 600 руб.",
-    image: "/images/30807229e5a58543550454e83002cc48-jpg.jpeg",
-    isStatic: true
-  },
-  {
-    id: "100008",
-    title: "Спектакль «Сквозь огонь войны»",
-    place: "Театр защитников Отечества",
-    date: "08 Февр",
-    day: "Вс",
-    time: "17:00",
-    price: "",
-    image: "/images/3609ed8fe59c2b5c3508e1cd7b4b9874-jpg.jpeg",
-    isStatic: true
-  },
-  {
-    id: "100009",
-    title: "Опера «Царская невеста»",
-    place: "Краснодарское творческое объединение «Премьера» им. Л.Г. Гатова",
-    date: "10 Февр",
-    day: "Сб",
-    time: "17:00",
-    price: "от 400 руб.",
-    image: "/images/377fe330d6a08a6b09438ffdcacde5a6-jpeg.jpeg",
-    isStatic: true
-  },
-  {
-    id: "100010",
-    title: "Спектакль «В стране дорожных знаков»",
-    place: "Краснодарский краевой театр кукол",
-    date: "12 Февр",
-    day: "Чт",
-    time: "11:00",
-    price: "от 350 руб.",
-    image: "/images/7a79eb8caca34affc0db16180a1cabbe-jpg.jpeg",
-    isStatic: true
-  },
-  {
-    id: "100011",
-    title: "Концерт «Овеяна славой родная Кубань»",
-    place: "Центральный концертный зал",
-    date: "12 Февр",
-    day: "Чт",
-    time: "14:00",
-    price: "",
-    image: "/images/7b558d68b9e52db8b7fda34f1c9e13cd-jpg.jpeg",
-    isStatic: true
-  },
-  {
-    id: "100012",
-    title: "Спектакль «Довойник»",
-    place: "Краснодарский академический театр драмы им. М.Горького",
-    date: "15 Февр",
-    day: "Пт",
-    time: "18:30",
-    price: "",
-    image: "/images/7c70a2ae3e90ccde8884e252621f4664-jpg.jpeg",
-    isStatic: true
-  },
-  {
-    id: "100013",
-    title: "Концерт «Песни Победы вместе поем»",
-    place: "Центральный концертный зал",
-    date: "14 Февр",
-    day: "Сб",
-    time: "15:00",
-    price: "",
-    image: "/images/8fb891bcdc9fa96dad8b2eb96b59c0b6-jpg.jpeg",
-    isStatic: true
-  },
-  {
-    id: "100014",
-    title: "Концерт «Маленький принц»",
-    place: "Краснодарская филармония им. Г.Ф. Пономаренко",
-    date: "14 Февр",
-    day: "Сб",
-    time: "17:00",
-    price: "",
-    image: "/images/ba61bc932f041a3a8f03979c52b20272-jpg.jpeg",
-    isStatic: true
-  },
-  {
-    id: "100015",
-    title: "Спектакль «Ромео и Джульетта»",
-    place: "Краснодарский академический театр драмы им. М.Горького",
-    date: "17 Февр",
-    day: "Пн",
+    id: "grozovoy-pereval",
+    title: "Грозовой перевал",
+    image: "/movies_files/s7185.jpg",
+    place: "мелодрама, драма",
     time: "19:00",
-    price: "",
-    image: "/images/c02ad07ab42247ef32be54b05d5599b9-jpg.jpeg",
+    age: "18+",
+    format: "2D",
+    price: 450,
+    labels: [{ text: "Премьера" }],
+    isStatic: true
+  },
+  {
+    id: "uvolit-zhoru",
+    title: "Уволить Жору",
+    image: "/main_files/p7232.jpg",
+    place: "комедия",
+    time: "14:10",
+    age: "16+",
+    format: "2D",
+    price: 350,
+    labels: [{ text: "Меморандум", icon: "/main_files/memo.svg" }],
+    isStatic: true
+  },
+  {
+    id: "ubezhishche",
+    title: "Убежище",
+    image: "/main_files/p7217.jpg",
+    place: "триллер, экшн",
+    time: "16:30",
+    age: "18+",
+    format: "2D",
+    price: 650,
+    isStatic: true
+  },
+  {
+    id: "zdes-byl-yura",
+    title: "Здесь был Юра",
+    image: "/main_files/p7210.jpg",
+    place: "комедия, драма, музыка",
+    time: "16:45",
+    age: "18+",
+    format: "2D",
+    price: 350,
+    isStatic: true
+  },
+  {
+    id: "gornichnaya",
+    title: "Горничная",
+    image: "/main_files/p7167.jpg",
+    place: "триллер",
+    time: "17:10",
+    age: "18+",
+    format: "2D",
+    price: 430,
+    isStatic: true
+  },
+  {
+    id: "schastliv-kogda-ty-net",
+    title: "Счастлив, когда ты нет",
+    image: "/main_files/p7231.jpg",
+    place: "романтическая комедия",
+    time: "21:45",
+    age: "18+",
+    format: "2D",
+    price: 750,
+    isStatic: true
+  },
+  {
+    id: "greenland-2",
+    title: "Гренландия 2: Миграция",
+    image: "/main_files/p7200.jpg",
+    place: "триллер, экшн",
+    time: "21:50",
+    age: "18+",
+    format: "2D",
+    price: 430,
+    isStatic: true
+  },
+  {
+    id: "avatar-fire-ash",
+    title: "Аватар: Пламя и пепел",
+    image: "/main_files/p7013.jpg",
+    place: "боевик, триллер, фантастика",
+    time: "15:45",
+    age: "16+",
+    format: "2D",
+    price: 1300,
+    labels: [{ text: "То Кино!", icon: "/main_files/tokino.svg" }],
+    isStatic: true
+  },
+  {
+    id: "stray-kids",
+    title: "Stray Kids: The dominATE Experience",
+    image: "/main_files/p7252.jpg",
+    place: "музыка, концерт",
+    time: "16:10",
+    age: "12+",
+    format: "2D",
+    price: 350,
+    labels: [{ text: "То Кино!", icon: "/main_files/tokino.svg" }],
+    isStatic: true
+  },
+  {
+    id: "pervaya",
+    title: "Первая",
+    image: "/main_files/p7229.jpg",
+    place: "романтическая драма",
+    time: "14:25",
+    age: "16+",
+    format: "2D",
+    price: 650,
+    isStatic: true
+  },
+  {
+    id: "ravioli-oli",
+    title: "Равиоли Оли",
+    image: "/main_files/p7213.jpg",
+    place: "романтическая комедия",
+    time: "14:45",
+    age: "16+",
+    format: "2D",
+    price: 200,
+    labels: [{ text: "Фильм недели", icon: "/main_files/fn.svg" }],
+    isStatic: true
+  },
+  {
+    id: "lotr-fellowship",
+    title: "Властелин колец: Братство Кольца",
+    image: "/main_files/p7228.jpg",
+    place: "фэнтези, приключения",
+    time: "18:00",
+    age: "12+",
+    format: "IMAX",
+    price: 500,
+    labels: [{ text: "Классика" }],
     isStatic: true
   }
 ];
@@ -246,50 +220,25 @@ function HomeContent() {
 
   // Convert database events to EventCard format
   const convertDatabaseEvent = (event: DatabaseEvent) => {
-    const formatDate = (dateTime: string) => {
-      try {
-        const date = new Date(dateTime);
-        const day = date.getDate().toString().padStart(2, '0');
-        const months = ['Янв', 'Февр', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
-        const month = months[date.getMonth()];
-        return `${day} ${month}`;
-      } catch {
-        return event.formatted_date || 'Дата';
-      }
-    };
-
     const formatTime = (dateTime: string) => {
       try {
         const date = new Date(dateTime);
-        // const weekdays = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
-        // const weekday = weekdays[date.getDay()];
         const time = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-        // return `${weekday} ${time}`;
         return time;
       } catch {
         return event.formatted_time || '';
       }
     };
 
-    const getDay = (dateTime: string) => {
-      try {
-        const date = new Date(dateTime);
-        const weekdays = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
-        return weekdays[date.getDay()];
-      } catch {
-        return event.weekday || 'Пн';
-      }
-    }
-
     return {
       id: event.id.toString(),
       title: event.title,
-      place: event.venue,
-      date: formatDate(event.date_time),
-      day: getDay(event.date_time),
-      time: formatTime(event.date_time),
-      price: `от ${event.min_price.toLocaleString()} руб.`,
       image: event.photo_path ? `/api/events/${event.id}/photo` : '/images/banner.jpeg',
+      place: event.venue, // Map venue to place
+      time: formatTime(event.date_time),
+      age: "16+", // Default or from DB if available
+      format: "2D", // Default
+      price: event.min_price, // Pass number directly
       isStatic: false,
       isSystem: event.is_system,
       creatorName: event.creator_name

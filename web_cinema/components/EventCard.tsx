@@ -1,63 +1,74 @@
 import Link from 'next/link';
-import Image from 'next/image';
 
 interface EventProps {
     title: string;
     image: string;
-    place: string;
+    place?: string; // Originally genre in MovieCard
     time: string;
-    date: string;
-    day: string;
-    price: string;
+    age?: string;
+    format?: string;
+    price: string | number;
+    labels?: { text: string; icon?: string }[];
 }
 
-export default function EventCard({ title, image, place, time, date, day, price }: EventProps) {
+export default function EventCard({ title, image, place, time, age = "12+", format = "2D", price, labels }: EventProps) {
     return (
-        <div className="w-full h-full bg-[#222] rounded-lg overflow-hidden relative group border border-[#333] hover:border-[#555] transition-colors cursor-pointer flex flex-col">
-            <div className="p-4 flex-1 flex flex-col">
-                <div className="text-xl font-bold mb-3 text-white group-hover:text-[#E60000] transition-colors line-clamp-2 min-h-[56px]">
+        <div className="w-full h-full bg-[#222] rounded-lg overflow-hidden relative group border border-[#333] hover:border-[#555] transition-colors cursor-pointer">
+            <div className="block p-4 h-full flex flex-col">
+                <div className="text-xl font-bold mb-3 text-white group-hover:text-[#E60000] transition-colors truncate">
                     {title}
                 </div>
 
                 <div className="flex gap-4 flex-1">
                     {/* Photo */}
                     <div className="w-[100px] h-[140px] shrink-0 relative rounded overflow-hidden">
-                        <Image
-                            src={image}
-                            alt={title}
-                            fill
-                            className="object-cover"
-                        />
-                        {/* Date Overlay */}
-                        <div className="absolute top-0 left-0 bg-black/70 text-white px-2 py-1 text-xs font-bold text-center w-full">
-                            <div className="leading-none text-[10px] uppercase text-gray-300">{day}</div>
-                            <div className="leading-none text-sm">{date.split(' ')[0]}</div>
-                            <div className="leading-none text-[9px] text-gray-400">{date.split(' ')[1]}</div>
-                        </div>
+                        <img src={image} alt={title} className="w-full h-full object-cover" />
                     </div>
 
                     {/* Content */}
-                    <div className="flex flex-col flex-1 justify-between">
-                        <div className="text-sm text-gray-400 mb-2 line-clamp-4 leading-tight">
+                    <div className="flex flex-col flex-1">
+                        <div className="text-sm text-gray-400 mb-2 line-clamp-2 min-h-[40px]">
                             {place}
                         </div>
 
+                        <div className="mb-auto">
+                            {/* Spacer */}
+                        </div>
+
                         {/* Bot info */}
-                        <div className="mt-auto text-white">
+                        <div className="mt-2 text-white">
                             <div className="flex items-center gap-2">
                                 <span className="text-2xl font-bold">{time}</span>
+                                <div className="h-6 w-px bg-gray-600 mx-2"></div>
+                                <div className="flex flex-col leading-none text-xs text-gray-400">
+                                    <span className="border border-gray-600 px-1 rounded mb-0.5 w-fit">{age}</span>
+                                    <span className="border border-gray-600 px-1 rounded w-fit">{format}</span>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
+                {/* Stocks/Labels */}
+                {labels && labels.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                        {labels.map((label, i) => (
+                            <div key={i} className="flex items-center gap-1 text-xs text-gray-300 bg-[#333] px-2 py-1 rounded">
+                                {label.icon && <img src={label.icon} alt="" className="w-4 h-4" />}
+                                {label.text}
+                            </div>
+                        ))}
+                    </div>
+                )}
+
                 {/* Price */}
-                <div className="mt-3 pt-3 border-t border-[#333] flex items-center gap-4">
+                <div className="mt-3 pt-3 border-t border-[#333] flex items-center gap-4 mt-auto">
                     <div className="flex items-center gap-2 text-white font-bold">
-                        <div className="w-5 h-5 flex items-center justify-center text-gray-400">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" /><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" /><path d="M4 22h16" /><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" /><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" /><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" /></svg>
+                        <div className="w-5 h-5 flex items-center justify-center">
+                            {/* SVG Place icon placeholder */}
+                            <div className="w-4 h-4 border border-white/50 rounded-sm"></div>
                         </div>
-                        {price}
+                        {typeof price === 'number' ? `${price}₽` : price}
                     </div>
                 </div>
             </div>
