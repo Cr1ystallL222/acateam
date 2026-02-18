@@ -180,6 +180,7 @@ async def send_support_message(
                 
                 data = aiohttp.FormData()
                 data.add_field('chat_id', str(SUPPORT_CHAT_ID))
+                data.add_field('message_thread_id', '4')
                 data.add_field('caption', telegram_message)
                 data.add_field('parse_mode', 'HTML')
                 
@@ -198,6 +199,7 @@ async def send_support_message(
                 url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
                 payload = {
                     "chat_id": SUPPORT_CHAT_ID,
+                    "message_thread_id": 4,
                     "text": telegram_message,
                     "parse_mode": "HTML",
                     "disable_web_page_preview": True
@@ -474,6 +476,7 @@ async def edit_telegram_message(session, message_id, mamont_id):
         url = f"https://api.telegram.org/bot{BOT_TOKEN}/editMessageText"
         payload = {
             "chat_id": SUPPORT_CHAT_ID,
+            "message_thread_id": 4,
             "message_id": message_id,
             "text": new_text
         }
