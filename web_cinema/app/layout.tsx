@@ -1,21 +1,20 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
-import Sidebar from "@/components/Sidebar";
-import MobileNav from "@/components/MobileNav";
-import SvgSprite from "@/components/SvgSprite";
-import TopBanner from "@/components/TopBanner";
-import { ReferralTracker } from "@/components/ReferralTracker";
 import { Suspense } from "react";
+import { ReferralTracker } from "@/components/ReferralTracker";
+import { AuthProvider } from "@/context/AuthContext";
 
 const inter = Inter({ subsets: ["latin", "cyrillic"] });
 
 export const metadata: Metadata = {
-  title: "Афиша кино в Москве в кинотеатрах Мираж Синема",
-  description: "Расписание сеансов в кинотеатрах Москвы.",
+  title: "Афиша — AFISHON.RU",
+  description: "Куда сходить. Афиша культурных мероприятий: выставки, концерты, спектакли и другие события.",
 };
+
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
+import SupportChat from "@/components/SupportChat";
 
 export default function RootLayout({
   children,
@@ -24,25 +23,28 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ru">
-      <body className={`${inter.className} bg-black text-white`}>
-        <Suspense fallback={null}>
-          <ReferralTracker />
-        </Suspense>
-        <TopBanner />
-        <SvgSprite />
-        <Header />
+      <body className={inter.className}>
+        <AuthProvider>
+          {/* Referral Tracker - обрабатывает реферальные ссылки */}
+          <Suspense fallback={null}>
+            <ReferralTracker />
+          </Suspense>
 
-        <div className="pt-16 pb-20 lg:pb-0 min-h-screen flex flex-col">
-          <div className="container mx-auto px-4 flex flex-1">
-            <Sidebar />
-            <main className="flex-1 py-8 w-full max-w-full overflow-hidden">
-              {children}
-            </main>
+          {/* Global Top Banner */}
+          <div className="relative w-full hidden md:block group z-[60]">
+            <img
+              src="/images/1440kh80_1-png.jpeg"
+              alt="Banner"
+              className="w-full h-auto object-cover max-h-[80px]"
+            />
+            {/* Note: In a real app, this Close button would need to be a client component or handle visibility via state */}
           </div>
+          <Header />
+          {children}
           <Footer />
-        </div>
-
-        <MobileNav />
+          {/* Support Chat Widget */}
+          <SupportChat />
+        </AuthProvider>
       </body>
     </html>
   );
