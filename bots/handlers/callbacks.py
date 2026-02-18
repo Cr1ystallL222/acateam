@@ -868,175 +868,115 @@ async def cb_enter_custom_city(callback: types.CallbackQuery, state: FSMContext)
 
 
 @dp.callback_query(F.data == "menu_events")
-
 async def cb_menu_events(callback: types.CallbackQuery):
-
     await callback.answer()
-
     msg_id = callback.message.message_id
+    await render_events_menu(callback.message.chat.id, callback.from_user.id, msg_id, event_type='theatre')
 
-    await render_events_menu(callback.message.chat.id, callback.from_user.id, msg_id)
+@dp.callback_query(F.data == "menu_events_cinema")
+async def cb_menu_events_cinema(callback: types.CallbackQuery):
+    await callback.answer()
+    msg_id = callback.message.message_id
+    await render_events_menu(callback.message.chat.id, callback.from_user.id, msg_id, event_type='cinema')
 
 
 
 @dp.callback_query(F.data == "events_list")
-
 async def cb_events_list(callback: types.CallbackQuery):
+    await cb_events_list_page(callback, 1, 'theatre')
 
-    await cb_events_list_page(callback, 1)
+@dp.callback_query(F.data == "events_list_cinema")
+async def cb_events_list_cinema(callback: types.CallbackQuery):
+    await cb_events_list_page(callback, 1, 'cinema')
 
 
 
 @dp.callback_query(F.data.startswith("events_page:"))
-
 async def cb_events_page(callback: types.CallbackQuery):
+    # Format: events_page:page OR events_page:type:page
+    parts = callback.data.split(":")
+    if len(parts) == 3:
+        event_type = parts[1]
+        page = int(parts[2])
+    else:
+        event_type = 'theatre'
+        page = int(parts[1])
 
-    page = int(callback.data.split(":")[1])
-
-    await cb_events_list_page(callback, page)
+    await cb_events_list_page(callback, page, event_type)
 
 
-
-async def cb_events_list_page(callback: types.CallbackQuery, page: int):
-
+async def cb_events_list_page(callback: types.CallbackQuery, page: int, event_type: str = 'theatre'):
     await callback.answer()
-
     msg_id = callback.message.message_id
-
     user_id = callback.from_user.id
-
     
-
     # Get database events ONLY - no more hardcoded static events
-
     from ..database import get_worker_events
-
-    all_events = await get_worker_events(user_id)
-
+    all_events = await get_worker_events(user_id, event_type)
     
-
     # Pagination settings
-
     events_per_page = 10
-
     total_events = len(all_events)
-
     total_pages = (total_events + events_per_page - 1) // events_per_page  # Ceiling division
-
     
-
     if page < 1:
-
         page = 1
-
-    elif page > total_pages:
-
+    elif page > total_pages and total_pages > 0:
         page = total_pages
-
     
-
     start_idx = (page - 1) * events_per_page
-
     end_idx = start_idx + events_per_page
-
     page_events = all_events[start_idx:end_idx]
-
     
+    back_callback = "menu_events_cinema" if event_type == "cinema" else "menu_events"
 
     if not all_events:
-
         text = "<b>Список событий</b>\n\n<i>Пока нет доступных событий.</i>"
-
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
-
-            [InlineKeyboardButton(text="Назад", callback_data="menu_events")]
-
+            [InlineKeyboardButton(text="Назад", callback_data=back_callback)]
         ])
-
     else:
-
         text = f"<b>Список событий</b> ({total_events})\n<i>Страница {page} из {total_pages}</i>\n\n<i>Выберите событие для просмотра:</i>"
-
         
-
         keyboard_buttons = []
-
         for event in page_events:
-
             from datetime import datetime
-
             try:
-
                 dt = datetime.strptime(event['date_time'], "%Y-%m-%d %H:%M")
-
                 date_str = dt.strftime("%d.%m")
-
             except:
-
                 date_str = "Дата"
-
             
-
             # Show event type
-
             if event.get('is_system', True):
-
-                event_type = ""  # No prefix for system events
-
+                ev_type_prefix = ""  # No prefix for system events
             elif event.get('created_by') == user_id:
-
-                event_type = "Ваше "
-
+                ev_type_prefix = "Ваше "
             else:
-
-                event_type = "Реферальное "
-
+                ev_type_prefix = "Реферальное "
             
-
-            button_text = f"{event_type}{event['title']} ({date_str})"
-
+            button_text = f"{ev_type_prefix}{event['title']} ({date_str})"
             
-
             # Use event ID directly (no more static_ prefix)
-
             event_id = event['id']
-
             keyboard_buttons.append([InlineKeyboardButton(
-
                 text=button_text, 
-
                 callback_data=f"view_event:{event_id}"
-
             )])
-
         
-
         # Pagination buttons
-
         pagination_buttons = []
-
         if page > 1:
-
-            pagination_buttons.append(InlineKeyboardButton(text="⬅️ Пред.", callback_data=f"events_page:{page-1}"))
-
+            pagination_buttons.append(InlineKeyboardButton(text="⬅️ Пред.", callback_data=f"events_page:{event_type}:{page-1}"))
         if page < total_pages:
-
-            pagination_buttons.append(InlineKeyboardButton(text="След. ➡️", callback_data=f"events_page:{page+1}"))
-
+            pagination_buttons.append(InlineKeyboardButton(text="След. ➡️", callback_data=f"events_page:{event_type}:{page+1}"))
         
-
         if pagination_buttons:
-
             keyboard_buttons.append(pagination_buttons)
-
         
-
-        keyboard_buttons.append([InlineKeyboardButton(text="Назад", callback_data="menu_events")])
-
+        keyboard_buttons.append([InlineKeyboardButton(text="Назад", callback_data=back_callback)])
         keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
-
     
-
     # Universal message editing approach
 
     try:
@@ -1172,13 +1112,10 @@ async def cb_view_event(callback: types.CallbackQuery):
     
 
     # Back button
-
+    back_callback = "events_list_cinema" if event.get('type') == 'cinema' else "events_list"
     keyboard_buttons.append([InlineKeyboardButton(
-
         text="Назад",
-
-        callback_data="events_list"
-
+        callback_data=back_callback
     )])
 
     
@@ -1287,63 +1224,38 @@ async def cb_view_event(callback: types.CallbackQuery):
 
 
 
-@dp.callback_query(F.data == "events_add")
-
+@dp.callback_query(F.data.in_({"events_add", "events_add_cinema"}))
 async def cb_events_add(callback: types.CallbackQuery, state: FSMContext):
-
     await callback.answer()
-
     
-
     text = (
-
         "<b>Создание события</b>\n\n"
-
         "Давайте создадим новое событие!\n\n"
-
         "<b>Название события</b>\n\n"
-
         "Введите название события:\n\n"
-
         "<i>Например: Гамлет, Ромео и Джульетта, Концерт классической музыки</i>"
-
     )
-
     
-
     try:
-
         # Try to edit as text message first
-
         await callback.message.edit_text(text, parse_mode="HTML")
-
     except:
-
         try:
-
             # If that fails, try to edit as caption (for photo messages)
-
             await callback.message.edit_caption(caption=text, parse_mode="HTML")
-
         except:
-
             # If both fail, delete and send new message
-
             try:
-
                 await callback.message.delete()
-
             except:
-
                 pass
-
             await callback.message.answer(text, parse_mode="HTML")
-
     
-
     from ..handlers.fsm import EventCreation
-
     await state.set_state(EventCreation.waiting_title)
+    
+    event_type = 'cinema' if callback.data == 'events_add_cinema' else 'theatre'
+    await state.update_data(event_type=event_type)
 
 
 

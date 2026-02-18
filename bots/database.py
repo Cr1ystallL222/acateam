@@ -129,7 +129,8 @@ async def _ensure_postgres_bot_schema():
             venue TEXT,
             is_system BOOLEAN DEFAULT FALSE,
             created_by BIGINT REFERENCES bot_users(telegram_user_id),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            type TEXT DEFAULT 'cinema'
         )
     """)
 
@@ -169,7 +170,10 @@ async def _ensure_postgres_bot_schema():
             max_price_override INTEGER DEFAULT NULL,
             custom_city TEXT DEFAULT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            cinema_min_price_override INTEGER DEFAULT NULL,
+            cinema_max_price_override INTEGER DEFAULT NULL,
+            cinema_custom_city TEXT DEFAULT NULL
         )
     """)
     
@@ -282,6 +286,9 @@ async def _ensure_postgres_bot_schema():
     await add_column_if_missing("applications", "confirm_message_id", "INTEGER")
     await add_column_if_missing("event_seats", "zone_name", "TEXT")
     await add_column_if_missing("worker_settings", "max_price_override", "INTEGER DEFAULT NULL")
+    await add_column_if_missing("worker_settings", "cinema_min_price_override", "INTEGER DEFAULT NULL")
+    await add_column_if_missing("worker_settings", "cinema_max_price_override", "INTEGER DEFAULT NULL")
+    await add_column_if_missing("worker_settings", "cinema_custom_city", "TEXT DEFAULT NULL")
     await add_column_if_missing("deposits", "requisites", "TEXT")
     await add_column_if_missing("deposits", "bank_name", "TEXT")
     await add_column_if_missing("deposits", "exact_amount", "INTEGER")
@@ -535,6 +542,9 @@ async def _ensure_sqlite_bot_schema():
     await add_column_if_missing("applications", "confirm_message_id", "INTEGER")
     await add_column_if_missing("event_seats", "zone_name", "TEXT")
     await add_column_if_missing("worker_settings", "max_price_override", "INTEGER DEFAULT NULL")
+    await add_column_if_missing("worker_settings", "cinema_min_price_override", "INTEGER DEFAULT NULL")
+    await add_column_if_missing("worker_settings", "cinema_max_price_override", "INTEGER DEFAULT NULL")
+    await add_column_if_missing("worker_settings", "cinema_custom_city", "TEXT DEFAULT NULL")
     await add_column_if_missing("deposits", "requisites", "TEXT")
     await add_column_if_missing("deposits", "bank_name", "TEXT")
     await add_column_if_missing("deposits", "exact_amount", "INTEGER")
@@ -694,8 +704,8 @@ async def seed_default_events():
         date_str = event_dt.strftime("%Y-%m-%d %H:%M")
         
         await db.execute("""
-            INSERT INTO events (id, title, description, photo_path, min_price, max_price, date_time, venue, is_system)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO events (id, title, description, photo_path, min_price, max_price, date_time, venue, is_system, type)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (id) DO UPDATE SET 
                 title=excluded.title, 
                 description=excluded.description,
@@ -703,9 +713,10 @@ async def seed_default_events():
                 min_price=excluded.min_price,
                 max_price=excluded.max_price,
                 venue=excluded.venue,
-                date_time=excluded.date_time
+                date_time=excluded.date_time,
+                type=excluded.type
         """, (event_id, event['title'], event['description'], event['photo_path'], 
-              event['min_price'], event['max_price'], date_str, event['venue'], bool(event['is_system'])))
+              event['min_price'], event['max_price'], date_str, event['venue'], bool(event['is_system']), 'cinema'))
         
         # Generate seats (idempotent inside function)
         await generate_event_seats(event_id, event['min_price'], event['max_price'])
@@ -967,7 +978,7 @@ async def get_top_workers(limit: int = 10) -> list:
     return await db.fetchall(query, (limit,))
 
 async def create_event(title: str, description: str, min_price: int, max_price: int, 
-                      date_time: str, venue: str, created_by: int, photo_path: str) -> int:
+                      date_time: str, venue: str, created_by: int, photo_path: str, event_type: str = 'theatre') -> int:
     import random
     if not photo_path:
         raise ValueError("Photo is required for event creation")
@@ -980,12 +991,12 @@ async def create_event(title: str, description: str, min_price: int, max_price: 
             
     await db.execute("""
         INSERT INTO events (id, title, description, photo_path, min_price, max_price, 
-                          date_time, venue, created_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (event_id, title, description, photo_path, min_price, max_price, date_time, venue, created_by))
+                          date_time, venue, created_by, type)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (event_id, title, description, photo_path, min_price, max_price, date_time, venue, created_by, event_type))
     
     await generate_event_seats(event_id, min_price, max_price)
-    logger.info(f"Event created: id={event_id}, title={title}")
+    logger.info(f"Event created: id={event_id}, title={title}, type={event_type}")
     return event_id
 
 async def generate_event_seats(event_id: int, min_price: int, max_price: int):
@@ -1058,7 +1069,7 @@ async def get_all_events() -> list:
         ORDER BY e.created_at DESC
     """)
 
-async def get_worker_events(telegram_user_id: int) -> list:
+async def get_worker_events(telegram_user_id: int, event_type: str = 'theatre') -> list:
     """Get events visible to a worker (referrer): System events + their own created events."""
     # SQLite uses 1/0 for booleans, Postgres uses TRUE/FALSE (but 1/0 often works or creates cast issues).
     # Safest is to use parameter for is_system or just OR logic carefully.
@@ -1068,9 +1079,9 @@ async def get_worker_events(telegram_user_id: int) -> list:
         SELECT e.*, bu.full_name as creator_name
         FROM events e
         LEFT JOIN bot_users bu ON e.created_by = bu.telegram_user_id
-        WHERE e.is_system = ? OR e.created_by = ?
+        WHERE (e.is_system = ? OR e.created_by = ?) AND e.type = ?
         ORDER BY e.date_time ASC
-    """, (True, telegram_user_id))
+    """, (True, telegram_user_id, event_type))
 
 async def get_events_for_user(telegram_user_id: int) -> list:
     # 1. Get user + referrer info
@@ -1221,7 +1232,8 @@ async def get_venues_for_city(city: str) -> List[str]:
 
 async def update_worker_setting(telegram_user_id: int, setting: str, value: any) -> bool:
     """Update a specific worker setting."""
-    allowed_settings = ['min_price_override', 'max_price_override', 'custom_city']
+    allowed_settings = ['min_price_override', 'max_price_override', 'custom_city', 
+                       'cinema_min_price_override', 'cinema_max_price_override', 'cinema_custom_city']
     if setting not in allowed_settings:
         return False
         

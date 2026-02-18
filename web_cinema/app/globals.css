@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0a0a0a;
+  --foreground: #ededed;
 }
 
 body {
@@ -10,4 +10,10 @@ body {
   background: var(--background);
   font-family: 'Inter', Arial, Helvetica, sans-serif;
   overflow-x: hidden;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
 }

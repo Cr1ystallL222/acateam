@@ -128,14 +128,17 @@ def get_settings_keyboard(settings: dict, link_id: int = None) -> InlineKeyboard
         [InlineKeyboardButton(text="Назад", callback_data=back_callback)]
     ])
 
-def get_events_keyboard() -> InlineKeyboardMarkup:
+def get_events_keyboard(event_type: str = 'theatre') -> InlineKeyboardMarkup:
     """Keyboard for events menu."""
+    suffix = "_cinema" if event_type == "cinema" else ""
+    back_callback = "menu_back_links_cinema" if event_type == "cinema" else "menu_back_theatre"
+    
     return InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="Список событий", callback_data="events_list"),
-            InlineKeyboardButton(text="Добавить событие", callback_data="events_add")
+            InlineKeyboardButton(text="Список событий", callback_data=f"events_list{suffix}"),
+            InlineKeyboardButton(text="Добавить событие", callback_data=f"events_add{suffix}")
         ],
-        [InlineKeyboardButton(text="Назад", callback_data="menu_back_theatre")]
+        [InlineKeyboardButton(text="Назад", callback_data=back_callback)]
     ])
 
 def format_mamont_display_for_button(mamont: dict) -> str:

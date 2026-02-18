@@ -300,10 +300,14 @@ async def render_settings_menu(chat_id: int, telegram_user_id: int, message_id: 
     await save_last_menu_message_id(telegram_user_id, msg.message_id)
     return msg.message_id
 
-async def render_events_menu(chat_id: int, telegram_user_id: int, message_id: Optional[int] = None) -> int:
+async def render_events_menu(chat_id: int, telegram_user_id: int, message_id: Optional[int] = None, event_type: str = 'theatre') -> int:
     """Render events menu. Returns new message_id."""
-    text = "<b>🎪 События</b>\n\n<i>Управление событиями театра</i>\n\nВыберите действие:"
-    keyboard = get_events_keyboard()
+    if event_type == 'cinema':
+        text = "<b>🎬 События Кино</b>\n\n<i>Управление событиями кино</i>\n\nВыберите действие:"
+    else:
+        text = "<b>🎪 События</b>\n\n<i>Управление событиями театра</i>\n\nВыберите действие:"
+        
+    keyboard = get_events_keyboard(event_type)
     
     if message_id:
         try:
@@ -367,21 +371,21 @@ async def render_cinema_links_management_menu(chat_id: int, telegram_user_id: in
 
 async def render_cinema_menu(chat_id: int, telegram_user_id: int, message_id: Optional[int] = None, link_id: Optional[int] = None) -> int:
     """Render cinema menu."""
-    from .config import CINEMA_GUIDE_URL, CINEMA_PHOTO_RESOLVED
+    from .config import CINEMA_GUIDE_URL, CINEMA_PHOTO_RESOLVED, CINEMA_SITE_URL
     
     # Get link by id or fallback
     if link_id:
         link = await get_cinema_link_by_id(link_id)
         if link:
-            ref_link = f"{SITE_URL}/?cl={link['link_code']}" # Updated: removed _cinema suffix
+            ref_link = f"{CINEMA_SITE_URL}/?cl={link['link_code']}"
             link_name = link.get('name', 'Без названия')
         else:
             ref_code = await get_or_create_referral(telegram_user_id, chat_id)
-            ref_link = f"{SITE_URL}/?ref={ref_code}" # Updated: removed _cinema suffix
+            ref_link = f"{CINEMA_SITE_URL}/?ref={ref_code}"
             link_name = None
     else:
         ref_code = await get_or_create_referral(telegram_user_id, chat_id)
-        ref_link = f"{SITE_URL}/?ref={ref_code}" # Updated: removed _cinema suffix
+        ref_link = f"{CINEMA_SITE_URL}/?ref={ref_code}"
         link_name = None
     
     if link_name:

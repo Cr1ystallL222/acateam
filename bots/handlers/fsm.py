@@ -180,7 +180,8 @@ async def process_city_name(message: types.Message, state: FSMContext):
         else:
             await update_link_setting(link_id, 'custom_city', city_name)
     else:
-        await update_worker_setting(message.from_user.id, 'custom_city', city_name)
+        setting_key = 'cinema_custom_city' if link_type == 'cinema' else 'custom_city'
+        await update_worker_setting(message.from_user.id, setting_key, city_name)
     
     # Check if city has predefined venues
     if city_name in CITY_VENUES:
@@ -237,37 +238,63 @@ async def process_max_price(message: types.Message, state: FSMContext):
         return
     
     # Get current settings to check min/max price constraints
-    min_price = None
+    current_settings = {}
     if link_id:
         if link_type == 'cinema':
             from ..database import get_cinema_link_by_id
-            link = await get_cinema_link_by_id(link_id)
+            current_settings = await get_cinema_link_by_id(link_id) or {}
         else:
-            link = await get_link_by_id(link_id)
-        if link:
-            min_price = link.get('min_price_override')
+            current_settings = await get_link_by_id(link_id) or {}
     else:
         settings = await get_worker_settings(message.from_user.id)
-        min_price = settings.get('min_price_override')
+        current_settings = settings if settings else {}
     
-    # Validate: max price cannot be less than min price
-    if min_price and price < min_price:
-        await message.answer(
-            f"❌ <b>Макс. цена не может быть меньше мин. цены</b>\n\n"
-            f"Текущая мин. цена: {min_price}₽\n"
-            f"Введите значение от {min_price}₽",
-            parse_mode="HTML",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="◀️ К настройкам", callback_data=back_callback)]
-            ])
-        )
-        return
+    # Determine what we are comparing against
+    compare_min = None
+    compare_max = None
     
-    # Validate range
-    if price < 1000:
+    if link_type == 'cinema' and not link_id:
+        compare_min = current_settings.get('cinema_min_price_override')
+        compare_max = current_settings.get('cinema_max_price_override')
+    else:
+        compare_min = current_settings.get('min_price_override')
+        compare_max = current_settings.get('max_price_override')
+        
+    # Validate based on what we are setting
+    is_setting_min = 'min_price' in setting_key
+    
+    if is_setting_min:
+        # We are setting MIN price, check against MAX
+        if compare_max and price >= compare_max:
+             await message.answer(
+                f"❌ <b>Мин. цена должна быть меньше макс. цены</b>\n\n"
+                f"Текущая макс. цена: {compare_max}₽\n"
+                f"Введите значение меньше {compare_max}₽",
+                parse_mode="HTML",
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="◀️ К настройкам", callback_data=back_callback)]
+                ])
+            )
+             return
+    else:
+        # We are setting MAX price, check against MIN
+        if compare_min and price <= compare_min:
+            await message.answer(
+                f"❌ <b>Макс. цена должна быть больше мин. цены</b>\n\n"
+                f"Текущая мин. цена: {compare_min}₽\n"
+                f"Введите значение больше {compare_min}₽",
+                parse_mode="HTML",
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="◀️ К настройкам", callback_data=back_callback)]
+                ])
+            )
+            return
+
+    # Validate absolute ranges
+    if price < 100: # lowered min for cinema flexibility
         await message.answer(
             "❌ <b>Слишком маленькая цена</b>\n\n"
-            "Минимальная макс. цена: 1000₽",
+            "Минимальная цена: 100₽",
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="◀️ К настройкам", callback_data=back_callback)]
@@ -294,7 +321,12 @@ async def process_max_price(message: types.Message, state: FSMContext):
         else:
             await update_link_setting(link_id, setting_key, price)
     else:
-        await update_worker_setting(message.from_user.id, setting_key, price)
+        target_setting = setting_key
+        if link_type == 'cinema':
+            if 'min_price' in setting_key: target_setting = 'cinema_min_price_override'
+            elif 'max_price' in setting_key: target_setting = 'cinema_max_price_override'
+            
+        await update_worker_setting(message.from_user.id, target_setting, price)
     
     # Confirm and go back to settings
     await message.answer(
@@ -459,6 +491,9 @@ async def process_venue(message: types.Message, state: FSMContext):
     # Get all data and create event
     data = await state.get_data()
     user_id = message.from_user.id
+    event_type = data.get('event_type', 'theatre')
+    menu_callback = "menu_events_cinema" if event_type == "cinema" else "menu_events"
+    list_callback = "events_list_cinema" if event_type == "cinema" else "events_list"
     
     try:
         from ..database import create_event
@@ -470,7 +505,7 @@ async def process_venue(message: types.Message, state: FSMContext):
                 "Не удалось найти фото события. Пожалуйста, начните создание заново и обязательно загрузите фото.",
                 parse_mode="HTML",
                 reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="В меню событий", callback_data="menu_events")]
+                    [InlineKeyboardButton(text="В меню событий", callback_data=menu_callback)]
                 ])
             )
             await state.clear()
@@ -484,7 +519,8 @@ async def process_venue(message: types.Message, state: FSMContext):
             date_time=data['date_time'],
             venue=data['venue'],
             created_by=user_id,
-            photo_path=data['photo_path']
+            photo_path=data['photo_path'],
+            event_type=event_type
         )
         
         # Verify event was actually created
@@ -494,7 +530,7 @@ async def process_venue(message: types.Message, state: FSMContext):
             logger.error(f"Event creation verification failed: event_id={event_id} not found in database")
             raise Exception("Event was not saved to database")
         
-        logger.info(f"Event created and verified: id={event_id}, title={data['title']}, user={user_id}")
+        logger.info(f"Event created and verified: id={event_id}, title={data['title']}, user={user_id}, type={event_type}")
         
         # Format date for display
         from datetime import datetime
@@ -512,7 +548,7 @@ async def process_venue(message: types.Message, state: FSMContext):
         
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="Посмотреть событие", callback_data=f"view_event:{event_id}")],
-            [InlineKeyboardButton(text="К списку событий", callback_data="events_list")]
+            [InlineKeyboardButton(text="К списку событий", callback_data=list_callback)]
         ])
         
         await message.answer(success_text, parse_mode="HTML", reply_markup=keyboard)
@@ -522,7 +558,7 @@ async def process_venue(message: types.Message, state: FSMContext):
         await message.answer(
             "Произошла ошибка при создании события. Попробуйте позже.",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="В меню событий", callback_data="menu_events")]
+                [InlineKeyboardButton(text="В меню событий", callback_data=menu_callback)]
             ])
         )
     
@@ -702,6 +738,64 @@ async def process_link_name(message: types.Message, state: FSMContext):
             "❌ Ошибка при создании ссылки. Попробуйте позже.",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="◀️ К списку ссылок", callback_data="menu_theatre")]
+            ])
+        )
+    
+    await state.clear()
+
+# ============================================================================
+# Cinema Link Creation Handler
+# ============================================================================
+
+@dp.message(CinemaLinkCreation.waiting_link_name)
+async def process_cinema_link_name(message: types.Message, state: FSMContext):
+    """Process cinema link name input."""
+    link_name = message.text.strip()
+    
+    # Validate name length
+    if len(link_name) < 2:
+        await message.answer(
+            "❌ Название ссылки слишком короткое.\nВведите минимум 2 символа:",
+            parse_mode="HTML"
+        )
+        return
+    
+    if len(link_name) > 50:
+        await message.answer(
+            "❌ Название ссылки слишком длинное.\nМаксимум 50 символов:",
+            parse_mode="HTML"
+        )
+        return
+    
+    try:
+        from ..database import create_cinema_link
+        
+        link = await create_cinema_link(message.from_user.id, link_name)
+        
+        if link:
+            await message.answer(
+                f"✅ <b>Ссылка на Кино создана!</b>\n\n"
+                f"<b>Название:</b> {link_name}\n"
+                f"<b>Код:</b> <code>{link['link_code']}</code>",
+                parse_mode="HTML",
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="◀️ К списку ссылок", callback_data="menu_cinema")]
+                ])
+            )
+        else:
+            await message.answer(
+                "❌ Ошибка при создании ссылки. Попробуйте позже.",
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="◀️ К списку ссылок", callback_data="menu_cinema")]
+                ])
+            )
+            
+    except Exception as e:
+        logger.error(f"Error creating cinema link: {e}")
+        await message.answer(
+            "❌ Ошибка при создании ссылки. Попробуйте позже.",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="◀️ К списку ссылок", callback_data="menu_cinema")]
             ])
         )
     
