@@ -123,31 +123,31 @@ export default function FilterBar() {
         <section className="container mx-auto px-4 py-8 space-y-6">
             {/* Title + Search */}
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <h1 className="text-3xl font-bold text-[#171717]">Афиша {getCityGenitive(city)}</h1>
+                <h1 className="text-3xl font-bold text-white">Афиша {getCityGenitive(city)}</h1>
 
                 <div className="w-full md:w-auto relative group">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 group-hover:text-black transition-colors" size={16} />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-hover:text-white transition-colors" size={16} />
                     <input
                         type="text"
                         placeholder="Поиск по событиям"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full md:w-[280px] bg-[#F5F5F5] text-black text-sm py-2.5 pl-9 pr-4 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#E60000]"
+                        className="w-full md:w-[280px] bg-[#222] text-white text-sm py-2.5 pl-9 pr-4 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#E60000] border border-[#333]"
                     />
                 </div>
             </div>
 
             {/* Date Picker */}
-            <div className="flex items-center gap-4 bg-white border border-gray-100 p-2 rounded-xl overflow-x-auto shadow-sm">
-                <button className="p-2 text-gray-500 hover:text-black hover:bg-gray-100 rounded-full shrink-0"><ChevronLeft size={20} /></button>
-                <button className="p-2 text-gray-500 hover:text-black hover:bg-gray-100 rounded-lg shrink-0"><Calendar size={20} /></button>
+            <div className="flex items-center gap-4 bg-[#222] border border-[#333] p-2 rounded-xl overflow-x-auto shadow-sm">
+                <button className="p-2 text-gray-400 hover:text-white hover:bg-[#333] rounded-full shrink-0"><ChevronLeft size={20} /></button>
+                <button className="p-2 text-gray-400 hover:text-white hover:bg-[#333] rounded-lg shrink-0"><Calendar size={20} /></button>
 
                 <div className="flex flex-1 items-center gap-1 overflow-x-auto scrollbar-hide px-2 relative" ref={scrollContainerRef}>
                     {days.map((day, i) => (
                         <div key={i} className="flex items-center">
                             {day.month && (
-                                <div className="flex flex-col items-start justify-center px-3 border-l border-gray-200 h-8 mx-1">
-                                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest leading-none">
+                                <div className="flex flex-col items-start justify-center px-3 border-l border-[#444] h-8 mx-1">
+                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none">
                                         {day.month}
                                     </span>
                                 </div>
@@ -158,7 +158,7 @@ export default function FilterBar() {
                                     onClick={() => handleDateClick(i)}
                                     className={cn(
                                         "flex flex-col items-center justify-center w-10 h-12 rounded-lg shrink-0 transition-colors italic relative group",
-                                        activeIndex === i ? "text-[#E60000]" : "text-gray-400 hover:text-black",
+                                        activeIndex === i ? "text-[#E60000]" : "text-gray-400 hover:text-white",
                                         day.disabled && "opacity-30 cursor-not-allowed"
                                     )}
                                 >
@@ -170,7 +170,7 @@ export default function FilterBar() {
                     ))}
                 </div>
 
-                <button className="p-2 text-gray-500 hover:text-black hover:bg-gray-100 rounded-full shrink-0"><ChevronRight size={20} /></button>
+                <button className="p-2 text-gray-400 hover:text-white hover:bg-[#333] rounded-full shrink-0"><ChevronRight size={20} /></button>
             </div>
         </section>
     );

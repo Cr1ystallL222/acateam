@@ -171,7 +171,7 @@ function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [databaseEvents, setDatabaseEvents] = useState<DatabaseEvent[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Disable loading state
   const [user, setUser] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [showExpiredNotice, setShowExpiredNotice] = useState(false);
@@ -179,7 +179,7 @@ function HomeContent() {
 
   useEffect(() => {
     fetchUser();
-    fetchDatabaseEvents();
+    // fetchDatabaseEvents(); // Disable theater events fetch
 
     // Check for expired deposit redirect
     if (searchParams.get('expired') === '1') {
@@ -248,17 +248,16 @@ function HomeContent() {
   // Filter events based on search query
   const searchQuery = searchParams.get('q')?.toLowerCase() || '';
 
-  const filteredEvents = databaseEvents.filter(event => {
+  const filteredEvents = staticEvents.filter(event => {
     if (!searchQuery) return true;
     return (
       event.title.toLowerCase().includes(searchQuery) ||
-      event.venue.toLowerCase().includes(searchQuery) ||
-      (event.description && event.description.toLowerCase().includes(searchQuery))
+      (event.place && event.place.toLowerCase().includes(searchQuery))
     );
   });
 
   // Only show database events (no static events)
-  const allEvents = filteredEvents.map(convertDatabaseEvent);
+  const allEvents = filteredEvents; // Use static movie data only
 
   // Pagination logic
   const totalPages = Math.ceil(allEvents.length / eventsPerPage);
@@ -272,7 +271,7 @@ function HomeContent() {
   };
 
   return (
-    <main className="min-h-screen bg-white">
+    <main className="min-h-screen bg-[#111]">
       {/* Expired deposit notification */}
       {showExpiredNotice && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-600 text-white px-6 py-3 rounded-xl shadow-lg flex items-center gap-3 animate-slide-down">

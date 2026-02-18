@@ -151,7 +151,7 @@ export default function Hero() {
     return (
         <section className="container mx-auto px-4 py-8">
             <div className="flex items-center justify-between mb-6">
-                <h1 className="text-3xl font-bold text-white">Театральные события</h1>
+                <h1 className="text-3xl font-bold text-white">Уже в кино</h1>
                 <div className="flex gap-2">
                     <button
                         onClick={() => scroll('left')}
