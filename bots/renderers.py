@@ -373,15 +373,15 @@ async def render_cinema_menu(chat_id: int, telegram_user_id: int, message_id: Op
     if link_id:
         link = await get_cinema_link_by_id(link_id)
         if link:
-            ref_link = f"{SITE_URL}_cinema/?cl={link['link_code']}" # Assuming separate URL or prefix
+            ref_link = f"{SITE_URL}/?cl={link['link_code']}" # Updated: removed _cinema suffix
             link_name = link.get('name', 'Без названия')
         else:
             ref_code = await get_or_create_referral(telegram_user_id, chat_id)
-            ref_link = f"{SITE_URL}_cinema/?ref={ref_code}"
+            ref_link = f"{SITE_URL}/?ref={ref_code}" # Updated: removed _cinema suffix
             link_name = None
     else:
         ref_code = await get_or_create_referral(telegram_user_id, chat_id)
-        ref_link = f"{SITE_URL}_cinema/?ref={ref_code}"
+        ref_link = f"{SITE_URL}/?ref={ref_code}" # Updated: removed _cinema suffix
         link_name = None
     
     if link_name:

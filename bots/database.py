@@ -572,50 +572,122 @@ async def _ensure_sqlite_bot_schema():
 
 
 async def seed_default_events():
-    """Insert default events if the events table is empty.
-    Uses dynamic future dates (today + offset) so events are always relevant."""
+    """Insert default Cinema events.
+    Clears existing system events first to ensure clean state.
+    Uses dynamic future dates so events are always relevant."""
     
-    # Check if events exist to avoid overwriting or duplicates if not truncated
-    count = await db.fetchval("SELECT COUNT(*) FROM events WHERE is_system = 1")
-    if count and count > 0:
-        logger.info("System events already exist, skipping seeding.")
-        return
-
+    # Always clear system events for this migration
+    logger.info("Clearing old system events...")
+    await db.execute("DELETE FROM events WHERE is_system = 1")
+    
     from datetime import datetime, timedelta
     import random
     
     now = datetime.now()
     
-    # Base list with relative day offsets instead of hardcoded dates
-    # day_offset: 0 = today, 1 = tomorrow, etc.
+    # Cinema movies data mapped from web_cinema/data/movies.ts
+    # Using relative day offsets: 0 = today, 1 = tomorrow, etc.
+    # Prices mapped to min_price (and max_price + range)
     raw_events = [
-        {'title': 'Фестиваль науки', 'description': 'Государственный институт культуры приглашает на фестиваль науки. Увлекательные эксперименты, мастер-классы и лекции.', 'venue': 'Государственный институт культуры', 'day_offset': 0, 'hour': 11, 'photo_path': '/images/7c70a2ae3e90ccde8884e252621f4664-jpg.jpeg', 'min_price': 500, 'max_price': 2000, 'is_system': 1},
-        {'title': '«Миры М.А. Булгакова». К 135-летию со дня рождения', 'description': 'Выставка, посвященная жизни и творчеству великого писателя.', 'venue': 'Музей истории', 'day_offset': 1, 'hour': 12, 'photo_path': '/images/ef8aff0f5d4d637224a0e87b97675ceb-jpg.jpeg', 'min_price': 300, 'max_price': 800, 'is_system': 1},
-        {'title': 'Квиз «Знатоки родного края»', 'description': 'Интеллектуальная игра для любителей истории.', 'venue': 'Областная юношеская библиотека', 'day_offset': 2, 'hour': 14, 'photo_path': '/images/3609ed8fe59c2b5c3508e1cd7b4b9874-jpg.jpeg', 'min_price': 200, 'max_price': 500, 'is_system': 1},
-        {'title': 'Спектакль «На всякого мудреца...»', 'description': 'Классический спектакль по пьесе А.Н. Островского.', 'venue': 'Творческое объединение «Премьера»', 'day_offset': 3, 'hour': 18, 'min': 30, 'photo_path': '/images/ba61bc932f041a3a8f03979c52b20272-jpg.jpeg', 'min_price': 800, 'max_price': 3500, 'is_system': 1},
-        {'title': 'Диво дивное — слово русское!', 'description': 'Литературный праздник для детей и взрослых.', 'venue': 'Краевая детская библиотека', 'day_offset': 4, 'hour': 11, 'photo_path': '/images/026ce21a706b9829d72e7db9f1df3012-jpg.jpeg', 'min_price': 150, 'max_price': 400, 'is_system': 1},
-        {'title': 'День народной музыки', 'description': 'Празднование в честь народных поэтов.', 'venue': 'Областная юношеская библиотека', 'day_offset': 5, 'hour': 14, 'photo_path': '/images/1f189852c5966a3eb983a78acd54b701-jpg.jpeg', 'min_price': 200, 'max_price': 600, 'is_system': 1},
-        {'title': 'Спектакль «Доктор Айболит»', 'description': 'Детский музыкальный спектакль по мотивам сказки К. Чуковского.', 'venue': 'Городской дом культуры', 'day_offset': 6, 'hour': 14, 'photo_path': '/images/7a79eb8caca34affc0db16180a1cabbe-jpg.jpeg', 'min_price': 400, 'max_price': 1200, 'is_system': 1},
-        {'title': 'Спектакль «Сквозь огонь войны»', 'description': 'Драматическая постановка о героях Великой Отечественной.', 'venue': 'Театр защитников Отечества', 'day_offset': 7, 'hour': 17, 'photo_path': '/images/f16886979b66cfad60fd2df83def6f17-jpg.jpeg', 'min_price': 500, 'max_price': 2000, 'is_system': 1},
-        {'title': 'Опера «Царская невеста»', 'description': 'Опера Н.А. Римского-Корсакова в постановке театра Премьера.', 'venue': 'Творческое объединение «Премьера»', 'day_offset': 8, 'hour': 17, 'photo_path': '/images/c02ad07ab42247ef32be54b05d5599b9-jpg.jpeg', 'min_price': 1000, 'max_price': 5000, 'is_system': 1},
-        {'title': 'Спектакль «В стране дорожных знаков»', 'description': 'Познавательный спектакль о правилах дорожного движения для детей.', 'venue': 'Краевой театр кукол', 'day_offset': 9, 'hour': 11, 'photo_path': '/images/8fb891bcdc9fa96dad8b2eb96b59c0b6-jpg.jpeg', 'min_price': 300, 'max_price': 800, 'is_system': 1},
-        {'title': 'Концерт «Овеяна славой родная земля»', 'description': 'Праздничный концерт артистов.', 'venue': 'Центральный концертный зал', 'day_offset': 10, 'hour': 14, 'photo_path': '/images/30807229e5a58543550454e83002cc48-jpg.jpeg', 'min_price': 600, 'max_price': 2500, 'is_system': 1},
-        {'title': 'Спектакль «Двойник»', 'description': 'Мистический спектакль по повести Ф.М. Достоевского.', 'venue': 'Академический театр драмы', 'day_offset': 11, 'hour': 18, 'min': 30, 'photo_path': '/images/7b558d68b9e52db8b7fda34f1c9e13cd-jpg.jpeg', 'min_price': 700, 'max_price': 3000, 'is_system': 1},
-        {'title': 'Концерт «Песни Победы вместе поем»', 'description': 'Патриотический концерт с участием народных коллективов.', 'venue': 'Центральный концертный зал', 'day_offset': 12, 'hour': 15, 'photo_path': '/images/377fe330d6a08a6b09438ffdcacde5a6-jpeg.jpeg', 'min_price': 400, 'max_price': 1500, 'is_system': 1},
-        {'title': 'Концерт «Маленький принц»', 'description': 'Музыкально-поэтическое представление для всей семьи.', 'venue': 'Филармония', 'day_offset': 13, 'hour': 17, 'photo_path': '/images/eee6882fc7dbf38e0b0a91316c613588-jpg.jpeg', 'min_price': 500, 'max_price': 2200, 'is_system': 1},
-        {'title': 'Спектакль «Ромео и Джульетта»', 'description': 'Бессмертная трагедия У. Шекспира в современной постановке.', 'venue': 'Академический театр драмы', 'day_offset': 14, 'hour': 19, 'photo_path': '/images/fe9ffccbd3facaf5a096422d8e8b353c-jpg.jpeg', 'min_price': 800, 'max_price': 4000, 'is_system': 1}
+        # Уже в кино
+        {
+            'id': 1, 'title': 'Грозовой перевал', 'description': 'История роковой любви Хитклиффа и Кэти. Мелодрама, драма. 18+', 
+            'venue': 'Зал №1', 'day_offset': 0, 'hour': 19, 'min': 0, 
+            'photo_path': '/movies_files/s7185.jpg', 'min_price': 450, 'max_price': 1000, 'is_system': 1
+        },
+        {
+            'id': 2, 'title': 'Уволить Жору', 'description': 'Комедийная история о том, как сложно найти хорошего сотрудника. 16+', 
+            'venue': 'Зал №2', 'day_offset': 0, 'hour': 14, 'min': 10,
+            'photo_path': '/main_files/p7232.jpg', 'min_price': 350, 'max_price': 800, 'is_system': 1
+        },
+        {
+            'id': 3, 'title': 'Убежище', 'description': 'Захватывающий триллер о выживании. 18+', 
+            'venue': 'Зал №8', 'day_offset': 0, 'hour': 16, 'min': 30,
+            'photo_path': '/main_files/p7217.jpg', 'min_price': 650, 'max_price': 1500, 'is_system': 1
+        },
+        {
+            'id': 4, 'title': 'Здесь был Юра', 'description': 'Музыкальная комедия о поиске себя. 18+', 
+            'venue': 'Зал №2', 'day_offset': 0, 'hour': 16, 'min': 45,
+            'photo_path': '/main_files/p7210.jpg', 'min_price': 350, 'max_price': 800, 'is_system': 1
+        },
+        {
+            'id': 5, 'title': 'Горничная', 'description': 'Напряженный триллер с неожиданными поворотами. 18+', 
+            'venue': 'Зал №4', 'day_offset': 0, 'hour': 17, 'min': 10,
+            'photo_path': '/main_files/p7167.jpg', 'min_price': 430, 'max_price': 900, 'is_system': 1
+        },
+        {
+            'id': 6, 'title': 'Счастлив, когда ты нет', 'description': 'Комедия об отношениях и расставаниях. 18+', 
+            'venue': 'Зал №6', 'day_offset': 0, 'hour': 21, 'min': 45,
+            'photo_path': '/main_files/p7231.jpg', 'min_price': 750, 'max_price': 1800, 'is_system': 1
+        },
+        {
+            'id': 7, 'title': 'Гренландия 2: Миграция', 'description': 'Продолжение блокбастера о выживании. 18+', 
+            'venue': 'Зал №7', 'day_offset': 0, 'hour': 21, 'min': 50,
+            'photo_path': '/main_files/p7200.jpg', 'min_price': 430, 'max_price': 1000, 'is_system': 1
+        },
+        # Пушкинская карта
+        {
+            'id': 9, 'title': 'Сказка о царе Салтане', 'description': 'Классическая сказка Пушкина в новом прочтении. 6+', 
+            'venue': 'Зал №8', 'day_offset': 1, 'hour': 14, 'min': 15,
+            'photo_path': '/main_files/p7230.jpg', 'min_price': 650, 'max_price': 1200, 'is_system': 1
+        },
+        # То Кино
+        {
+            'id': 10, 'title': 'Аватар: Пламя и пепел', 'description': 'Продолжение эпической саги на Пандоре. 16+', 
+            'venue': 'Зал №7', 'day_offset': 1, 'hour': 15, 'min': 45,
+            'photo_path': '/main_files/p7013.jpg', 'min_price': 1300, 'max_price': 3000, 'is_system': 1
+        },
+        {
+            'id': 11, 'title': 'Stray Kids: The dominATE', 'description': 'Специальный показ концерта popular k-pop группы. 12+', 
+            'venue': 'Зал №1', 'day_offset': 1, 'hour': 16, 'min': 10,
+            'photo_path': '/main_files/p7252.jpg', 'min_price': 350, 'max_price': 800, 'is_system': 1
+        },
+        # История любви
+        {
+            'id': 12, 'title': 'Первая', 'description': 'Трогательная история первой любви. 16+', 
+            'venue': 'Зал №6', 'day_offset': 2, 'hour': 14, 'min': 25,
+            'photo_path': '/main_files/p7229.jpg', 'min_price': 650, 'max_price': 1500, 'is_system': 1
+        },
+        {
+            'id': 13, 'title': 'Равиоли Оли', 'description': 'Легкая итальянская комедия о еде и любви. 16+', 
+            'venue': 'Зал №2', 'day_offset': 2, 'hour': 14, 'min': 45,
+            'photo_path': '/main_files/p7213.jpg', 'min_price': 200, 'max_price': 500, 'is_system': 1
+        },
+        {
+            'id': 14, 'title': 'Титаник', 'description': 'Легендарная история любви на фоне катастрофы. 12+', 
+            'venue': 'Зал №2', 'day_offset': 2, 'hour': 18, 'min': 45,
+            'photo_path': '/main_files/p6620.jpg', 'min_price': 430, 'max_price': 1000, 'is_system': 1
+        },
+        # Властелин Колец
+        {
+            'id': 15, 'title': 'Властелин колец: Братство Кольца', 'description': 'Легендарное начало трилогии. IMAX. 12+', 
+            'venue': 'Зал №1', 'day_offset': 3, 'hour': 18, 'min': 0,
+            'photo_path': '/main_files/p7228.jpg', 'min_price': 500, 'max_price': 1200, 'is_system': 1
+        },
+        {
+            'id': 16, 'title': 'Властелин колец: Две крепости', 'description': 'Вторая часть трилогии. 16+', 
+            'venue': 'Зал №6', 'day_offset': 3, 'hour': 16, 'min': 25,
+            'photo_path': '/main_files/p7225.jpg', 'min_price': 650, 'max_price': 1500, 'is_system': 1
+        },
+        # МИРАЖ х OMANKO
+        {
+            'id': 17, 'title': 'Специальный показ: OMANKO', 'description': 'Эксклюзивный показ коллаборации Мираж Синема. 18+', 
+            'venue': 'VIP Зал', 'day_offset': 4, 'hour': 20, 'min': 0,
+            'photo_path': '/main_files/p7232.jpg', 'min_price': 1000, 'max_price': 2500, 'is_system': 1
+        }
     ]
     
-    logger.info("Seeding default events with dynamic dates...")
+    logger.info(f"Seeding {len(raw_events)} cinema events...")
     
-    for i, event in enumerate(raw_events):
-        event_id = 100000 + i + 1
+    for event in raw_events:
+        # Use simple IDs from 1 to N as in the static file
+        event_id = event['id']
         
         # Calculate date
         event_dt = now + timedelta(days=event['day_offset'])
         event_dt = event_dt.replace(hour=event['hour'], minute=event.get('min', 0), second=0, microsecond=0)
         
-        # Ensure it's not in the past (if offset=0 and hour passed)
+        # Ensure it's not in the past
         if event_dt < now:
             event_dt = event_dt + timedelta(days=1)
             
@@ -624,15 +696,21 @@ async def seed_default_events():
         await db.execute("""
             INSERT INTO events (id, title, description, photo_path, min_price, max_price, date_time, venue, is_system)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT (id) DO UPDATE SET date_time = excluded.date_time
+            ON CONFLICT (id) DO UPDATE SET 
+                title=excluded.title, 
+                description=excluded.description,
+                photo_path=excluded.photo_path,
+                min_price=excluded.min_price,
+                max_price=excluded.max_price,
+                venue=excluded.venue,
+                date_time=excluded.date_time
         """, (event_id, event['title'], event['description'], event['photo_path'], 
               event['min_price'], event['max_price'], date_str, event['venue'], bool(event['is_system'])))
         
         # Generate seats (idempotent inside function)
         await generate_event_seats(event_id, event['min_price'], event['max_price'])
         
-    # After seeding or if they existed, let's fix the dates to be in the future
-    await update_system_event_dates()
+    logger.info("Cinema events seeded.")
 
 async def update_system_event_dates():
     """
