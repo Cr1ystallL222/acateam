@@ -30,15 +30,7 @@ export default function RootLayout({
             <ReferralTracker />
           </Suspense>
 
-          {/* Global Top Banner */}
-          <div className="relative w-full hidden md:block group z-[60]">
-            <img
-              src="/images/1440kh80_1-png.jpeg"
-              alt="Banner"
-              className="w-full h-auto object-cover max-h-[80px]"
-            />
-            {/* Note: In a real app, this Close button would need to be a client component or handle visibility via state */}
-          </div>
+
           <Header />
           {children}
           <Footer />

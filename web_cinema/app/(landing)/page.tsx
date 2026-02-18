@@ -90,6 +90,29 @@ const staticEvents = [
     isStatic: true
   },
   {
+    id: "marti-velikolepniy",
+    title: "Марти Великолепный",
+    image: "/main_files/p7180.jpg",
+    place: "комедия, спорт",
+    time: "Скоро",
+    age: "18+",
+    format: "2D",
+    price: 0,
+    isStatic: true
+  },
+  {
+    id: "skazka-o-tsare-saltane",
+    title: "Сказка о царе Салтане",
+    image: "/main_files/p7230.jpg",
+    place: "фэнтези",
+    time: "14:15",
+    age: "6+",
+    format: "2D",
+    price: 650,
+    labels: [{ text: "Пушкинская карта" }],
+    isStatic: true
+  },
+  {
     id: "avatar-fire-ash",
     title: "Аватар: Пламя и пепел",
     image: "/main_files/p7013.jpg",
@@ -137,6 +160,18 @@ const staticEvents = [
     isStatic: true
   },
   {
+    id: "titanic",
+    title: "Титаник",
+    image: "/main_files/p6620.jpg",
+    place: "триллер, мелодрама, драма",
+    time: "18:45",
+    age: "12+",
+    format: "2D",
+    price: 430,
+    labels: [{ text: "То Кино!", icon: "/main_files/tokino.svg" }],
+    isStatic: true
+  },
+  {
     id: "lotr-fellowship",
     title: "Властелин колец: Братство Кольца",
     image: "/main_files/p7228.jpg",
@@ -146,6 +181,30 @@ const staticEvents = [
     format: "IMAX",
     price: 500,
     labels: [{ text: "Классика" }],
+    isStatic: true
+  },
+  {
+    id: "lotr-two-towers",
+    title: "Властелин колец: Две крепости",
+    image: "/main_files/p7225.jpg",
+    place: "фэнтези, приключения",
+    time: "16:25",
+    age: "16+",
+    format: "2D",
+    price: 650,
+    labels: [{ text: "То Кино!", icon: "/main_files/tokino.svg" }],
+    isStatic: true
+  },
+  {
+    id: "omanko-event",
+    title: "Специальный показ: OMANKO",
+    image: "/main_files/p7232.jpg",
+    place: "документальный, мода",
+    time: "20:00",
+    age: "18+",
+    format: "2D",
+    price: 1000,
+    labels: [{ text: "Спецпоказ" }],
     isStatic: true
   }
 ];
