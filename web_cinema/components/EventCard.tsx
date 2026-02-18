@@ -1,98 +1,66 @@
-"use client";
-import React from 'react';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
+import Image from 'next/image';
 
-interface EventCardProps {
-    id: string | number;
+interface EventProps {
     title: string;
-    venue: string;
-    date: string;
-    time?: string;
-    price?: string;
     image: string;
-    badge?: string; // e.g. "Пушкинская карта"
-    isStatic?: boolean; // Static events from the original site
-    isSystem?: boolean; // System events from database
-    creatorName?: string; // Creator name for user events
+    place: string;
+    time: string;
+    date: string;
+    day: string;
+    price: string;
 }
 
-export default function EventCard({
-    id, title, venue, date, time, price, image, badge,
-    isStatic = false, isSystem = false, creatorName
-}: EventCardProps) {
-    // Determine the link based on event type
-    const getEventLink = () => {
-        // All events now use /event/ routing with numeric IDs
-        return `/event/${id}`;
-    };
-
-
-    // Determine badge text - only show explicit badges, not system/creator badges
-    const getBadgeText = () => {
-        if (badge) return badge;
-        return null;
-    };
-
-    const badgeText = getBadgeText();
+export default function EventCard({ title, image, place, time, date, day, price }: EventProps) {
     return (
-        <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            whileHover={{ y: -5 }}
-            className="group relative flex flex-col h-full bg-white overflow-hidden rounded-xl"
-        >
-            <Link href={getEventLink()} className="block relative aspect-[4/3] overflow-hidden rounded-xl mb-3">
-                <div className="absolute inset-0 bg-gray-200 animate-pulse" /> {/* Placeholder */}
-                <div
-                    className="absolute inset-0 w-full h-full bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
-                    style={{ backgroundImage: `url(${image})` }}
-                />
+        <div className="w-full h-full bg-[#222] rounded-lg overflow-hidden relative group border border-[#333] hover:border-[#555] transition-colors cursor-pointer flex flex-col">
+            <div className="p-4 flex-1 flex flex-col">
+                <div className="text-xl font-bold mb-3 text-white group-hover:text-[#E60000] transition-colors line-clamp-2 min-h-[56px]">
+                    {title}
+                </div>
 
-                {/* Badges Overlay */}
-                <div className="absolute inset-0 p-3 flex flex-col justify-between">
-                    <div className="flex justify-between items-start">
-                        {/* Date Badge */}
-                        <div className="text-white text-xs font-bold leading-tight drop-shadow-md bg-black/30 backdrop-blur-sm px-2 py-1 rounded">
-                            <span className="text-lg block tracking-tighter">{date.split(' ')[0]}</span>
-                            <span className="uppercase text-[10px] tracking-wide">{date.split(' ')[1]}</span>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                            {time && (
-                                <div className="text-white text-xs font-medium bg-black/30 backdrop-blur-sm px-2 py-1 rounded">
-                                    {time}
-                                </div>
-                            )}
-                            {badgeText && (
-                                <div className="text-white text-xs font-medium px-2 py-1 rounded bg-purple-500/80">
-                                    {badgeText}
-                                </div>
-                            )}
+                <div className="flex gap-4 flex-1">
+                    {/* Photo */}
+                    <div className="w-[100px] h-[140px] shrink-0 relative rounded overflow-hidden">
+                        <Image
+                            src={image}
+                            alt={title}
+                            fill
+                            className="object-cover"
+                        />
+                        {/* Date Overlay */}
+                        <div className="absolute top-0 left-0 bg-black/70 text-white px-2 py-1 text-xs font-bold text-center w-full">
+                            <div className="leading-none text-[10px] uppercase text-gray-300">{day}</div>
+                            <div className="leading-none text-sm">{date.split(' ')[0]}</div>
+                            <div className="leading-none text-[9px] text-gray-400">{date.split(' ')[1]}</div>
                         </div>
                     </div>
 
-                    <div className="flex justify-start">
-                        {price ? (
-                            <span className="bg-white/90 text-black text-xs font-bold px-2 py-1 rounded-full shadow-sm">
-                                {price}
-                            </span>
-                        ) : (
-                            <span className="bg-[#E60000] text-white text-xs font-bold px-2 py-1 rounded-full shadow-sm">
-                                Билеты в продаже
-                            </span>
-                        )}
+                    {/* Content */}
+                    <div className="flex flex-col flex-1 justify-between">
+                        <div className="text-sm text-gray-400 mb-2 line-clamp-4 leading-tight">
+                            {place}
+                        </div>
+
+                        {/* Bot info */}
+                        <div className="mt-auto text-white">
+                            <div className="flex items-center gap-2">
+                                <span className="text-2xl font-bold">{time}</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </Link>
 
-            <div className="flex-1 flex flex-col">
-                <h3 className="text-[#171717] font-bold text-lg leading-snug mb-1 group-hover:text-[#E60000] transition-colors line-clamp-2">
-                    {title}
-                </h3>
-                <p className="text-gray-500 text-xs mt-auto line-clamp-2">
-                    {venue}
-                </p>
+                {/* Price */}
+                <div className="mt-3 pt-3 border-t border-[#333] flex items-center gap-4">
+                    <div className="flex items-center gap-2 text-white font-bold">
+                        <div className="w-5 h-5 flex items-center justify-center text-gray-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" /><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" /><path d="M4 22h16" /><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" /><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" /><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" /></svg>
+                        </div>
+                        {price}
+                    </div>
+                </div>
             </div>
-        </motion.div>
+        </div>
     );
 }

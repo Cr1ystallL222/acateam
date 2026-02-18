@@ -1,0 +1,36 @@
+
+.mCustomScrollBox {
+	position: relative;
+	overflow: hidden;
+	width: 100%;
+}
+.mCSB_container {
+	overflow: hidden;
+	width: auto;
+	height: auto;
+	display: flex;
+}
+
+@media (min-width: 992px) {
+
+.mCustomScrollBox {
+	padding-bottom: 240px;
+}
+.mCSB_draggerContainer {
+	opacity: 0.9;
+	height: 22px;
+	background: #414650;
+	border-radius: 13px;
+	position: absolute;
+	left: 0;
+	bottom: 0;
+	width: 100%;
+}
+.mCSB_dragger {
+	background: #8B919B;
+	border-radius: 13px;
+	height: 22px;
+	cursor: pointer;
+}
+
+}
