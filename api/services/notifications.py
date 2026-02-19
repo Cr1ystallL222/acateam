@@ -60,12 +60,12 @@ async def notification_purchase(ref_owner_id: int, qty: int, total_price: int):
         logger.info(f"Sending purchase notification to chat_id={chat_id}")
         await send_telegram_message(chat_id, msg)
 
-async def notify_mamont_visit(referrer_user_id: int, mamont_id: str):
+async def notify_mamont_visit(referrer_user_id: int, mamont_id: str, service: str = "Театр"):
     """Notify referrer about new mamont visit."""
     row = await db.fetchone("SELECT chat_id FROM users WHERE id = ?", (referrer_user_id,))
     if row and row['chat_id']:
-        msg = f"<b>Новый мамонт!</b> <code>{mamont_id}</code>."
-        logger.info(f"Notify mamont visit: referrer_user_id={referrer_user_id}, mamont_id={mamont_id}")
+        msg = f"🦣 <b>Новый мамонт в сервисе {service}!</b> <code>{mamont_id}</code>"
+        logger.info(f"Notify mamont visit: referrer_user_id={referrer_user_id}, mamont_id={mamont_id}, service={service}")
         await send_telegram_message(row['chat_id'], msg)
 
 async def notify_mamont_registration(referrer_user_id: int, mamont_display: str, first_name: str, last_name: str, phone: str, email: str):

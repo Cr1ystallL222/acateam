@@ -283,6 +283,8 @@ async def _ensure_postgres_bot_schema():
     await add_column_if_missing("bot_users", "balance", "INTEGER DEFAULT 0")
     await add_column_if_missing("bot_users", "balance_hold", "INTEGER DEFAULT 0")
     await add_column_if_missing("bot_users", "last_menu_message_id", "INTEGER")
+    await add_column_if_missing("bot_users", "last_invite_link", "TEXT")
+    await add_column_if_missing("bot_users", "last_invite_created_at", "TIMESTAMP")
     await add_column_if_missing("applications", "confirm_message_id", "INTEGER")
     await add_column_if_missing("event_seats", "zone_name", "TEXT")
     await add_column_if_missing("worker_settings", "max_price_override", "INTEGER DEFAULT NULL")

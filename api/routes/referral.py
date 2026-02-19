@@ -20,7 +20,7 @@ async def api_referral_track(
     cl: Optional[str] = None  # New: theatre link code
 ):
     # Determine which parameter to use
-    link_code = cl  # Theatre link
+    link_code = cl  # Theatre/Cinema link
     ref_code = ref  # Classic referral
     
     if not link_code and not ref_code:
@@ -31,8 +31,9 @@ async def api_referral_track(
     
     user = await get_current_user(request)
     
-    # Resolve the referrer - either from theatre_links (cl=) or users (ref=)
+    # Resolve the referrer - either from theatre_links/cinema_links (cl=) or users (ref=)
     referrer_info = None  # (referrer_user_id, chat_id, link_settings)
+    service_name = "Театр"  # Default service name for notification
     
     if link_code:
         # Look up theatre link by link_code
@@ -48,6 +49,7 @@ async def api_referral_track(
             user_row = await ensure_global_user(row['telegram_user_id'])
             
             if user_row:
+                service_name = "Театр"
                 referrer_info = {
                     "user_id": user_row['id'],
                     "telegram_user_id": row['telegram_user_id'],
@@ -70,6 +72,7 @@ async def api_referral_track(
                 from ..utils import ensure_global_user
                 user_row = await ensure_global_user(row['telegram_user_id'])
                 if user_row:
+                    service_name = "Кино"
                     referrer_info = {
                         "user_id": user_row['id'],
                         "telegram_user_id": row['telegram_user_id'],
@@ -140,10 +143,10 @@ async def api_referral_track(
                 VALUES (?, ?, ?, ?, 'attached', ?)
             """, (mamont_id, visitor_id, referrer_user_id, tracking_code, datetime.utcnow()))
             
-            logger.info(f"Mamont created: mamont_id={mamont_id}, visitor_id={visitor_id}, referrer_user_id={referrer_user_id}")
+            logger.info(f"Mamont created: mamont_id={mamont_id}, visitor_id={visitor_id}, referrer_user_id={referrer_user_id}, service={service_name}")
             
-            # Send mamont notification
-            background_tasks.add_task(notify_mamont_visit, referrer_user_id, mamont_id)
+            # Send mamont notification with service type
+            background_tasks.add_task(notify_mamont_visit, referrer_user_id, mamont_id, service_name)
         else:
             # Mamont already exists, just record visit
             background_tasks.add_task(handle_visit_background, tracking_code, client_ip, user_agent, visitor_id, referrer_user_id)
