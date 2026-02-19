@@ -9,7 +9,7 @@ export default function Hero() {
                 {/* Mobile: Aspect ratio container to prevent layout shift */}
                 <div className="relative w-full aspect-[16/9] md:aspect-[3/1] rounded-2xl overflow-hidden shadow-2xl border border-[#333]">
                     <Image
-                        src="/images/rm197.jpg"
+                        src="/main_files/r197.jpg"
                         alt="Уже в кино"
                         fill
                         className="object-cover"
