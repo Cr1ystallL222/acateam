@@ -518,3 +518,115 @@ async def cmd_profit(message: types.Message, state: FSMContext):
         await message.answer_photo(photo, caption=preview_text, parse_mode="HTML", reply_markup=keyboard)
     else:
         await message.answer(preview_text, parse_mode="HTML", reply_markup=keyboard)
+
+
+# ============================================================================
+# /spam - Broadcast to all bot users
+# ============================================================================
+
+from .fsm import SpamBroadcast
+
+@dp.message(Command("spam"))
+async def cmd_spam(message: types.Message, state: FSMContext):
+    """Broadcast command — only in PROFIT_COMMAND_CHAT_ID."""
+    from ..config import PROFIT_COMMAND_CHAT_ID
+
+    if not PROFIT_COMMAND_CHAT_ID:
+        return
+
+    try:
+        allowed_chat_id = int(PROFIT_COMMAND_CHAT_ID)
+        if message.chat.id != allowed_chat_id:
+            return
+    except ValueError:
+        return
+
+    prompt = await message.answer(
+        "<b>Рассылка</b>\n\n"
+        "Ответьте на это сообщение тем, что хотите разослать всем пользователям бота.\n"
+        "Поддерживается: текст, фото, видео, стикеры, GIF и любые другие типы сообщений.",
+        parse_mode="HTML"
+    )
+
+    await state.set_state(SpamBroadcast.waiting_message)
+    await state.update_data(prompt_message_id=prompt.message_id, chat_id=message.chat.id)
+
+
+@dp.message(SpamBroadcast.waiting_message)
+async def spam_receive_message(message: types.Message, state: FSMContext):
+    """Receive the message to broadcast and show a preview."""
+    data = await state.get_data()
+
+    # Store the message info to copy later
+    await state.update_data(
+        from_chat_id=message.chat.id,
+        from_message_id=message.message_id,
+    )
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="Подтвердить", callback_data="spam_confirm"),
+            InlineKeyboardButton(text="Отменить", callback_data="spam_cancel"),
+        ]
+    ])
+
+    await message.answer(
+        "<b>Предпросмотр рассылки</b>\n\nВыше — сообщение, которое будет разослано. Подтвердите или отмените.",
+        parse_mode="HTML",
+        reply_markup=keyboard
+    )
+
+    await state.set_state(SpamBroadcast.preview)
+
+
+@dp.callback_query(SpamBroadcast.preview, F.data == "spam_cancel")
+async def spam_cancel(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer("Рассылка отменена", show_alert=False)
+    await callback.message.edit_text("<b>Рассылка отменена.</b>", parse_mode="HTML")
+    await state.clear()
+
+
+@dp.callback_query(SpamBroadcast.preview, F.data == "spam_confirm")
+async def spam_confirm(callback: types.CallbackQuery, state: FSMContext):
+    """Run the broadcast."""
+    await callback.answer()
+    await callback.message.edit_text("<b>Рассылка запущена...</b>", parse_mode="HTML")
+
+    data = await state.get_data()
+    from_chat_id = data.get("from_chat_id")
+    from_message_id = data.get("from_message_id")
+
+    await state.clear()
+
+    # Fetch all bot users who have ever started the bot
+    all_users = await db.fetchall("SELECT telegram_user_id, chat_id FROM bot_users WHERE chat_id IS NOT NULL")
+    total = len(all_users)
+
+    import time
+    start_ts = time.time()
+    sent = 0
+    failed = 0
+
+    for user in all_users:
+        try:
+            await bot.copy_message(
+                chat_id=user['chat_id'],
+                from_chat_id=from_chat_id,
+                message_id=from_message_id
+            )
+            sent += 1
+            # Small delay to avoid flood limits
+            await asyncio.sleep(0.05)
+        except Exception as e:
+            logger.warning(f"Spam: failed to send to {user['chat_id']}: {e}")
+            failed += 1
+
+    elapsed = round(time.time() - start_ts, 1)
+
+    stats_text = (
+        "<b>Рассылка завершена</b>\n\n"
+        f"Отправлено: <b>{sent}</b> из <b>{total}</b>\n"
+        f"Не доставлено: <b>{failed}</b>\n"
+        f"Время рассылки: <b>{elapsed} сек.</b>"
+    )
+    await callback.message.answer(stats_text, parse_mode="HTML")

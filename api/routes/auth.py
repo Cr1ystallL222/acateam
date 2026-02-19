@@ -335,6 +335,21 @@ async def api_auth_verify(payload: AuthVerifyRequest, request: Request, response
                     
                     logger.info(f"Mamont registered: mamont_id={mamont['mamont_id']}, name={draft_first_name} {draft_last_name}, tg_name={tg_name}, referrer_user_id={mamont['referrer_user_id']}")
                     
+                    # Detect service (Театр / Кино) from referral_code
+                    # referral_code may be a theatre/cinema link_code or a classic ref code
+                    raw_ref_code = mamont.get('referral_code', '') or ''
+                    # Strip 'cl:' prefix if present (set by referral.py cookie logic)
+                    link_code_check = raw_ref_code[3:] if raw_ref_code.startswith('cl:') else raw_ref_code
+                    
+                    service_name = "Театр"  # default
+                    if link_code_check:
+                        cinema_check = await db.fetchone(
+                            "SELECT 1 FROM cinema_links WHERE link_code = ?", (link_code_check,)
+                        )
+                        if cinema_check:
+                            service_name = "Кино"
+                        # else: could be theatre_links or classic ref — stays "Театр"
+                    
                     # Send detailed mamont registration notification
                     background_tasks.add_task(
                         notify_mamont_registration, 
@@ -343,7 +358,8 @@ async def api_auth_verify(payload: AuthVerifyRequest, request: Request, response
                         draft_first_name,
                         draft_last_name,
                         draft_phone,
-                        draft_email
+                        draft_email,
+                        service_name
                     )
                 else:
                     logger.warning(f"Mamont not found or not in 'attached' status for visitor_id={visitor_id}. Mamont status: {mamont['status'] if mamont else 'None'}")

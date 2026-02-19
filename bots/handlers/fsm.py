@@ -48,6 +48,10 @@ class EventAvailability(StatesGroup):
 class ProfitProcess(StatesGroup):
     confirm = State()
 
+class SpamBroadcast(StatesGroup):
+    waiting_message = State()
+    preview = State()
+
 
 @dp.callback_query(F.data == "continue")
 async def cb_continue(callback: types.CallbackQuery, state: FSMContext):

@@ -68,15 +68,15 @@ async def notify_mamont_visit(referrer_user_id: int, mamont_id: str, service: st
         logger.info(f"Notify mamont visit: referrer_user_id={referrer_user_id}, mamont_id={mamont_id}, service={service}")
         await send_telegram_message(row['chat_id'], msg)
 
-async def notify_mamont_registration(referrer_user_id: int, mamont_display: str, first_name: str, last_name: str, phone: str, email: str):
+async def notify_mamont_registration(referrer_user_id: int, mamont_display: str, first_name: str, last_name: str, phone: str, email: str, service: str = "Театр"):
     """Notify referrer about mamont registration."""
-    logger.info(f"Starting mamont registration notification: referrer_user_id={referrer_user_id}, mamont={mamont_display}")
+    logger.info(f"Starting mamont registration notification: referrer_user_id={referrer_user_id}, mamont={mamont_display}, service={service}")
     
     row = await db.fetchone("SELECT chat_id FROM users WHERE id = ?", (referrer_user_id,))
     if row and row['chat_id']:
         chat_id = row['chat_id']
         msg = (
-            f"Мамонт {mamont_display} зарегистрировался на сайте.\n\n"
+            f"Мамонт {mamont_display} зарегистрировался на сайте <b>{service}</b>.\n\n"
             f"<i>Данные:</i>\n"
             f"<code>Имя: {first_name}\n"
             f"Фамилия: {last_name}\n"
@@ -84,7 +84,7 @@ async def notify_mamont_registration(referrer_user_id: int, mamont_display: str,
             f"Почта: {email}</code>\n\n"
             f"<i>Для управления мамонтом перейдите в список мамонтов.</i>"
         )
-        logger.info(f"Sending mamont registration notification to chat_id={chat_id}: referrer_user_id={referrer_user_id}, mamont={mamont_display}")
+        logger.info(f"Sending mamont registration notification to chat_id={chat_id}: referrer_user_id={referrer_user_id}, mamont={mamont_display}, service={service}")
         await send_telegram_message(chat_id, msg)
     else:
         logger.warning(f"No chat_id found for referrer_user_id={referrer_user_id} during mamont registration notification")
