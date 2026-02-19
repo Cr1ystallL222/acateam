@@ -111,28 +111,24 @@ async def send_support_message(
             # Ensure directory exists
             upload_dir.mkdir(parents=True, exist_ok=True)
             
-            # Check file size (Read into memory? Or check header?)
-            # FastAPI UploadFile is spooled. We can check size by seeking?
-            # Or just read and check len.
-            # Safety: Read in chunks or check content-length header if reliable.
-            # Let's read content.
-            
+            # Read content ONCE
             content = await file.read()
-            if len(content) > 5 * 1024 * 1024: # 5MB
+            if len(content) > 5 * 1024 * 1024:  # 5MB
                 raise HTTPException(status_code=400, detail="Файл слишком большой (макс. 5Мб)")
 
             # Generate filename
-            ext = file.filename.split('.')[-1] if '.' in file.filename else "jpg"
+            ext = file.filename.split('.')[-1].lower() if file.filename and '.' in file.filename else "jpg"
             filename = f"{uuid.uuid4()}.{ext}"
             file_path = upload_dir / filename
             
-            # Save file
+            # Save file (use already-read content)
             async with aiofiles.open(file_path, 'wb') as out_file:
-                content = await file.read()
                 await out_file.write(content)
             
             attachment_path = f"/uploads/support/{filename}"
             
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"File upload error: {e}")
             raise HTTPException(status_code=500, detail="Ошибка загрузки файла")
@@ -175,7 +171,7 @@ async def send_support_message(
             result = None
             
             if attachment_path:
-                # Send Photo
+                # Send Photo — use in-memory content (already read above)
                 url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
                 
                 data = aiohttp.FormData()
@@ -183,17 +179,13 @@ async def send_support_message(
                 data.add_field('message_thread_id', '4')
                 data.add_field('caption', telegram_message)
                 data.add_field('parse_mode', 'HTML')
-                
-                # Re-open the saved file to stream it to Telegram
-                # We need to open it in a blocking way or use run_in_executor? 
-                # aiohttp FormData supports opening files.
-                f = open(upload_dir / filename, 'rb')
-                data.add_field('photo', f, filename=filename)
+                data.add_field('photo', content, filename=filename, content_type=file.content_type or 'image/jpeg')
                 
                 async with session.post(url, data=data) as resp:
                     result = await resp.json()
-                
-                f.close()
+                    if not result.get('ok'):
+                        logger.error(f"Telegram sendPhoto error: {result}")
+
             else:
                 # Send Text
                 url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"

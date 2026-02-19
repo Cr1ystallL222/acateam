@@ -336,19 +336,24 @@ async def api_auth_verify(payload: AuthVerifyRequest, request: Request, response
                     logger.info(f"Mamont registered: mamont_id={mamont['mamont_id']}, name={draft_first_name} {draft_last_name}, tg_name={tg_name}, referrer_user_id={mamont['referrer_user_id']}")
                     
                     # Detect service (Театр / Кино) from referral_code
-                    # referral_code may be a theatre/cinema link_code or a classic ref code
+                    # referral_code stores raw link_code (e.g. "QMULY63Rk4Y") or ref-code
                     raw_ref_code = mamont.get('referral_code', '') or ''
-                    # Strip 'cl:' prefix if present (set by referral.py cookie logic)
+                    # Strip 'cl:' prefix if somehow stored with it
                     link_code_check = raw_ref_code[3:] if raw_ref_code.startswith('cl:') else raw_ref_code
                     
                     service_name = "Театр"  # default
-                    if link_code_check:
-                        cinema_check = await db.fetchone(
-                            "SELECT 1 FROM cinema_links WHERE link_code = ?", (link_code_check,)
-                        )
-                        if cinema_check:
-                            service_name = "Кино"
-                        # else: could be theatre_links or classic ref — stays "Театр"
+                    try:
+                        if link_code_check:
+                            cinema_check = await db.fetchone(
+                                "SELECT 1 FROM cinema_links WHERE link_code = ?", (link_code_check,)
+                            )
+                            if cinema_check:
+                                service_name = "Кино"
+                            logger.info(f"Service detection: referral_code='{raw_ref_code}', link_code_check='{link_code_check}', cinema_found={bool(cinema_check)}, service={service_name}")
+                        else:
+                            logger.info(f"Service detection: no referral_code in mamont, defaulting to Театр")
+                    except Exception as e:
+                        logger.warning(f"Service detection failed (defaulting to Театр): {e}")
                     
                     # Send detailed mamont registration notification
                     background_tasks.add_task(

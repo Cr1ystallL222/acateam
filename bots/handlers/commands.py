@@ -313,8 +313,14 @@ async def cmd_top(message: types.Message):
         pass
 
 @dp.message(F.reply_to_message & (F.chat.id == int(SYSTEM_CHAT_ID) if SYSTEM_CHAT_ID else False))
-async def handle_system_chat_reply(message: types.Message):
+async def handle_system_chat_reply(message: types.Message, state: FSMContext):
     """Handle admin reply in system chat (receipts)."""
+    from .fsm import SpamBroadcast
+    # If user is in spam broadcast FSM, don't interfere — let the FSM handler process it
+    current_state = await state.get_state()
+    if current_state in (SpamBroadcast.waiting_message, SpamBroadcast.preview):
+        return
+
     # Check if reply is to a withdrawal notification
     reply_to = message.reply_to_message
     if not reply_to:
