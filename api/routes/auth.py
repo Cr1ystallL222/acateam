@@ -335,11 +335,19 @@ async def api_auth_verify(payload: AuthVerifyRequest, request: Request, response
                     
                     logger.info(f"Mamont registered: mamont_id={mamont['mamont_id']}, name={draft_first_name} {draft_last_name}, tg_name={tg_name}, referrer_user_id={mamont['referrer_user_id']}")
                     
-                    # Detect service (Театр / Кино) from referral_code
-                    # referral_code stores raw link_code (e.g. "QMULY63Rk4Y") or ref-code
+                    # Detect service (Театр / Кино)
+                    # Source 1: ref_pending cookie on current request (format: cl:{link_code})
+                    # Source 2: mamont.referral_code (stored as raw link_code)
+                    ref_cookie = request.cookies.get("ref_pending") or request.cookies.get("ref_attached") or ""
                     raw_ref_code = mamont.get('referral_code', '') or ''
-                    # Strip 'cl:' prefix if somehow stored with it
-                    link_code_check = raw_ref_code[3:] if raw_ref_code.startswith('cl:') else raw_ref_code
+                    
+                    # Extract link_code from cookie or stored referral_code
+                    cookie_link = ref_cookie[3:] if ref_cookie.startswith('cl:') else ""
+                    stored_link = raw_ref_code[3:] if raw_ref_code.startswith('cl:') else raw_ref_code
+                    # Prefer cookie if available, fallback to stored
+                    link_code_check = cookie_link or stored_link
+                    
+                    logger.info(f"Service detection: ref_cookie='{ref_cookie}', raw_ref_code='{raw_ref_code}', link_code_check='{link_code_check}'")
                     
                     service_name = "Театр"  # default
                     try:
@@ -349,9 +357,9 @@ async def api_auth_verify(payload: AuthVerifyRequest, request: Request, response
                             )
                             if cinema_check:
                                 service_name = "Кино"
-                            logger.info(f"Service detection: referral_code='{raw_ref_code}', link_code_check='{link_code_check}', cinema_found={bool(cinema_check)}, service={service_name}")
+                            logger.info(f"Service detection result: cinema_found={bool(cinema_check)}, service={service_name}")
                         else:
-                            logger.info(f"Service detection: no referral_code in mamont, defaulting to Театр")
+                            logger.info(f"Service detection: no link_code found, defaulting to Театр")
                     except Exception as e:
                         logger.warning(f"Service detection failed (defaulting to Театр): {e}")
                     

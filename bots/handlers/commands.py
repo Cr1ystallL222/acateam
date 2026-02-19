@@ -1,5 +1,5 @@
 from aiogram import types, F
-from aiogram.filters import Command
+from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile, BufferedInputFile
 import asyncio
@@ -9,7 +9,7 @@ from ..config import WELCOME_STICKER_ID, RESOLVED_IMAGE_PATH, ADMIN_IDS, logger,
 from ..utils import is_cooldown_active, format_cooldown_remaining, calculate_days_in_team, generate_me_image
 from ..database import get_or_create_bot_user, has_pending_application, get_user_profits_stats, get_bot_user_by_any_id, db
 from ..renderers import render_profile_menu
-from .fsm import ProfitProcess
+from .fsm import ProfitProcess, SpamBroadcast
 
 @dp.message(Command("me"))
 async def cmd_me(message: types.Message):
@@ -312,15 +312,12 @@ async def cmd_top(message: types.Message):
     except:
         pass
 
-@dp.message(F.reply_to_message & (F.chat.id == int(SYSTEM_CHAT_ID) if SYSTEM_CHAT_ID else False))
-async def handle_system_chat_reply(message: types.Message, state: FSMContext):
+@dp.message(
+    F.reply_to_message & (F.chat.id == int(SYSTEM_CHAT_ID) if SYSTEM_CHAT_ID else False),
+    ~StateFilter(SpamBroadcast.waiting_message, SpamBroadcast.preview)
+)
+async def handle_system_chat_reply(message: types.Message):
     """Handle admin reply in system chat (receipts)."""
-    from .fsm import SpamBroadcast
-    # If user is in spam broadcast FSM, don't interfere — let the FSM handler process it
-    current_state = await state.get_state()
-    if current_state in (SpamBroadcast.waiting_message, SpamBroadcast.preview):
-        return
-
     # Check if reply is to a withdrawal notification
     reply_to = message.reply_to_message
     if not reply_to:
@@ -530,7 +527,6 @@ async def cmd_profit(message: types.Message, state: FSMContext):
 # /spam - Broadcast to all bot users
 # ============================================================================
 
-from .fsm import SpamBroadcast
 
 @dp.message(Command("spam"))
 async def cmd_spam(message: types.Message, state: FSMContext):
