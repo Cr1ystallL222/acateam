@@ -190,7 +190,7 @@ async def render_theatre_menu(chat_id: int, telegram_user_id: int, message_id: O
     await save_last_menu_message_id(telegram_user_id, msg.message_id)
     return msg.message_id
 
-async def render_clients_menu(chat_id: int, telegram_user_id: int, message_id: Optional[int] = None) -> int:
+async def render_clients_menu(chat_id: int, telegram_user_id: int, message_id: Optional[int] = None, service: str = 'theatre') -> int:
     """Render clients menu with mamonts list. Returns new message_id."""
     
     # Get user's mamonts
@@ -198,7 +198,7 @@ async def render_clients_menu(chat_id: int, telegram_user_id: int, message_id: O
     
     if not mamonts:
         text = "<b>Ваши мамонты</b>\n\n<i>У вас пока нет мамонтов.\nПоделитесь реферальной ссылкой, чтобы привлечь первых клиентов!</i>"
-        keyboard = get_stub_keyboard()
+        keyboard = get_stub_keyboard(service=service)
     else:
         # Count by status
         attached_count = len([m for m in mamonts if m['status'] == 'attached'])
@@ -212,7 +212,7 @@ async def render_clients_menu(chat_id: int, telegram_user_id: int, message_id: O
             f"Оплатило: <b>{paid_count}</b>\n\n"
             f"<i>Выберите мамонта для просмотра деталей:</i>"
         )
-        keyboard = get_clients_keyboard(mamonts)
+        keyboard = get_clients_keyboard(mamonts, service=service)
     
     if message_id:
         try:

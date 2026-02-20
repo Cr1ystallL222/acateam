@@ -11,10 +11,19 @@ router = APIRouter()
 @router.post("/api/orders/pay")
 async def api_orders_pay(payload: PaymentRequest, request: Request, background_tasks: BackgroundTasks):
     price_per_ticket = 500
-    total_price = payload.qty * price_per_ticket
+    total_price = payload.total_price if payload.total_price is not None else payload.qty * price_per_ticket
     
     user = await get_current_user(request)
     user_id = user['id'] if user else None
+    
+    # Списание баланса для авторизованного пользователя
+    if user_id:
+        row_balance = await db.fetchone("SELECT balance FROM users WHERE id = ?", (user_id,))
+        current_balance = row_balance['balance'] if row_balance else 0
+        if current_balance < total_price:
+            return {"status": "error", "message": "Недостаточно средств на балансе"}
+        
+        await db.execute("UPDATE users SET balance = balance - ? WHERE id = ?", (total_price, user_id))
     
     logger.info(f"Pay: starting, user_id={user_id}, movie={payload.movie}, qty={payload.qty}")
     

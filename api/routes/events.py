@@ -41,6 +41,15 @@ async def get_referrer_settings_by_visitor_id(visitor_id: str) -> dict:
             logger.info(f"Found theatre link settings for code {referral_code}: {link_row}")
             return dict(link_row)
 
+        # CHECK IF IT IS A CINEMA LINK
+        cinema_link_row = await db.fetchone("""
+            SELECT * FROM cinema_links WHERE link_code = ?
+        """, (referral_code,))
+        
+        if cinema_link_row:
+            logger.info(f"Found cinema link settings for code {referral_code}: {cinema_link_row}")
+            return dict(cinema_link_row)
+
     # Fallback to global worker settings
     settings_row = await db.fetchone("""
         SELECT * FROM worker_settings WHERE telegram_user_id = ?
@@ -147,7 +156,7 @@ async def get_current_user(request: Request):
 
 @router.get("")
 @router.get("/")
-async def get_events(request: Request):
+async def get_events(request: Request, type: Optional[str] = None):
     """Get events visible to current user based on referral hierarchy."""
     import sys
     import pathlib
@@ -180,7 +189,7 @@ async def get_events(request: Request):
 
     if referrer_telegram_id:
         # Show System Events (not hidden) + Referrer's Events
-        rows = await db.fetchall("""
+        query = """
             SELECT e.*, bu.full_name as creator_name
             FROM events e
             LEFT JOIN bot_users bu ON e.created_by = bu.telegram_user_id
@@ -189,17 +198,27 @@ async def get_events(request: Request):
                 (e.is_system = TRUE AND he.id IS NULL) OR
                 e.created_by = ?
             )
-            ORDER BY e.date_time ASC
-        """, (referrer_telegram_id, referrer_telegram_id))
+        """
+        params = [referrer_telegram_id, referrer_telegram_id]
+        if type:
+            query += " AND e.type = ?"
+            params.append(type)
+        query += " ORDER BY e.date_time ASC"
+        rows = await db.fetchall(query, tuple(params))
     else:
         # No referrer - Show ONLY System Events
-        rows = await db.fetchall("""
+        query = """
             SELECT e.*, bu.full_name as creator_name
             FROM events e
             LEFT JOIN bot_users bu ON e.created_by = bu.telegram_user_id
             WHERE e.is_system = TRUE
-            ORDER BY e.date_time ASC
-        """)
+        """
+        params = []
+        if type:
+            query += " AND e.type = ?"
+            params.append(type)
+        query += " ORDER BY e.date_time ASC"
+        rows = await db.fetchall(query, tuple(params))
     
     events = []
     for row in rows:

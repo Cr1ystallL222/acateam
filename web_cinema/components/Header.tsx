@@ -35,7 +35,7 @@ export default function Header() {
     };
 
     return (
-        <header className="sticky top-0 z-50 bg-[#2E2E2E] text-white py-4 shadow-md backdrop-blur-md bg-opacity-95">
+        <header className="sticky top-0 z-50 bg-[#111111]/80 text-white py-4 shadow-xl shadow-black/50 backdrop-blur-xl border-b border-white/10 transition-all duration-300">
             <div className="container mx-auto px-4 relative flex items-center justify-start md:justify-center h-14">
                 {/* Logo */}
                 <Link href="/" className={`items-center gap-1 font-bold tracking-widest hover:opacity-90 transition-opacity ${(!user && !loading) ? 'hidden sm:flex' : 'flex'}`}>

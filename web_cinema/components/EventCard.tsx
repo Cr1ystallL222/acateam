@@ -14,64 +14,61 @@ interface EventProps {
 
 export default function EventCard({ id, title, image, place, time, age = "12+", format = "2D", price, labels }: EventProps) {
     const cardContent = (
-        <div className="w-full h-full bg-[#222] rounded-lg overflow-hidden relative group border border-[#333] hover:border-[#555] transition-colors cursor-pointer">
-            <div className="block p-4 h-full flex flex-col">
-                <div className="text-xl font-bold mb-3 text-white group-hover:text-[#E60000] transition-colors truncate">
+        <div className="w-full h-[400px] bg-[#1a1a1a] rounded-2xl overflow-hidden relative group transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-red-600/30 cursor-pointer border border-[#333] hover:border-red-600/50">
+            {/* Background Image with Gradient */}
+            <div className="absolute inset-0">
+                <img src={image} alt={title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent"></div>
+            </div>
+
+            {/* Play Button overlay */}
+            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
+                <div className="w-16 h-16 rounded-full bg-red-600/90 flex items-center justify-center backdrop-blur-sm shadow-lg shadow-red-600/60 transform scale-75 group-hover:scale-100 transition-transform duration-300">
+                    <svg className="w-8 h-8 text-white ml-2" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+                </div>
+            </div>
+
+            {/* Content Container positioned at bottom */}
+            <div className="absolute bottom-0 left-0 right-0 p-5 flex flex-col z-20">
+
+                {/* Labels/Badges */}
+                <div className="flex flex-wrap gap-2 mb-3">
+                    {labels && labels.map((label, i) => (
+                        <span key={i} className="px-2.5 py-1 rounded-full bg-[#E60000] text-white text-[10px] font-bold tracking-wider uppercase">
+                            {label.text}
+                        </span>
+                    ))}
+                    <span className="px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white text-[10px] font-medium tracking-wider">
+                        {age}
+                    </span>
+                    <span className="px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white text-[10px] font-medium tracking-wider border-[#3b82f6]/50">
+                        {format}
+                    </span>
+                </div>
+
+                {/* Title */}
+                <h3 className="text-2xl font-bold text-white mb-1 line-clamp-2 leading-tight group-hover:text-[#E60000] transition-colors drop-shadow-md">
                     {title}
-                </div>
+                </h3>
 
-                <div className="flex gap-4 flex-1">
-                    {/* Photo */}
-                    <div className="w-[100px] h-[140px] shrink-0 relative rounded overflow-hidden">
-                        <img src={image} alt={title} className="w-full h-full object-cover" />
+                {/* Genre/Place */}
+                <p className="text-sm text-gray-400 mb-4 line-clamp-1">
+                    {place}
+                </p>
+
+                {/* Bottom Row: Time and Price */}
+                <div className="flex items-center justify-between pt-4 border-t border-white/10">
+                    <div className="flex items-center gap-2">
+                        <svg className="w-4 h-4 text-[#E60000]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        <span className="text-sm font-medium text-gray-200">{time}</span>
                     </div>
-
-                    {/* Content */}
-                    <div className="flex flex-col flex-1">
-                        <div className="text-sm text-gray-400 mb-2 line-clamp-2 min-h-[40px]">
-                            {place}
-                        </div>
-
-                        <div className="mb-auto">
-                            {/* Spacer */}
-                        </div>
-
-                        {/* Bot info */}
-                        <div className="mt-2 text-white">
-                            <div className="flex items-center gap-2">
-                                <span className="text-2xl font-bold">{time}</span>
-                                <div className="h-6 w-px bg-gray-600 mx-2"></div>
-                                <div className="flex flex-col leading-none text-xs text-gray-400">
-                                    <span className="border border-gray-600 px-1 rounded mb-0.5 w-fit">{age}</span>
-                                    <span className="border border-gray-600 px-1 rounded w-fit">{format}</span>
-                                </div>
-                            </div>
-                        </div>
+                    <div className="flex items-center gap-1 bg-red-600/10 px-3 py-1.5 rounded-lg border border-red-600/30 group-hover:bg-red-600 group-hover:border-red-600 transition-colors">
+                        <span className="text-sm font-bold text-[#E60000] group-hover:text-white transition-colors">
+                            {typeof price === 'number' ? `от ${price} ₽` : price}
+                        </span>
                     </div>
                 </div>
 
-                {/* Stocks/Labels */}
-                {labels && labels.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                        {labels.map((label, i) => (
-                            <div key={i} className="flex items-center gap-1 text-xs text-gray-300 bg-[#333] px-2 py-1 rounded">
-                                {label.icon && <img src={label.icon} alt="" className="w-4 h-4" />}
-                                {label.text}
-                            </div>
-                        ))}
-                    </div>
-                )}
-
-                {/* Price */}
-                <div className="mt-3 pt-3 border-t border-[#333] flex items-center gap-4 mt-auto">
-                    <div className="flex items-center gap-2 text-white font-bold">
-                        <div className="w-5 h-5 flex items-center justify-center">
-                            {/* SVG Place icon placeholder */}
-                            <div className="w-4 h-4 border border-white/50 rounded-sm"></div>
-                        </div>
-                        {typeof price === 'number' ? `${price}₽` : price}
-                    </div>
-                </div>
             </div>
         </div>
     );

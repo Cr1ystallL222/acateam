@@ -76,7 +76,7 @@ def get_links_management_keyboard(links: list, type: str = "theatre") -> InlineK
     
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
-def get_clients_keyboard(mamonts: list) -> InlineKeyboardMarkup:
+def get_clients_keyboard(mamonts: list, service: str = "theatre") -> InlineKeyboardMarkup:
     """Generate keyboard with mamont buttons."""
     keyboard = []
     
@@ -94,13 +94,15 @@ def get_clients_keyboard(mamonts: list) -> InlineKeyboardMarkup:
         keyboard.append(row)
     
     # Add back button
-    keyboard.append([InlineKeyboardButton(text="Назад", callback_data="menu_back_theatre")])
+    back_cb = "menu_back_links_cinema" if service == "cinema" else "menu_back_theatre"
+    keyboard.append([InlineKeyboardButton(text="Назад", callback_data=back_cb)])
     
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
-def get_stub_keyboard() -> InlineKeyboardMarkup:
+def get_stub_keyboard(service: str = "theatre") -> InlineKeyboardMarkup:
+    back_cb = "menu_back_links_cinema" if service == "cinema" else "menu_back_theatre"
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Назад", callback_data="menu_back_theatre")]
+        [InlineKeyboardButton(text="Назад", callback_data=back_cb)]
     ])
 
 def get_settings_keyboard(settings: dict, link_id: int = None) -> InlineKeyboardMarkup:

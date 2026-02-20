@@ -238,7 +238,7 @@ function HomeContent() {
 
   useEffect(() => {
     fetchUser();
-    // fetchDatabaseEvents(); // Disable theater events fetch
+    fetchDatabaseEvents();
 
     // Check for expired deposit redirect
     if (searchParams.get('expired') === '1') {
@@ -265,7 +265,7 @@ function HomeContent() {
 
   const fetchDatabaseEvents = async () => {
     try {
-      const response = await fetch('/api/events', { credentials: 'include' });
+      const response = await fetch('/api/events?type=cinema', { credentials: 'include' });
       if (response.ok) {
         const events = await response.json();
         setDatabaseEvents(events);
@@ -315,8 +315,8 @@ function HomeContent() {
     );
   });
 
-  // Only show database events (no static events)
-  const allEvents = filteredEvents; // Use static movie data only
+  // Объединяем события из БД и статические
+  const allEvents = [...databaseEvents.map(convertDatabaseEvent), ...filteredEvents];
 
   // Pagination logic
   const totalPages = Math.ceil(allEvents.length / eventsPerPage);
@@ -372,7 +372,7 @@ function HomeContent() {
             {currentPage > 1 && (
               <button
                 onClick={() => handlePageChange(currentPage - 1)}
-                className="w-auto h-9 px-4 flex items-center justify-center text-gray-400 hover:text-black hover:bg-gray-100 rounded text-sm font-medium transition-colors mr-4"
+                className="w-auto h-9 px-4 flex items-center justify-center text-gray-400 hover:text-white hover:bg-[#222] rounded text-sm font-medium transition-colors mr-4"
               >
                 Пред.
               </button>
@@ -396,8 +396,8 @@ function HomeContent() {
                   key={pageNum}
                   onClick={() => handlePageChange(pageNum)}
                   className={`w-9 h-9 flex items-center justify-center rounded font-bold text-sm transition-colors ${currentPage === pageNum
-                    ? 'bg-[#E60000] text-white'
-                    : 'text-gray-400 hover:text-black hover:bg-gray-100'
+                    ? 'bg-[#E60000] text-white shadow-lg shadow-red-600/30'
+                    : 'text-gray-400 hover:text-white hover:bg-[#222]'
                     }`}
                 >
                   {pageNum}
@@ -411,7 +411,7 @@ function HomeContent() {
                 <span className="text-gray-400 px-2 pb-2">...</span>
                 <button
                   onClick={() => handlePageChange(totalPages)}
-                  className="w-9 h-9 flex items-center justify-center text-gray-400 hover:text-black hover:bg-gray-100 rounded text-sm transition-colors"
+                  className="w-9 h-9 flex items-center justify-center text-gray-400 hover:text-white hover:bg-[#222] rounded text-sm transition-colors"
                 >
                   {totalPages}
                 </button>
@@ -422,7 +422,7 @@ function HomeContent() {
             {currentPage < totalPages && (
               <button
                 onClick={() => handlePageChange(currentPage + 1)}
-                className="w-auto h-9 px-4 flex items-center justify-center text-gray-400 hover:text-black hover:bg-gray-100 rounded text-sm font-medium transition-colors ml-4"
+                className="w-auto h-9 px-4 flex items-center justify-center text-gray-400 hover:text-white hover:bg-[#222] rounded text-sm font-medium transition-colors ml-4"
               >
                 След.
               </button>

@@ -286,14 +286,17 @@ async def cb_cinema_settings_edit(callback: types.CallbackQuery, state: FSMConte
 
 
 @dp.callback_query(F.data == "menu_clients")
-
 async def cb_menu_clients(callback: types.CallbackQuery):
-
     await callback.answer()
-
     msg_id = callback.message.message_id
+    await render_clients_menu(callback.message.chat.id, callback.from_user.id, msg_id, service="theatre")
 
-    await render_clients_menu(callback.message.chat.id, callback.from_user.id, msg_id)
+@dp.callback_query(F.data == "menu_clients_cinema")
+async def cb_menu_clients_cinema(callback: types.CallbackQuery):
+    await callback.answer()
+    msg_id = callback.message.message_id
+    from ..renderers import render_clients_menu
+    await render_clients_menu(callback.message.chat.id, callback.from_user.id, msg_id, service="cinema")
 
 
 

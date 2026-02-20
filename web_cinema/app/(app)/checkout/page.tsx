@@ -114,6 +114,32 @@ function CheckoutContent() {
 
         setState('processing');
 
+        try {
+            const payload = {
+                movie: eventInfo?.title || "Неизвестно",
+                session_time: eventInfo?.formatted_time || "12:00",
+                qty: seats.length,
+                total_price: getTotalPrice()
+            };
+            const res = await fetch('/api/orders/pay', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!res.ok) {
+                setState('error');
+                return;
+            }
+
+            // Вычитаем баланс визуально (не обязательно, но можно)
+            setUserBalance(prev => prev - getTotalPrice());
+        } catch (error) {
+            console.error('Purchase error:', error);
+            setState('error');
+            return;
+        }
+
         // Генерируем билет на фоне
         await generateTicket();
 
@@ -124,7 +150,7 @@ function CheckoutContent() {
             } else {
                 setState('error');
             }
-        }, 3000);
+        }, 1500);
     };
 
     const generateTicket = async () => {
@@ -141,7 +167,7 @@ function CheckoutContent() {
                 ctx.drawImage(img, 0, 0);
 
                 ctx.fillStyle = '#000000';
-                ctx.font = 'bold 16px Arial';
+                ctx.font = 'bold 8px Arial';
 
                 const ticketNumber = Math.floor(100000 + Math.random() * 900000).toString();
                 ctx.fillText(ticketNumber, 31, 46);
