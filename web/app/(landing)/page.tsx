@@ -217,7 +217,7 @@ function HomeContent() {
 
   const fetchDatabaseEvents = async () => {
     try {
-      const response = await fetch('/api/events', { credentials: 'include' });
+      const response = await fetch('/api/events?type=theatre', { credentials: 'include' });
       if (response.ok) {
         const events = await response.json();
         setDatabaseEvents(events);
