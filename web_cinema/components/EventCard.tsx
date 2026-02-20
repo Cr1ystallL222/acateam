@@ -21,12 +21,7 @@ export default function EventCard({ id, title, image, place, time, age = "12+", 
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent"></div>
             </div>
 
-            {/* Play Button overlay */}
-            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
-                <div className="w-16 h-16 rounded-full bg-red-600/90 flex items-center justify-center backdrop-blur-sm shadow-lg shadow-red-600/60 transform scale-75 group-hover:scale-100 transition-transform duration-300">
-                    <svg className="w-8 h-8 text-white ml-2" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
-                </div>
-            </div>
+
 
             {/* Content Container positioned at bottom */}
             <div className="absolute bottom-0 left-0 right-0 p-5 flex flex-col z-20">
