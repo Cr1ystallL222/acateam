@@ -37,24 +37,24 @@ function VerifyContent() {
 
     if (!session_id) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+            <div className="min-h-screen bg-[#1A1A1A] flex items-center justify-center text-white">
                 <div className="text-center">
-                    <h1 className="text-2xl font-bold text-gray-900 mb-2">Ошибка сессии</h1>
-                    <p className="text-gray-600">Неверная ссылка верификации</p>
+                    <h1 className="text-2xl font-bold mb-2">Ошибка сессии</h1>
+                    <p className="text-gray-400">Неверная ссылка верификации</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 py-12 px-4">
+        <div className="min-h-screen bg-[#1A1A1A] py-12 px-4">
             <div className="max-w-md mx-auto">
-                <div className="text-center mb-8">
-                    <h1 className="text-3xl font-bold text-gray-900 mb-2">Верификация через Telegram</h1>
-                    <p className="text-gray-600">Подтвердите свою личность через наш Telegram бот</p>
+                <div className="text-center mb-8 pt-10">
+                    <h1 className="text-3xl font-bold text-white mb-2">Верификация через Telegram</h1>
+                    <p className="text-gray-400">Подтвердите свою личность через наш Telegram бот</p>
                 </div>
 
-                <div className="bg-white rounded-lg shadow-md p-6">
+                <div className="bg-white rounded-lg shadow-md p-6 text-gray-900">
                     {/* Step 1: Open Bot */}
                     <div className="mb-6">
                         <div className="flex items-center mb-3">
@@ -71,10 +71,10 @@ function VerifyContent() {
                                 href={bot_link || "#"}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-md transition-colors"
+                                className="inline-flex items-center px-4 py-2 bg-[#0088cc] hover:bg-[#0077b5] text-white font-medium rounded-md transition-colors"
                             >
-                                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M12 0C5.374 0 0 5.373 0 12s5.374 12 12 12 12-5.373 12-12S18.626 0 12 0zm5.568 8.16c-.169 1.858-.896 6.728-.896 6.728-.896 6.728-1.268 8.368-1.268 8.368-.159.708-.534.708-.534.708s-2.97-.3-4.317-.3c-1.347 0-4.317.3-4.317.3s-.375 0-.534-.708c0 0-.372-1.64-1.268-8.368 0 0-.727-4.87-.896-6.728-.024-.26.07-.472.32-.472.25 0 .463.212.487.472.169 1.858.896 6.728.896 6.728.896 6.728 1.268 8.368 1.268 8.368.159.708.534.708.534.708s2.97-.3 4.317-.3c1.347 0 4.317.3 4.317.3s.375 0 .534-.708c0 0 .372-1.64 1.268-8.368 0 0 .727-4.87.896-6.728.024-.26-.237-.472-.487-.472-.25 0-.344.212-.32.472z"/>
+                                <svg className="w-5 h-5 mr-2 -ml-1" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.04-.18-.05-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.62-.2-1.11-.31-1.07-.66.02-.18.27-.36.75-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z" />
                                 </svg>
                                 Открыть Telegram бот
                             </a>
@@ -92,7 +92,7 @@ function VerifyContent() {
                         <p className="text-gray-600 mb-4 ml-11">
                             Введите 4-значный код, который вы получили от бота
                         </p>
-                        
+
                         <form onSubmit={handleVerify} className="ml-11 space-y-4">
                             <div>
                                 <input
@@ -104,7 +104,7 @@ function VerifyContent() {
                                     maxLength={4}
                                 />
                             </div>
-                            
+
                             {error && (
                                 <div className="p-3 bg-red-50 border border-red-200 rounded-md">
                                     <p className="text-red-800 text-sm">{error}</p>
@@ -138,10 +138,10 @@ function VerifyContent() {
 export default function RegisterVerifyPage() {
     return (
         <Suspense fallback={
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+            <div className="min-h-screen bg-[#1A1A1A] flex items-center justify-center">
                 <div className="text-center">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600 mx-auto mb-4"></div>
-                    <p className="text-gray-600">Загрузка...</p>
+                    <p className="text-gray-400">Загрузка...</p>
                 </div>
             </div>
         }>

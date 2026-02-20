@@ -96,14 +96,14 @@ export default function RegisterPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 py-12 px-4">
+        <div className="min-h-screen bg-[#1A1A1A] py-12 px-4">
             <div className="max-w-md mx-auto">
-                <div className="text-center mb-8">
-                    <h1 className="text-3xl font-bold text-gray-900 mb-2">Регистрация</h1>
-                    <p className="text-gray-600">Создайте аккаунт для доступа к культурным мероприятиям</p>
+                <div className="text-center mb-8 pt-10">
+                    <h1 className="text-3xl font-bold text-white mb-2">Регистрация</h1>
+                    <p className="text-gray-400">Создайте аккаунт для доступа к культурным мероприятиям</p>
                 </div>
 
-                <div className="bg-white rounded-lg shadow-md p-6">
+                <div className="bg-white rounded-lg shadow-md p-6 text-gray-900">
                     {error && (
                         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
                             <p className="text-red-800 text-sm">{error}</p>

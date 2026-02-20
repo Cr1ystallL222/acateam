@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 interface EventProps {
+    id?: string | number;
     title: string;
     image: string;
     place?: string; // Originally genre in MovieCard
@@ -11,8 +12,8 @@ interface EventProps {
     labels?: { text: string; icon?: string }[];
 }
 
-export default function EventCard({ title, image, place, time, age = "12+", format = "2D", price, labels }: EventProps) {
-    return (
+export default function EventCard({ id, title, image, place, time, age = "12+", format = "2D", price, labels }: EventProps) {
+    const cardContent = (
         <div className="w-full h-full bg-[#222] rounded-lg overflow-hidden relative group border border-[#333] hover:border-[#555] transition-colors cursor-pointer">
             <div className="block p-4 h-full flex flex-col">
                 <div className="text-xl font-bold mb-3 text-white group-hover:text-[#E60000] transition-colors truncate">
@@ -74,4 +75,10 @@ export default function EventCard({ title, image, place, time, age = "12+", form
             </div>
         </div>
     );
+
+    if (id) {
+        return <Link href={`/event/${id}`} className="block h-full">{cardContent}</Link>;
+    }
+
+    return cardContent;
 }
