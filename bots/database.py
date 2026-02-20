@@ -86,12 +86,9 @@ async def ensure_bot_schema():
     row = await db.fetchone("SELECT COUNT(*) as count FROM events")
     if row and row['count'] == 0:
         await seed_default_events()
-        await seed_theatre_events()
-    else:
-        # Ensure theatre events exist even if cinema events were already seeded
-        theatre_row = await db.fetchone("SELECT COUNT(*) as count FROM events WHERE is_system = TRUE AND type = 'theatre'")
-        if theatre_row and theatre_row['count'] == 0:
-            await seed_theatre_events()
+    
+    # Always ensure theatre events exist and have correct type
+    await seed_theatre_events()
         
     logger.info("Bot schema OK")
 
@@ -790,14 +787,9 @@ async def seed_default_events():
     logger.info("Cinema events seeded.")
 
 async def seed_theatre_events():
-    """Insert default Theatre events.
-    Clears existing theatre system events first to ensure clean state.
-    Uses dynamic future dates so events are always relevant."""
-    # Only clear THEATRE system events (preserve cinema events!)
-    logger.info("Clearing old theatre system events...")
-    await db.execute("DELETE FROM hidden_events WHERE event_id IN (SELECT id FROM events WHERE is_system = TRUE AND type = 'theatre')")
-    await db.execute("DELETE FROM event_seats WHERE event_id IN (SELECT id FROM events WHERE is_system = TRUE AND type = 'theatre')")
-    await db.execute("DELETE FROM events WHERE is_system = TRUE AND type = 'theatre'")
+    """Insert/update default Theatre events.
+    Uses ON CONFLICT to safely upsert — fixes type for existing events."""
+    logger.info("Ensuring theatre events are correctly typed...")
     
     from datetime import datetime, timedelta
     

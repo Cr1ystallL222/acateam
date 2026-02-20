@@ -18,6 +18,16 @@ async def ensure_schema():
             await seed_default_events()
     except Exception as e:
         logger.error(f"Failed to check/seed events: {e}")
+    
+    # Always ensure theatre events have correct type (fix for stale data)
+    try:
+        await db.execute("""
+            UPDATE events SET type = 'theatre' 
+            WHERE id >= 100000 AND is_system = TRUE AND (type != 'theatre' OR type IS NULL)
+        """)
+        logger.info("Ensured theatre events have type='theatre'")
+    except Exception as e:
+        logger.error(f"Failed to fix theatre event types: {e}")
 
 async def _ensure_postgres_schema():
     # Users
