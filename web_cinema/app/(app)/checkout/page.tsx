@@ -14,12 +14,26 @@ interface SelectedSeat {
 }
 
 interface EventInfo {
-    id: number;
+    id: number | string;
     title: string;
     formatted_date: string;
     formatted_time: string;
     venue: string;
 }
+
+const staticEvents = [
+    { id: "grozovoy-pereval", title: "Грозовой перевал", time: "19:00", place: "Зал 1" },
+    { id: "rubinshtein", title: "Рубинштейн", time: "20:00", place: "Главный зал" },
+    { id: "zloy-gorod", title: "Злой город", time: "21:15", place: "Зал 2" },
+    { id: "volkov", title: "Леонид Волков", time: "18:00", place: "VIP Зал" },
+    { id: "van-gogh", title: "Ван Гог", time: "17:30", place: "Арт Зал" },
+    { id: "zhdanov", title: "Иван Жданов", time: "19:30", place: "Сцена 1" },
+    { id: "kats", title: "Максим Кац", time: "20:45", place: "Лекторий" },
+    { id: "titanic", title: "Титаник", time: "18:45", place: "Зал IMAX" },
+    { id: "lotr-fellowship", title: "Властелин колец: Братство Кольца", time: "18:00", place: "Зал IMAX" },
+    { id: "lotr-two-towers", title: "Властелин колец: Две крепости", time: "16:25", place: "Зал 1" },
+    { id: "omanko-event", title: "Специальный показ: OMANKO", time: "20:00", place: "Спецзал" }
+];
 
 type CheckoutState = 'preview' | 'processing' | 'error';
 
@@ -54,6 +68,17 @@ function CheckoutContent() {
             if (eventResponse.ok) {
                 const eventData = await eventResponse.json();
                 setEventInfo(eventData);
+            } else {
+                const staticEvent = staticEvents.find(e => e.id === eventId);
+                if (staticEvent) {
+                    setEventInfo({
+                        id: staticEvent.id,
+                        title: staticEvent.title,
+                        formatted_date: 'Сегодня',
+                        formatted_time: staticEvent.time,
+                        venue: staticEvent.place
+                    });
+                }
             }
 
             const meResponse = await fetch('/api/me', { credentials: 'include' });
@@ -61,7 +86,7 @@ function CheckoutContent() {
                 const userData = await meResponse.json();
                 setUserBalance(userData.balance || 0);
             } else {
-                router.push('/auth');
+                router.push('/register');
                 return;
             }
         } catch (error) {
@@ -95,10 +120,10 @@ function CheckoutContent() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+            <div className="min-h-screen bg-[#111] flex items-center justify-center">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto"></div>
-                    <p className="mt-4 text-gray-600">Загрузка...</p>
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#E60000] mx-auto"></div>
+                    <p className="mt-4 text-gray-400">Загрузка...</p>
                 </div>
             </div>
         );
@@ -106,20 +131,20 @@ function CheckoutContent() {
 
     if (state === 'processing') {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+            <div className="min-h-screen bg-[#111] flex items-center justify-center">
                 <div className="text-center max-w-md mx-auto px-4">
-                    <div className="bg-white rounded-2xl shadow-lg p-8">
-                        <Loader2 className="w-16 h-16 text-orange-500 animate-spin mx-auto mb-6" />
-                        <h2 className="text-2xl font-bold text-gray-900 mb-3">
+                    <div className="bg-[#1a1a1a] border border-white/5 rounded-2xl shadow-xl p-8">
+                        <Loader2 className="w-16 h-16 text-[#E60000] animate-spin mx-auto mb-6" />
+                        <h2 className="text-2xl font-bold text-white mb-3">
                             Генерируем билет...
                         </h2>
-                        <p className="text-gray-600 mb-4">
+                        <p className="text-gray-400 mb-4">
                             Пожалуйста, не закрывайте страницу. Это может занять несколько секунд.
                         </p>
                         <div className="flex justify-center space-x-1">
-                            <div className="w-2 h-2 bg-orange-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                            <div className="w-2 h-2 bg-orange-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                            <div className="w-2 h-2 bg-orange-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                            <div className="w-2 h-2 bg-[#E60000] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                            <div className="w-2 h-2 bg-[#E60000] rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                            <div className="w-2 h-2 bg-[#E60000] rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                         </div>
                     </div>
                 </div>
@@ -129,23 +154,23 @@ function CheckoutContent() {
 
     if (state === 'error') {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+            <div className="min-h-screen bg-[#111] flex items-center justify-center">
                 <div className="text-center max-w-md mx-auto px-4">
-                    <div className="bg-white rounded-2xl shadow-lg p-8">
-                        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <AlertCircle className="w-10 h-10 text-red-500" />
+                    <div className="bg-[#1a1a1a] border border-white/5 rounded-2xl shadow-xl p-8">
+                        <div className="w-16 h-16 bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <AlertCircle className="w-10 h-10 text-[#E60000]" />
                         </div>
-                        <h2 className="text-2xl font-bold text-gray-900 mb-3">
+                        <h2 className="text-2xl font-bold text-white mb-3">
                             Ошибка при генерации билета
                         </h2>
-                        <p className="text-gray-600 mb-6">
+                        <p className="text-gray-400 mb-6">
                             К сожалению, произошла ошибка при обработке вашего заказа.
                             Пожалуйста, обратитесь в службу поддержки для решения проблемы.
                         </p>
                         <div className="space-y-3">
                             <Link
                                 href="/"
-                                className="w-full inline-flex items-center justify-center px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-medium"
+                                className="w-full inline-flex items-center justify-center px-6 py-3 bg-[#E60000] text-white rounded-xl hover:bg-red-700 transition-colors font-medium"
                             >
                                 Вернуться на главную
                             </Link>
@@ -157,19 +182,19 @@ function CheckoutContent() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            <div className="bg-white shadow-sm">
+        <div className="min-h-screen bg-[#111]">
+            <div className="bg-[#1a1a1a] shadow-sm border-b border-white/10">
                 <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                     <div className="flex items-center">
                         <button
                             onClick={handleCancel}
-                            className="mr-4 p-2 hover:bg-gray-100 rounded-full transition-colors"
+                            className="mr-4 p-2 hover:bg-white/10 rounded-full transition-colors"
                         >
-                            <ArrowLeft className="w-5 h-5 text-gray-600" />
+                            <ArrowLeft className="w-5 h-5 text-gray-300" />
                         </button>
                         <div>
-                            <h1 className="text-2xl font-bold text-gray-900">Оформление заказа</h1>
-                            <p className="text-sm text-gray-600 mt-1">Проверьте детали перед покупкой</p>
+                            <h1 className="text-2xl font-bold text-white">Оформление заказа</h1>
+                            <p className="text-sm text-gray-400 mt-1">Проверьте детали перед покупкой</p>
                         </div>
                     </div>
                 </div>
@@ -177,9 +202,9 @@ function CheckoutContent() {
 
             <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 {eventInfo && (
-                    <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-                        <h2 className="text-lg font-semibold text-gray-900 mb-2">{eventInfo.title}</h2>
-                        <div className="flex flex-wrap gap-4 text-sm text-gray-600">
+                    <div className="bg-[#1a1a1a] rounded-xl shadow-sm p-6 mb-6 border border-white/5">
+                        <h2 className="text-lg font-semibold text-white mb-2">{eventInfo.title}</h2>
+                        <div className="flex flex-wrap gap-4 text-sm text-gray-400">
                             <span>{eventInfo.formatted_date}</span>
                             <span>•</span>
                             <span>{eventInfo.formatted_time}</span>
@@ -189,10 +214,10 @@ function CheckoutContent() {
                     </div>
                 )}
 
-                <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
+                <div className="bg-[#1a1a1a] rounded-xl shadow-sm p-6 mb-6 border border-white/5">
                     <div className="flex items-center mb-4">
-                        <Ticket className="w-5 h-5 text-orange-500 mr-2" />
-                        <h3 className="text-lg font-semibold text-gray-900">
+                        <Ticket className="w-5 h-5 text-[#E60000] mr-2" />
+                        <h3 className="text-lg font-semibold text-white">
                             Выбранные билеты ({seats.length})
                         </h3>
                     </div>
@@ -201,17 +226,17 @@ function CheckoutContent() {
                         {seats.map((seat) => (
                             <div
                                 key={seat.id}
-                                className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0"
+                                className="flex items-center justify-between py-3 border-b border-white/10 last:border-0"
                             >
                                 <div>
-                                    <p className="font-medium text-gray-900">
+                                    <p className="font-medium text-white">
                                         Ряд {seat.row_number}, Место {seat.seat_number}
                                     </p>
                                     {seat.zone_name && (
                                         <p className="text-sm text-gray-500">{seat.zone_name}</p>
                                     )}
                                 </div>
-                                <p className="font-semibold text-gray-900">
+                                <p className="font-semibold text-white">
                                     {seat.price.toLocaleString()} ₽
                                 </p>
                             </div>
@@ -219,27 +244,27 @@ function CheckoutContent() {
                     </div>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-                    <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-100">
+                <div className="bg-[#1a1a1a] rounded-xl shadow-sm p-6 mb-6 border border-white/5">
+                    <div className="flex items-center justify-between mb-4 pb-4 border-b border-white/10">
                         <div className="flex items-center">
                             <Wallet className="w-5 h-5 text-green-500 mr-2" />
-                            <span className="text-gray-600">Ваш баланс</span>
+                            <span className="text-gray-400">Ваш баланс</span>
                         </div>
-                        <span className="font-semibold text-gray-900">{userBalance.toLocaleString()} ₽</span>
+                        <span className="font-semibold text-white">{userBalance.toLocaleString()} ₽</span>
                     </div>
 
                     <div className="flex items-center justify-between">
-                        <span className="text-lg font-semibold text-gray-900">Итого к оплате</span>
-                        <span className="text-2xl font-bold text-orange-600">
+                        <span className="text-lg font-semibold text-white">Итого к оплате</span>
+                        <span className="text-2xl font-bold text-[#E60000]">
                             {getTotalPrice().toLocaleString()} ₽
                         </span>
                     </div>
 
                     {userBalance < getTotalPrice() && (
-                        <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                            <p className="text-sm text-yellow-800">
+                        <div className="mt-4 p-3 bg-red-900/20 border border-red-900/50 rounded-lg">
+                            <p className="text-sm text-red-400">
                                 Недостаточно средств на балансе.
-                                <Link href="/topup" className="ml-1 font-medium underline">
+                                <Link href="/topup" className="ml-1 font-medium underline text-white">
                                     Пополнить баланс
                                 </Link>
                             </p>
@@ -250,13 +275,13 @@ function CheckoutContent() {
                 <div className="flex flex-col sm:flex-row gap-4">
                     <button
                         onClick={handleCancel}
-                        className="flex-1 px-6 py-4 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium text-lg"
+                        className="flex-1 px-6 py-4 bg-[#222] text-white rounded-xl hover:bg-[#333] transition-colors font-medium text-lg border border-white/10"
                     >
                         Отмена
                     </button>
                     <button
                         onClick={handlePurchase}
-                        className="flex-1 px-6 py-4 bg-orange-600 text-white rounded-xl hover:bg-orange-700 transition-colors font-medium text-lg shadow-lg shadow-orange-500/30"
+                        className="flex-1 px-6 py-4 bg-[#E60000] text-white rounded-xl hover:bg-red-700 transition-colors font-medium text-lg shadow-lg shadow-red-500/30"
                     >
                         Купить
                     </button>
@@ -269,8 +294,8 @@ function CheckoutContent() {
 export default function CheckoutPage() {
     return (
         <Suspense fallback={
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto"></div>
+            <div className="min-h-screen bg-[#111] flex items-center justify-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#E60000] mx-auto"></div>
             </div>
         }>
             <CheckoutContent />

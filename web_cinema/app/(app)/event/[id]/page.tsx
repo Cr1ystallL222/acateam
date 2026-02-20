@@ -1,8 +1,9 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import { useState, useEffect, useRef } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Clock, Calendar, Info, Tag, MonitorPlay } from 'lucide-react';
+import { ArrowLeft, Clock, Calendar, Info, Tag, MonitorPlay, ZoomIn, ZoomOut, Maximize, X } from 'lucide-react';
 
 interface MovieEvent {
   id: string;
@@ -217,11 +218,179 @@ const staticEvents: MovieEvent[] = [
   }
 ];
 
+interface Seat {
+  id: number;
+  row_number: number;
+  seat_number: number;
+  price: number;
+  is_available: boolean;
+  zone_name: string;
+}
+
+const generateSeats = (eventId: string, minPrice: number) => {
+  let hash = 0;
+  for (let i = 0; i < eventId.length; i++) {
+    hash = eventId.charCodeAt(i) + ((hash << 5) - hash);
+  }
+
+  const pseudoRandom = (seed: number) => {
+    let t = seed += 0x6D2B79F5;
+    t = Math.imul(t ^ t >>> 15, t | 1);
+    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+
+  const numRows = 10 + Math.floor(pseudoRandom(hash) * 5); // 10 to 14
+
+  const rows: { row_number: number; seats: Seat[] }[] = [];
+  let seatIdCounter = 1;
+  const rowStartCount = 6 + Math.floor(pseudoRandom(hash + 1) * 4); // 6 to 9
+  const rowEndCount = 18 + Math.floor(pseudoRandom(hash + 2) * 3); // 18 to 20
+
+  const increaseStep = (rowEndCount - rowStartCount) / (numRows - 1);
+  let availableCount = 0;
+  let totalCount = 0;
+
+  for (let row = 1; row <= numRows; row++) {
+    let seatsInThisRow = Math.round(rowStartCount + increaseStep * (row - 1));
+    if (seatsInThisRow > 20) seatsInThisRow = 20;
+
+    let zoneName = "Партер";
+    let rowPrice = minPrice;
+    if (row > numRows * 0.7) {
+      zoneName = "Балкон";
+      rowPrice = minPrice * 0.7;
+    } else if (row > numRows * 0.4) {
+      zoneName = "Амфитеатр";
+      rowPrice = minPrice * 0.85;
+    }
+    rowPrice = Math.round(rowPrice / 10) * 10;
+
+    const rowSeats: Seat[] = [];
+    for (let seatNum = 1; seatNum <= seatsInThisRow; seatNum++) {
+      const isBooked = pseudoRandom(hash + row * 100 + seatNum) < 0.3;
+      rowSeats.push({
+        id: seatIdCounter++,
+        row_number: row,
+        seat_number: seatNum,
+        price: rowPrice,
+        is_available: !isBooked,
+        zone_name: zoneName
+      });
+      totalCount++;
+      if (!isBooked) availableCount++;
+    }
+
+    rows.push({ row_number: row, seats: rowSeats });
+  }
+
+  return { rows, availableCount, totalCount };
+};
+
 export default function EventPage() {
   const params = useParams();
+  const router = useRouter();
   const eventId = params.id as string;
 
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [showSeatMap, setShowSeatMap] = useState(false);
+  const [selectedSeats, setSelectedSeats] = useState<Seat[]>([]);
+  const [seatData, setSeatData] = useState<{ rows: { row_number: number, seats: Seat[] }[], availableCount: number, totalCount: number } | null>(null);
+  const [userBalance, setUserBalance] = useState<number>(0);
+
+  const seatMapRef = useRef<HTMLDivElement>(null);
+  const [zoom, setZoom] = useState(1.0);
+
   const event = staticEvents.find(e => e.id === eventId);
+
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  const checkAuth = async () => {
+    try {
+      const response = await fetch('/api/me', { credentials: 'include' });
+      if (response.ok) {
+        const userData = await response.json();
+        setUserBalance(userData.balance || 0);
+        setIsAuthenticated(true);
+      } else {
+        router.push('/register');
+      }
+    } catch (error) {
+      router.push('/register');
+    }
+  };
+
+  useEffect(() => {
+    if (isAuthenticated && event) {
+      const data = generateSeats(eventId, event.price || 500);
+      setSeatData(data);
+    }
+  }, [isAuthenticated, event, eventId]);
+
+  const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.2, 2.0));
+  const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.2, 0.4));
+  const handleResetZoom = () => setZoom(1.0);
+
+  const focusZone = (zoneName: string) => {
+    setZoom(1.1);
+    setTimeout(() => {
+      const el = document.getElementById(`zone-${zoneName}`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+  };
+
+  const handleSeatClick = (seat: Seat) => {
+    if (!seat.is_available) return;
+
+    const isSelected = selectedSeats.some(s => s.id === seat.id);
+    if (isSelected) {
+      setSelectedSeats(selectedSeats.filter(s => s.id !== seat.id));
+    } else {
+      setSelectedSeats([...selectedSeats, seat]);
+    }
+  };
+
+  const getTotalPrice = () => {
+    return selectedSeats.reduce((total, seat) => total + seat.price, 0);
+  };
+
+  const handlePurchase = () => {
+    if (selectedSeats.length === 0) return;
+
+    // Check balance
+    if (userBalance < getTotalPrice()) {
+      router.push('/topup');
+      return;
+    }
+
+    const seatsData = selectedSeats.map(s => ({
+      id: s.id,
+      row_number: s.row_number,
+      seat_number: s.seat_number,
+      price: s.price,
+      zone_name: s.zone_name
+    }));
+
+    const paramsStr = new URLSearchParams({
+      event_id: eventId,
+      seats: encodeURIComponent(JSON.stringify(seatsData))
+    });
+
+    router.push(`/checkout?${paramsStr.toString()}`);
+  };
+
+  if (isAuthenticated === null) {
+    return (
+      <div className="min-h-screen bg-[#111] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#E60000] mx-auto"></div>
+          <p className="mt-4 text-gray-400">Проверка доступа...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!event) {
     return (
@@ -329,6 +498,122 @@ export default function EventPage() {
                 </div>
               </div>
             </section>
+
+            {/* Seat Map Area */}
+            {showSeatMap && seatData && (
+              <section className="bg-[#1A1A1A] rounded-2xl p-6 border border-white/5" id="seat-map-section">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-bold">Выбор мест</h3>
+                  <div className="flex items-center gap-2">
+                    <button onClick={handleZoomOut} className="p-1.5 bg-[#222] hover:bg-[#333] rounded text-gray-400"><ZoomOut className="w-4 h-4" /></button>
+                    <button onClick={handleResetZoom} className="p-1.5 bg-[#222] hover:bg-[#333] rounded text-gray-400"><Maximize className="w-4 h-4" /></button>
+                    <button onClick={handleZoomIn} className="p-1.5 bg-[#222] hover:bg-[#333] rounded text-gray-400"><ZoomIn className="w-4 h-4" /></button>
+                  </div>
+                </div>
+
+                <div className="mb-4 flex flex-wrap gap-2 text-xs">
+                  {["Партер", "Амфитеатр", "Балкон"].map(z => (
+                    <button key={z} onClick={() => focusZone(z)} className="px-3 py-1.5 bg-[#222] hover:bg-[#333] border border-white/5 rounded-full transition-colors">
+                      {z}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="w-full overflow-auto pt-6 pb-12 px-2 text-center bg-[#111] rounded-xl border border-white/5" style={{ maxHeight: '600px' }} ref={seatMapRef}>
+                  <div style={{ transform: `scale(${zoom})`, transformOrigin: 'top center', transition: 'transform 0.3s ease-out' }}>
+
+                    <div className="mb-12">
+                      <div className="w-3/4 max-w-md h-8 bg-gradient-to-t from-white/10 to-transparent mx-auto rounded-t-[100%] flex items-end justify-center pb-2 shadow-[0_-4px_10px_rgba(255,255,255,0.02)]">
+                        <span className="text-[10px] font-bold text-gray-400 tracking-[0.4em] uppercase">Экран</span>
+                      </div>
+                    </div>
+
+                    {["Партер", "Амфитеатр", "Балкон"].map((zoneName) => {
+                      const zoneRows = seatData.rows.filter(r => r.seats[0]?.zone_name === zoneName);
+                      if (zoneRows.length === 0) return null;
+
+                      return (
+                        <div id={`zone-${zoneName}`} key={zoneName} className="mb-10 last:mb-0 relative" style={{ scrollMarginTop: '100px' }}>
+                          <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] mb-4 border-b border-gray-800 pb-2 inline-block px-12">{zoneName}</h4>
+                          <div className="space-y-2">
+                            {zoneRows.map(row => {
+                              const curveFactor = 0.05;
+                              return (
+                                <div key={row.row_number} className="relative h-6 md:h-7 flex items-center justify-center">
+                                  <div className="flex items-center justify-center relative w-full">
+                                    <span className="absolute left-0 md:left-4 lg:left-12 text-[9px] text-gray-500 w-6 text-right font-medium">{row.row_number}</span>
+
+                                    <div className="flex items-center justify-center mx-auto" style={{ minWidth: 'max-content' }}>
+                                      {row.seats.map((seat, seatIdx) => {
+                                        const center = (row.seats.length - 1) / 2;
+                                        const dist = seatIdx - center;
+                                        const absDist = Math.abs(dist);
+                                        const yOffset = Math.pow(absDist, 2) * -curveFactor;
+                                        const rot = -dist * 1.5;
+
+                                        const isSelected = selectedSeats.some(s => s.id === seat.id);
+
+                                        let bgColor = '#333';
+                                        let textColor = '#888';
+
+                                        if (seat.is_available) {
+                                          textColor = 'white';
+                                          if (isSelected) {
+                                            bgColor = '#E60000';
+                                          } else {
+                                            if (zoneName === 'Партер') bgColor = '#4f46e5';
+                                            else if (zoneName === 'Амфитеатр') bgColor = '#059669';
+                                            else bgColor = '#d97706';
+                                          }
+                                        } else {
+                                          bgColor = '#222';
+                                          textColor = '#444';
+                                        }
+
+                                        return (
+                                          <button
+                                            key={seat.id}
+                                            onClick={() => handleSeatClick(seat)}
+                                            disabled={!seat.is_available}
+                                            className={`w-5 h-5 md:w-6 md:h-6 mx-[2px] rounded-t-lg rounded-b-sm text-[9px] flex items-center justify-center transition-all border-b-2 border-black/30
+                                                            ${isSelected ? 'z-20 scale-125 ring-2 ring-white shadow-[0_0_10px_rgba(230,0,0,0.5)]' : 'z-10 hover:scale-125 hover:z-30'}
+                                                            ${!seat.is_available ? 'cursor-not-allowed opacity-50' : ''}
+                                                        `}
+                                            style={{
+                                              backgroundColor: bgColor,
+                                              color: textColor,
+                                              transform: `translateY(${yOffset}px) rotate(${rot}deg)`,
+                                              marginTop: `${Math.abs(yOffset)}px`
+                                            }}
+                                            title={`${zoneName}, Ряд ${row.row_number}, Место ${seat.seat_number} (${seat.price}₽)`}
+                                          >
+                                            {seat.seat_number}
+                                          </button>
+                                        )
+                                      })}
+                                    </div>
+                                    <span className="absolute right-0 md:right-4 lg:right-12 text-[9px] text-gray-500 w-6 text-left font-medium">{row.row_number}</span>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap justify-center gap-4 text-xs text-gray-400 mt-6 pt-6 border-t border-white/5">
+                  <div className="flex items-center"><div className="w-3 h-3 bg-[#4f46e5] rounded-sm mr-2"></div>Партер</div>
+                  <div className="flex items-center"><div className="w-3 h-3 bg-[#059669] rounded-sm mr-2"></div>Амфитеатр</div>
+                  <div className="flex items-center"><div className="w-3 h-3 bg-[#d97706] rounded-sm mr-2"></div>Балкон</div>
+                  <div className="flex items-center"><div className="w-3 h-3 bg-[#222] border border-[#333] rounded-sm mr-2"></div>Занято</div>
+                  <div className="flex items-center"><div className="w-3 h-3 bg-[#E60000] rounded-sm mr-2 shadow-[0_0_5px_rgba(230,0,0,0.5)]"></div>Ваш выбор</div>
+                </div>
+              </section>
+            )}
+
           </div>
 
           {/* Action Card */}
@@ -341,15 +626,62 @@ export default function EventPage() {
                 </div>
               </div>
 
-              <button
-                onClick={() => alert("Бронирование билетов доступно только в кассах кинотеатра")}
-                className="w-full bg-[#E60000] hover:bg-red-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-red-500/30 hover:shadow-red-500/50 hover:-translate-y-1"
-              >
-                Забронировать
-              </button>
+              {!showSeatMap ? (
+                <button
+                  onClick={() => {
+                    setShowSeatMap(true);
+                    setTimeout(() => {
+                      document.getElementById('seat-map-section')?.scrollIntoView({ behavior: 'smooth' });
+                    }, 100);
+                  }}
+                  className="w-full bg-[#E60000] hover:bg-red-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-red-500/30 hover:shadow-red-500/50 hover:-translate-y-1"
+                >
+                  Купить билет
+                </button>
+              ) : selectedSeats.length === 0 ? (
+                <div className="text-center p-4 bg-white/5 rounded-xl border border-white/10">
+                  <p className="text-gray-300">Выберите места на схеме зала</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="max-h-[200px] overflow-y-auto pr-2 custom-scrollbar space-y-2">
+                    {selectedSeats.map(seat => (
+                      <div key={seat.id} className="flex items-center justify-between text-sm bg-white/5 p-2 rounded">
+                        <div>
+                          <span className="text-gray-400 text-xs block">{seat.zone_name}</span>
+                          Ряд {seat.row_number}, Место {seat.seat_number}
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="font-bold">{seat.price} ₽</span>
+                          <button onClick={() => handleSeatClick(seat)} className="text-red-500 hover:text-red-400">
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="border-t border-white/10 pt-4 text-center">
+                    <p className="text-gray-400 mb-1">К оплате:</p>
+                    <p className="text-3xl font-bold mb-4">{getTotalPrice().toLocaleString()} ₽</p>
+
+                    <button
+                      onClick={handlePurchase}
+                      className="w-full bg-[#E60000] hover:bg-red-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-red-500/30 hover:shadow-red-500/50 hover:-translate-y-1 flex items-center justify-center gap-2"
+                    >
+                      Купить билеты
+                    </button>
+                    {userBalance < getTotalPrice() && (
+                      <p className="text-yellow-500 text-xs mt-3">
+                        На вашем балансе недостаточно средств ({userBalance} ₽).
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <p className="text-center text-xs text-gray-500 mt-4">
-                По требованию организатора, бронирование данного события ограничено
+                По требованию организатора, покупка билетов возможна только после подтверждения
               </p>
             </div>
           </div>
