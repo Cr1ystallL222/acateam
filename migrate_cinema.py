@@ -1,7 +1,13 @@
 import asyncio
+import logging
+import os
+from dotenv import load_dotenv
+
+# Загружаем переменные из .env файла
+load_dotenv()
+
 from data.db import db
 from bots.database import seed_default_events
-import logging
 
 logging.basicConfig(level=logging.INFO)
 
