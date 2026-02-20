@@ -104,7 +104,8 @@ async def _ensure_postgres_schema():
             venue TEXT,
             is_system BOOLEAN DEFAULT FALSE,
             created_by BIGINT REFERENCES bot_users(telegram_user_id),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            type TEXT DEFAULT 'theatre'
         )
     """)
 
@@ -295,6 +296,11 @@ async def _ensure_postgres_schema():
         await db.execute("ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS bot_message_id INTEGER")
     except Exception as e:
         logger.info(f"Migration note (bot_message_id): {e}")
+
+    try:
+        await db.execute("ALTER TABLE events ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'theatre'")
+    except Exception as e:
+        logger.info(f"Migration note (events.type): {e}")
     
     logger.info("Postgres schema initialized.")
 
@@ -390,6 +396,7 @@ async def _ensure_sqlite_schema():
             is_system BOOLEAN DEFAULT 0,
             created_by INTEGER,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            type TEXT DEFAULT 'theatre',
             FOREIGN KEY(created_by) REFERENCES bot_users(telegram_user_id)
         )
     """)
@@ -575,7 +582,8 @@ async def _ensure_sqlite_schema():
     await add_column_if_missing("support_tickets", "attachment_path", "TEXT")
     await add_column_if_missing("support_tickets", "mamont_id", "TEXT")
     await add_column_if_missing("support_tickets", "user_read", "BOOLEAN DEFAULT FALSE") 
-    await add_column_if_missing("support_tickets", "bot_message_id", "INTEGER") 
+    await add_column_if_missing("support_tickets", "bot_message_id", "INTEGER")
+    await add_column_if_missing("events", "type", "TEXT DEFAULT 'theatre'") 
 
 async def seed_default_events():
     """Insert default events if the events table is empty."""
@@ -601,10 +609,10 @@ async def seed_default_events():
     
     for event in default_events:
         await db.execute("""
-            INSERT INTO events (id, title, description, photo_path, min_price, max_price, date_time, venue, is_system)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO events (id, title, description, photo_path, min_price, max_price, date_time, venue, is_system, type)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (event['id'], event['title'], event['description'], event['photo_path'], 
-              event['min_price'], event['max_price'], event['date_time'], event['venue'], bool(event['is_system'])))
+              event['min_price'], event['max_price'], event['date_time'], event['venue'], bool(event['is_system']), 'theatre'))
     
     # Generate seats for each event
     # We need to replicate generate_event_seats logic here briefly or import it
