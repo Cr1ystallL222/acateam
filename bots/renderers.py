@@ -194,7 +194,7 @@ async def render_clients_menu(chat_id: int, telegram_user_id: int, message_id: O
     """Render clients menu with mamonts list. Returns new message_id."""
     
     # Get user's mamonts
-    mamonts = await get_user_mamonts(telegram_user_id)
+    mamonts = await get_user_mamonts(telegram_user_id, service)
     
     if not mamonts:
         text = "<b>Ваши мамонты</b>\n\n<i>У вас пока нет мамонтов.\nПоделитесь реферальной ссылкой, чтобы привлечь первых клиентов!</i>"

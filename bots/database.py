@@ -167,8 +167,28 @@ async def _ensure_postgres_bot_schema():
 
     try:
         await db.execute("ALTER TABLE events ADD COLUMN type TEXT DEFAULT 'cinema'")
+        logger.info("Added type column to events table")
     except Exception:
         pass
+        
+    # Миграция старых театральных событий: если событие системное, и его название одно из театральных (содержащих "Спектакль", "Комедия", "Балет", "Мюзикл", "Шоу"), меняем тип на theatre
+    try:
+        await db.execute("""
+            UPDATE events 
+            SET type = 'theatre' 
+            WHERE is_system = TRUE AND type = 'cinema' AND (
+                title LIKE '%Спектакль%' OR 
+                title LIKE '%Комедия%' OR 
+                title LIKE '%Балет%' OR 
+                title LIKE '%Мюзикл%' OR 
+                title LIKE '%Шоу%' OR
+                title LIKE '%Миры М.А.%' OR
+                title LIKE '%Классика%'
+            )
+        """)
+        logger.info("Migrated old theatre events to type='theatre'")
+    except Exception as e:
+        logger.error(f"Error migrating theatre events: {e}")
 
     # Event seats
     await db.execute("""
@@ -959,17 +979,33 @@ async def add_manual_profit(admin_id: int, worker_tg_id: int, amount: int, worke
         UPDATE users SET balance = balance + ? WHERE id = ?
     """, (worker_share, user_id))
 
-async def get_user_mamonts(telegram_user_id: int) -> list:
-    row = await db.fetchone("SELECT id FROM users WHERE telegram_user_id = ?", (telegram_user_id,))
+async def get_user_mamonts(telegram_user_id: int, service: str = 'theatre') -> list:
+    row = await db.fetchone("SELECT id, referral_code FROM users WHERE telegram_user_id = ?", (telegram_user_id,))
     if not row:
         return []
     user_id = row['id']
+    classic_code = row['referral_code']
     
-    return await db.fetchall("""
+    all_mamonts_rows = await db.fetchall("""
         SELECT * FROM mamonts 
         WHERE referrer_user_id = ? 
         ORDER BY created_at DESC
     """, (user_id,))
+    
+    all_mamonts = [dict(m) for m in all_mamonts_rows]
+    valid_codes = []
+    
+    if service == 'cinema':
+        link_rows = await db.fetchall("SELECT link_code FROM cinema_links WHERE telegram_user_id = ?", (telegram_user_id,))
+        valid_codes = [r['link_code'] for r in link_rows]
+    else:
+        link_rows = await db.fetchall("SELECT link_code FROM theatre_links WHERE telegram_user_id = ?", (telegram_user_id,))
+        valid_codes = [r['link_code'] for r in link_rows]
+        if classic_code:
+            valid_codes.append(classic_code)
+            
+    filtered_mamonts = [m for m in all_mamonts if m.get('referral_code') in valid_codes]
+    return filtered_mamonts
 
 async def update_bot_user_invite_link(telegram_user_id: int, link: str, created_at: str):
     """Update user's last invite link and creation time."""

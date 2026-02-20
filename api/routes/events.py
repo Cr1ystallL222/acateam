@@ -275,8 +275,8 @@ async def get_city_info(request: Request):
     return {"city": city}
 
 @router.get("/{event_id}", response_model=dict)
-async def get_event(event_id: int, request: Request, current_user: dict = Depends(get_current_user)):
-    """Get event details with seats - only if user has access to this event."""
+async def get_event(event_id: int, request: Request):
+    """Get event details with seats."""
     import sys
     import pathlib
     bots_path = pathlib.Path(__file__).parent.parent.parent / "bots"
@@ -289,52 +289,26 @@ async def get_event(event_id: int, request: Request, current_user: dict = Depend
         CITY_VENUES = {}
         CINEMA_VENUES = {}
 
-    user_telegram_id = current_user['telegram_user_id']
-    
-    # Check if user has access to this event - get user's referrer
-    user_row = await db.fetchone("""
-        SELECT u.referrer_user_id, bu.telegram_user_id as referrer_telegram_id
-        FROM users u
-        LEFT JOIN users ref_u ON u.referrer_user_id = ref_u.id
-        LEFT JOIN bot_users bu ON ref_u.telegram_user_id = bu.telegram_user_id
-        WHERE u.telegram_user_id = ?
-    """, (user_telegram_id,))
-    
-    referrer_telegram_id = user_row['referrer_telegram_id'] if user_row else None
-    
-    # Get referrer settings
+    # Get referrer settings using visitor_id
+    visitor_id = request.cookies.get("visitor_id")
     referrer_settings = None
-    if referrer_telegram_id:
-        try:
-            settings_row = await db.fetchone("SELECT * FROM worker_settings WHERE telegram_user_id = ?", (referrer_telegram_id,))
-            if settings_row:
-                referrer_settings = dict(settings_row)
-        except Exception as e:
-            logger.error(f"Error fetching worker settings: {e}")
-
-    # Get event and check access
-    if not referrer_telegram_id:
-        event_row = await db.fetchone("""
-            SELECT e.*, bu.full_name as creator_name
-            FROM events e
-            LEFT JOIN bot_users bu ON e.created_by = bu.telegram_user_id
-            WHERE e.id = ? AND (e.is_system = TRUE OR e.created_by = ?)
-        """, (event_id, user_telegram_id))
-    else:
-        event_row = await db.fetchone("""
-            SELECT e.*, bu.full_name as creator_name
-            FROM events e
-            LEFT JOIN bot_users bu ON e.created_by = bu.telegram_user_id
-            LEFT JOIN hidden_events he ON e.id = he.event_id AND he.hidden_by = ?
-            WHERE e.id = ? AND (
-                (e.is_system = TRUE AND he.id IS NULL) OR
-                e.created_by = ? OR
-                e.created_by = ?
-            )
-        """, (referrer_telegram_id, event_id, referrer_telegram_id, user_telegram_id))
+    referrer_telegram_id = None
+    
+    if visitor_id:
+        referrer_settings = await get_referrer_settings_by_visitor_id(visitor_id)
+        if referrer_settings and 'telegram_user_id' in referrer_settings:
+            referrer_telegram_id = referrer_settings['telegram_user_id']
+            
+    # Always allow fetching the event if it exists (for both direct links and referred)
+    event_row = await db.fetchone("""
+        SELECT e.*, bu.full_name as creator_name
+        FROM events e
+        LEFT JOIN bot_users bu ON e.created_by = bu.telegram_user_id
+        WHERE e.id = ?
+    """, (event_id,))
     
     if not event_row:
-        raise HTTPException(status_code=404, detail="Event not found or access denied")
+        raise HTTPException(status_code=404, detail="Event not found")
     
     event = dict(event_row)
     
@@ -424,8 +398,8 @@ async def reserve_seat(event_id: int, row_number: int, seat_number: int, request
     return {"success": True, "message": "Seat reserved successfully"}
 
 @router.get("/{event_id}/seat-map")
-async def get_seat_map(event_id: int, request: Request, current_user: dict = Depends(get_current_user)):
-    """Get seat map data for visualization - requires authentication."""
+async def get_seat_map(event_id: int, request: Request):
+    """Get seat map data for visualization."""
     import sys
     import pathlib
     bots_path = pathlib.Path(__file__).parent.parent.parent / "bots"
@@ -623,7 +597,8 @@ async def get_event_photo(event_id: int):
     current_dir = pathlib.Path(__file__).parent.parent.parent
     
     # Clean path (remove leading slash) for safe joining
-    clean_path = photo_path.lstrip('/')
+    # Clean path (fix backslashes for Windows and remove leading slash)
+    clean_path = photo_path.replace('\\', '/').lstrip('/')
     
     # 1. As absolute path (if applicable)
     if os.path.isabs(photo_path):
