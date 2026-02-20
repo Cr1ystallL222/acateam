@@ -257,10 +257,7 @@ const generateSeats = (eventId: string, minPrice: number) => {
 
     let zoneName = "Партер";
     let rowPrice = minPrice;
-    if (row > numRows * 0.7) {
-      zoneName = "Балкон";
-      rowPrice = minPrice * 0.7;
-    } else if (row > numRows * 0.4) {
+    if (row > numRows * 0.5) {
       zoneName = "Амфитеатр";
       rowPrice = minPrice * 0.85;
     }
@@ -512,7 +509,7 @@ export default function EventPage() {
                 </div>
 
                 <div className="mb-4 flex flex-wrap gap-2 text-xs">
-                  {["Партер", "Амфитеатр", "Балкон"].map(z => (
+                  {["Партер", "Амфитеатр"].map(z => (
                     <button key={z} onClick={() => focusZone(z)} className="px-3 py-1.5 bg-[#222] hover:bg-[#333] border border-white/5 rounded-full transition-colors">
                       {z}
                     </button>
@@ -528,7 +525,7 @@ export default function EventPage() {
                       </div>
                     </div>
 
-                    {["Партер", "Амфитеатр", "Балкон"].map((zoneName) => {
+                    {["Партер", "Амфитеатр"].map((zoneName) => {
                       const zoneRows = seatData.rows.filter(r => r.seats[0]?.zone_name === zoneName);
                       if (zoneRows.length === 0) return null;
 
@@ -562,8 +559,7 @@ export default function EventPage() {
                                             bgColor = '#E60000';
                                           } else {
                                             if (zoneName === 'Партер') bgColor = '#4f46e5';
-                                            else if (zoneName === 'Амфитеатр') bgColor = '#059669';
-                                            else bgColor = '#d97706';
+                                            else bgColor = '#059669';
                                           }
                                         } else {
                                           bgColor = '#222';
@@ -607,7 +603,6 @@ export default function EventPage() {
                 <div className="flex flex-wrap justify-center gap-4 text-xs text-gray-400 mt-6 pt-6 border-t border-white/5">
                   <div className="flex items-center"><div className="w-3 h-3 bg-[#4f46e5] rounded-sm mr-2"></div>Партер</div>
                   <div className="flex items-center"><div className="w-3 h-3 bg-[#059669] rounded-sm mr-2"></div>Амфитеатр</div>
-                  <div className="flex items-center"><div className="w-3 h-3 bg-[#d97706] rounded-sm mr-2"></div>Балкон</div>
                   <div className="flex items-center"><div className="w-3 h-3 bg-[#222] border border-[#333] rounded-sm mr-2"></div>Занято</div>
                   <div className="flex items-center"><div className="w-3 h-3 bg-[#E60000] rounded-sm mr-2 shadow-[0_0_5px_rgba(230,0,0,0.5)]"></div>Ваш выбор</div>
                 </div>
