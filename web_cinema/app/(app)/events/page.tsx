@@ -44,7 +44,7 @@ export default function EventsPage() {
 
   const fetchEvents = async () => {
     try {
-      const response = await fetch('/api/events');
+      const response = await fetch('/api/events?type=cinema');
       if (response.ok) {
         const data = await response.json();
         setEvents(data);
@@ -72,8 +72,8 @@ export default function EventsPage() {
       {/* Header */}
       <div className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <h1 className="text-3xl font-bold text-gray-900">События театра</h1>
-          <p className="mt-2 text-gray-600">Выберите событие для бронирования билетов</p>
+          <h1 className="text-3xl font-bold text-gray-900">Афиша кино</h1>
+          <p className="mt-2 text-gray-600">Выберите фильм для бронирования билетов</p>
         </div>
       </div>
 
@@ -131,10 +131,10 @@ function EventCard({ event, currentUserId }: { event: Event; currentUserId: numb
           {/* Event Type Badge */}
           <div className="absolute top-3 right-3">
             <span className={`px-2 py-1 rounded-full text-xs font-medium ${event.is_system
-                ? 'bg-blue-100 text-blue-800'
-                : event.created_by === currentUserId
-                  ? 'bg-green-100 text-green-800'
-                  : 'bg-purple-100 text-purple-800'
+              ? 'bg-blue-100 text-blue-800'
+              : event.created_by === currentUserId
+                ? 'bg-green-100 text-green-800'
+                : 'bg-purple-100 text-purple-800'
               }`}>
               {event.is_system ? 'Системное' : event.created_by === currentUserId ? 'Мое' : 'Реферское'}
             </span>
