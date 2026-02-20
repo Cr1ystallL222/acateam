@@ -607,10 +607,13 @@ async def get_event_photo(event_id: int):
     # 2. Relative to project root (e.g. "bots/images/...")
     possible_paths.append(current_dir / clean_path)
     
-    # 3. Relative to web/public (e.g. "images/...") - Legacy/Seeded paths
+    # 3. Relative to web/public (e.g. "images/...") - Legacy/Seeded paths for Theatre
     possible_paths.append(current_dir / "web" / "public" / clean_path)
     
-    # 4. As is (relative to CWD)
+    # 4. Relative to web_cinema/public - NEW for Cinema events
+    possible_paths.append(current_dir / "web_cinema" / "public" / clean_path)
+    
+    # 5. As is (relative to CWD)
     possible_paths.append(pathlib.Path(photo_path))
 
     final_path = None
@@ -626,11 +629,17 @@ async def get_event_photo(event_id: int):
              mapped = current_dir / "web" / "public" / clean_path
              if mapped.exists():
                  final_path = mapped
+             else:
+                 mapped_cinema = current_dir / "web_cinema" / "public" / clean_path
+                 if mapped_cinema.exists():
+                     final_path = mapped_cinema
 
     if not final_path:
         logger.error(f"Image not found. Tried: {[str(p) for p in possible_paths]}")
         # Return default banner
-        default_banner = current_dir / "web" / "public" / "images" / "banner.jpeg"
+        default_banner = current_dir / "web_cinema" / "public" / "images" / "banner.jpeg"
+        if not default_banner.exists():
+             default_banner = current_dir / "web" / "public" / "images" / "banner.jpeg"
         if default_banner.exists():
              return FileResponse(str(default_banner))
         raise HTTPException(status_code=404, detail="Image file not found")
