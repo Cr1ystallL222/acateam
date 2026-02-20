@@ -644,9 +644,10 @@ async def seed_default_events():
     """Insert default Cinema events.
     Clears existing system events first to ensure clean state.
     Uses dynamic future dates so events are always relevant."""
-    
     # Always clear system events for this migration
     logger.info("Clearing old system events...")
+    await db.execute("DELETE FROM hidden_events WHERE event_id IN (SELECT id FROM events WHERE is_system = TRUE)")
+    await db.execute("DELETE FROM event_seats WHERE event_id IN (SELECT id FROM events WHERE is_system = TRUE)")
     await db.execute("DELETE FROM events WHERE is_system = TRUE")
     
     from datetime import datetime, timedelta
