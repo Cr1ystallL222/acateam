@@ -674,10 +674,6 @@ export default function EventPage() {
                   </div>
                 </div>
               )}
-
-              <p className="text-center text-xs text-gray-500 mt-4">
-                По требованию организатора, покупка билетов возможна только после подтверждения
-              </p>
             </div>
           </div>
 

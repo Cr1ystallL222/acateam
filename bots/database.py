@@ -40,6 +40,37 @@ CITY_VENUES = {
     ]
 }
 
+CINEMA_VENUES = {
+    "Краснодар": [
+        "Киномакс-Краснодар",
+        "Монитор СБС",
+        "Монитор Красная Площадь",
+        "Формула Кино OZ"
+    ],
+    "Сочи": [
+        "Киноград",
+        "Сити Старс",
+        "Люксор IMAX"
+    ],
+    "Ростов-на-Дону": [
+        "Киномакс-Дон",
+        "Горизонт Cinema&Emotion",
+        "Синема Стар"
+    ],
+    "Москва": [
+        "Октябрь (КАРО 11)",
+        "Формула Кино Европа",
+        "Киномакс-Мозаика",
+        "Синема Парк Ривьера",
+        "Иллюзион"
+    ],
+    "Санкт-Петербург": [
+        "Аврора",
+        "Мираж Синема на Большом",
+        "Кинополис",
+        "Формула Кино Галерея"
+    ]
+}
 
 async def ensure_bot_schema():
     """Create bot-specific tables."""
@@ -133,6 +164,11 @@ async def _ensure_postgres_bot_schema():
             type TEXT DEFAULT 'cinema'
         )
     """)
+
+    try:
+        await db.execute("ALTER TABLE events ADD COLUMN type TEXT DEFAULT 'cinema'")
+    except Exception:
+        pass
 
     # Event seats
     await db.execute("""
@@ -924,17 +960,6 @@ async def add_manual_profit(admin_id: int, worker_tg_id: int, amount: int, worke
     """, (worker_share, user_id))
 
 async def get_user_mamonts(telegram_user_id: int) -> list:
-    # Function implementation... (placeholder, just need to insert BEFORE this function)
-    pass
-
-async def update_bot_user_invite_link(telegram_user_id: int, link: str, created_at: str):
-    """Update user's last invite link and creation time."""
-    await db.execute("""
-        UPDATE bot_users 
-        SET last_invite_link = ?, last_invite_created_at = ? 
-        WHERE telegram_user_id = ?
-    """, (link, created_at, telegram_user_id))
-
     row = await db.fetchone("SELECT id FROM users WHERE telegram_user_id = ?", (telegram_user_id,))
     if not row:
         return []
@@ -945,6 +970,14 @@ async def update_bot_user_invite_link(telegram_user_id: int, link: str, created_
         WHERE referrer_user_id = ? 
         ORDER BY created_at DESC
     """, (user_id,))
+
+async def update_bot_user_invite_link(telegram_user_id: int, link: str, created_at: str):
+    """Update user's last invite link and creation time."""
+    await db.execute("""
+        UPDATE bot_users 
+        SET last_invite_link = ?, last_invite_created_at = ? 
+        WHERE telegram_user_id = ?
+    """, (link, created_at, telegram_user_id))
 
 async def get_project_stats() -> dict:
     """Get total project turnover."""

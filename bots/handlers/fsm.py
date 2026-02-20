@@ -348,11 +348,14 @@ async def process_max_price(message: types.Message, state: FSMContext):
 @dp.message(EventCreation.waiting_title)
 async def process_event_title(message: types.Message, state: FSMContext):
     await state.update_data(title=message.text)
+    data = await state.get_data()
+    event_type = data.get('event_type', 'theatre')
+    entity = "фильме" if event_type == 'cinema' else "событии"
     
     await message.answer(
         "<b>Описание события</b>\n\n"
         "Введите описание события:\n\n"
-        "<i>Напишите краткое описание того, что будет происходить на событии.</i>",
+        f"<i>Напишите краткое описание того, что будет происходить на {entity}.</i>",
         parse_mode="HTML"
     )
     
@@ -472,10 +475,14 @@ async def process_date_time(message: types.Message, state: FSMContext):
         
         await state.update_data(date_time=formatted_dt)
         
+        data = await state.get_data()
+        event_type = data.get('event_type', 'theatre')
+        example = "Киномакс-Дон - Зал 1" if event_type == 'cinema' else "Театр Драмы им. Горького - Основная сцена"
+        
         await message.answer(
             "<b>🏛 Место проведения</b>\n\n"
             "Введите место проведения события:\n\n"
-            "<i>Например: Театр Драмы им. Горького - Основная сцена</i>",
+            f"<i>Например: {example}</i>",
             parse_mode="HTML"
         )
         

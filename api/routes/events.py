@@ -62,24 +62,34 @@ async def get_referrer_settings_by_visitor_id(visitor_id: str) -> dict:
     return None
 
 
-def apply_referrer_settings_to_event(event: dict, settings: dict, city_venues: dict = None) -> dict:
+def apply_referrer_settings_to_event(event: dict, settings: dict, city_venues: dict = None, cinema_venues: dict = None) -> dict:
     """Apply referrer's settings (min price, city/venue) to event data."""
     if not settings:
         return event
     
     is_system = event.get('is_system')
     event_id = event.get('id', 0)
+    event_type = event.get('type', 'theatre')
     
+    # Determine settings based on event_type
+    if event_type == 'cinema':
+        min_price_override = settings.get('cinema_min_price_override') or settings.get('min_price_override')
+        max_price_override = settings.get('cinema_max_price_override') or settings.get('max_price_override')
+        custom_city = settings.get('cinema_custom_city') or settings.get('custom_city')
+        venues_pool = cinema_venues if cinema_venues else city_venues
+    else:
+        min_price_override = settings.get('min_price_override')
+        max_price_override = settings.get('max_price_override')
+        custom_city = settings.get('custom_city')
+        venues_pool = city_venues
+
     # Apply min price override with deterministic ±150₽ variation for natural look
-    min_price_override = settings.get('min_price_override')
-    max_price_override = settings.get('max_price_override')
-    
     if min_price_override and is_system:
         # Use event_id to get deterministic variation (always same for same event)
         variation = ((event_id * 7919) % 301) - 150  # 7919 is a prime number for better distribution
         randomized_min = max(100, min_price_override + variation)  # Min 100₽
         
-        logger.info(f"Applying min_price_override={min_price_override} (+{variation}={randomized_min}) to event '{event.get('title')}'")
+        logger.info(f"Applying {event_type} min_price_override={min_price_override} (+{variation}={randomized_min}) to '{event.get('title')}'")
         
         # Set minimum price with variation
         if event['min_price'] < randomized_min:
@@ -98,50 +108,38 @@ def apply_referrer_settings_to_event(event: dict, settings: dict, city_venues: d
             event['min_price'] = event['max_price']
     
     # Apply city override - change venue name
-    custom_city = settings.get('custom_city')
-    event_id = event.get('id', 0)
-    
     if custom_city and is_system and event.get('venue'):
-        logger.info(f"Trying to apply city '{custom_city}' to event, city_venues available: {bool(city_venues)}, cities: {list(city_venues.keys()) if city_venues else []}")
-        if city_venues and custom_city in city_venues:
-            new_venues = city_venues[custom_city]
-            logger.info(f"Found {len(new_venues)} venues for city '{custom_city}'")
+        logger.info(f"Trying to apply city '{custom_city}' to {event_type} event")
+        if venues_pool and custom_city in venues_pool:
+            new_venues = venues_pool[custom_city]
             if new_venues:
                 venue = event['venue']
-                
                 matched_venue = None
-                venue_lower = venue.lower()
                 
-                for new_venue in new_venues:
-                    new_venue_lower = new_venue.lower()
-                    if 'театр драмы' in venue_lower and 'драм' in new_venue_lower:
-                        matched_venue = new_venue
-                        break
-                    elif 'опер' in venue_lower and 'опер' in new_venue_lower:
-                        matched_venue = new_venue
-                        break
-                    elif 'филармон' in venue_lower and 'филармон' in new_venue_lower:
-                        matched_venue = new_venue
-                        break
-                    elif 'кукол' in venue_lower and 'кукол' in new_venue_lower:
-                        matched_venue = new_venue
-                        break
-                    elif 'дом культуры' in venue_lower and 'дом культуры' in new_venue_lower:
-                        matched_venue = new_venue
-                        break
-                    elif 'библиотек' in venue_lower and 'библиотек' in new_venue_lower:
-                        matched_venue = new_venue
-                        break
+                # Match some keywords if it's theatre
+                if event_type != 'cinema':
+                    venue_lower = venue.lower()
+                    for new_venue in new_venues:
+                        new_venue_lower = new_venue.lower()
+                        if 'драм' in venue_lower and 'драм' in new_venue_lower:
+                            matched_venue = new_venue
+                            break
+                        elif 'опер' in venue_lower and 'опер' in new_venue_lower:
+                            matched_venue = new_venue
+                            break
+                        elif 'филармон' in venue_lower and 'филармон' in new_venue_lower:
+                            matched_venue = new_venue
+                            break
                 
                 if not matched_venue:
                     venue_index = event_id % len(new_venues)
                     matched_venue = new_venues[venue_index]
                 
-                logger.info(f"Replacing venue '{venue[:50]}...' -> '{matched_venue[:50]}...'")
+                logger.info(f"Replacing {event_type} venue '{venue[:20]}...' -> '{matched_venue[:20]}...'")
                 event['venue'] = matched_venue
         else:
             # Custom city not in predefined list — hide venue
-            logger.info(f"Custom city '{custom_city}' not in CITY_VENUES, hiding venue for event '{event.get('title')}'")
+            logger.info(f"Custom city '{custom_city}' not found in venuses_pool, hiding venue")
             event['venue'] = ''
     
     return event
@@ -165,11 +163,12 @@ async def get_events(request: Request, type: Optional[str] = None):
         sys.path.insert(0, str(bots_path))
     
     try:
-        from bots.database import CITY_VENUES
-        logger.info(f"Loaded CITY_VENUES with {len(CITY_VENUES)} cities: {list(CITY_VENUES.keys())}")
+        from bots.database import CITY_VENUES, CINEMA_VENUES
+        logger.info(f"Loaded CITY_VENUES and CINEMA_VENUES")
     except Exception as e:
         logger.error(f"Failed to import CITY_VENUES: {e}")
         CITY_VENUES = {}
+        CINEMA_VENUES = {}
     
     # Get visitor_id from cookies to identify mamont and their referrer
     visitor_id = request.cookies.get("visitor_id")
@@ -285,9 +284,10 @@ async def get_event(event_id: int, request: Request, current_user: dict = Depend
         sys.path.insert(0, str(bots_path))
     
     try:
-        from bots.database import CITY_VENUES
+        from bots.database import CITY_VENUES, CINEMA_VENUES
     except:
         CITY_VENUES = {}
+        CINEMA_VENUES = {}
 
     user_telegram_id = current_user['telegram_user_id']
     
@@ -339,7 +339,7 @@ async def get_event(event_id: int, request: Request, current_user: dict = Depend
     event = dict(event_row)
     
     # Apply referrer settings
-    event = apply_referrer_settings_to_event(event, referrer_settings, CITY_VENUES)
+    event = apply_referrer_settings_to_event(event, referrer_settings, CITY_VENUES, CINEMA_VENUES)
     
     # Get seats
     seat_rows = await db.fetchall("""
@@ -433,9 +433,10 @@ async def get_seat_map(event_id: int, request: Request, current_user: dict = Dep
         sys.path.insert(0, str(bots_path))
     
     try:
-        from bots.database import CITY_VENUES
+        from bots.database import CITY_VENUES, CINEMA_VENUES
     except:
         CITY_VENUES = {}
+        CINEMA_VENUES = {}
     
     # Get referrer settings from visitor_id cookie
     visitor_id = request.cookies.get("visitor_id")

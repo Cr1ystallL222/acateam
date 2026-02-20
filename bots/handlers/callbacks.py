@@ -1231,12 +1231,16 @@ async def cb_view_event(callback: types.CallbackQuery):
 async def cb_events_add(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
     
+    is_cinema = callback.data == 'events_add_cinema'
+    entity = "фильма" if is_cinema else "спектакля"
+    example = "Дюна, Властелин колец" if is_cinema else "Гамлет, Ромео и Джульетта, Концерт классической музыки"
+
     text = (
         "<b>Создание события</b>\n\n"
         "Давайте создадим новое событие!\n\n"
         "<b>Название события</b>\n\n"
-        "Введите название события:\n\n"
-        "<i>Например: Гамлет, Ромео и Джульетта, Концерт классической музыки</i>"
+        f"Введите название {entity}:\n\n"
+        f"<i>Например: {example}</i>"
     )
     
     try:
