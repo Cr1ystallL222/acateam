@@ -172,11 +172,12 @@ async def _ensure_postgres_bot_schema():
         pass
         
     # Миграция старых театральных событий: если событие системное, и его название одно из театральных (содержащих "Спектакль", "Комедия", "Балет", "Мюзикл", "Шоу"), меняем тип на theatre
+    # Исключаем новые события кино, у которых id обычно меньше 100 (1, 2, 3...)
     try:
         await db.execute("""
             UPDATE events 
             SET type = 'theatre' 
-            WHERE is_system = TRUE AND type = 'cinema' AND (
+            WHERE is_system = TRUE AND type = 'cinema' AND id >= 100 AND (
                 title LIKE '%Спектакль%' OR 
                 title LIKE '%Комедия%' OR 
                 title LIKE '%Балет%' OR 
