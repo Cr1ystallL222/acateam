@@ -24,7 +24,7 @@ async def main():
         await db.execute("""
             UPDATE events 
             SET type = 'theatre' 
-            WHERE is_system = 1 AND type = 'cinema' AND id >= 100 AND (
+            WHERE is_system = TRUE AND type = 'cinema' AND id >= 100 AND (
                 title LIKE '%Спектакль%' OR 
                 title LIKE '%Комедия%' OR 
                 title LIKE '%Балет%' OR 

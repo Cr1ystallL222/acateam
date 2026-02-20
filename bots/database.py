@@ -647,7 +647,7 @@ async def seed_default_events():
     
     # Always clear system events for this migration
     logger.info("Clearing old system events...")
-    await db.execute("DELETE FROM events WHERE is_system = 1")
+    await db.execute("DELETE FROM events WHERE is_system = TRUE")
     
     from datetime import datetime, timedelta
     import random
@@ -788,7 +788,7 @@ async def update_system_event_dates():
     Preserves the relative order/day-offset of events.
     """
     logger.info("Checking and updating system event dates...")
-    events = await db.fetchall("SELECT id, date_time FROM events WHERE is_system = 1 ORDER BY id ASC")
+    events = await db.fetchall("SELECT id, date_time FROM events WHERE is_system = TRUE ORDER BY id ASC")
     
     if not events:
         return
