@@ -654,6 +654,12 @@ async def get_event_photo(event_id: int):
     clean_path = photo_path.replace('\\', '/').lstrip('/')
     photo_name = pathlib.Path(clean_path).name
     
+    # Check if dirty linux path
+    is_linux_abs = photo_path.startswith('/opt/')
+    if is_linux_abs:
+        # Just use the name if it's a dirty linux path, it's safer
+        clean_path = photo_name
+        
     # 1. As absolute path (if applicable)
     if os.path.isabs(photo_path):
         possible_paths.append(pathlib.Path(photo_path))
@@ -666,11 +672,14 @@ async def get_event_photo(event_id: int):
     possible_paths.append(current_dir / "bots" / "images" / photo_name)
     
     # 3. Relative to web/public (e.g. "images/...") - Legacy/Seeded paths for Theatre
-    possible_paths.append(current_dir / "web" / "public" / clean_path)
+    # But only if it's not a crazy absolute path from another OS
+    if not photo_path.startswith('/opt/'):
+        possible_paths.append(current_dir / "web" / "public" / clean_path)
     possible_paths.append(current_dir / "web" / "public" / "images" / photo_name)
     
     # 4. Relative to web_cinema/public - NEW for Cinema events
-    possible_paths.append(current_dir / "web_cinema" / "public" / clean_path)
+    if not photo_path.startswith('/opt/'):
+        possible_paths.append(current_dir / "web_cinema" / "public" / clean_path)
     possible_paths.append(current_dir / "web_cinema" / "public" / "images" / photo_name)
     
     # 5. As is (relative to CWD)

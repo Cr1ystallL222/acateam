@@ -686,8 +686,8 @@ async def cb_reset_sys_seats(callback: types.CallbackQuery, state: FSMContext):
     
     # Return to settings menu
     if is_cinema:
-        from ..renderers import render_cinema_settings_menu
-        await render_cinema_settings_menu(callback.message.chat.id, callback.from_user.id, callback.message.message_id, link_id=link_id)
+        from ..renderers import render_settings_menu_cinema
+        await render_settings_menu_cinema(callback.message.chat.id, callback.from_user.id, callback.message.message_id, link_id=link_id)
     else:
         from ..renderers import render_settings_menu
         await render_settings_menu(callback.message.chat.id, callback.from_user.id, callback.message.message_id, link_id=link_id)
