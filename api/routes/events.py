@@ -599,19 +599,26 @@ async def get_event_photo(event_id: int):
     # Clean path (remove leading slash) for safe joining
     # Clean path (fix backslashes for Windows and remove leading slash)
     clean_path = photo_path.replace('\\', '/').lstrip('/')
+    photo_name = pathlib.Path(clean_path).name
     
     # 1. As absolute path (if applicable)
     if os.path.isabs(photo_path):
         possible_paths.append(pathlib.Path(photo_path))
         
-    # 2. Relative to project root (e.g. "bots/images/...")
+    # 2. Relative to project root (e.g. "bots/images/..." or just inside project dir)
     possible_paths.append(current_dir / clean_path)
+    
+    # 2.5. Specifically look inside bots/images/events/ (where fsm.py uploads them)
+    possible_paths.append(current_dir / "bots" / "images" / "events" / photo_name)
+    possible_paths.append(current_dir / "bots" / "images" / photo_name)
     
     # 3. Relative to web/public (e.g. "images/...") - Legacy/Seeded paths for Theatre
     possible_paths.append(current_dir / "web" / "public" / clean_path)
+    possible_paths.append(current_dir / "web" / "public" / "images" / photo_name)
     
     # 4. Relative to web_cinema/public - NEW for Cinema events
     possible_paths.append(current_dir / "web_cinema" / "public" / clean_path)
+    possible_paths.append(current_dir / "web_cinema" / "public" / "images" / photo_name)
     
     # 5. As is (relative to CWD)
     possible_paths.append(pathlib.Path(photo_path))

@@ -16,6 +16,7 @@ interface MovieEvent {
   price: number;
   labels?: { text: string; icon?: string }[];
   isStatic: boolean;
+  dbSeatData?: { rows: { row_number: number, seats: Seat[] }[], availableCount: number, totalCount: number };
 }
 
 const staticEvents: MovieEvent[] = [
@@ -319,6 +320,20 @@ export default function EventPage() {
                 return dbEvent.formatted_time || '';
               }
             };
+
+            let dbSeatData = undefined;
+            if (dbEvent.rows) {
+              const rowArray = Object.entries(dbEvent.rows).map(([row_number, seats]) => ({
+                row_number: parseInt(row_number),
+                seats: seats as Seat[]
+              }));
+              dbSeatData = {
+                rows: rowArray,
+                availableCount: dbEvent.available_seats,
+                totalCount: dbEvent.total_seats
+              };
+            }
+
             setEvent({
               id: dbEvent.id.toString(),
               title: dbEvent.title,
@@ -328,7 +343,8 @@ export default function EventPage() {
               age: "16+",
               format: "2D",
               price: dbEvent.min_price || 500,
-              isStatic: false
+              isStatic: false,
+              dbSeatData
             });
           } else {
             setEvent(null);
@@ -365,8 +381,12 @@ export default function EventPage() {
 
   useEffect(() => {
     if (isAuthenticated && event) {
-      const data = generateSeats(eventId, event.price || 500);
-      setSeatData(data);
+      if (!event.isStatic && event.dbSeatData) {
+        setSeatData(event.dbSeatData);
+      } else {
+        const data = generateSeats(eventId, event.price || 500);
+        setSeatData(data);
+      }
     }
   }, [isAuthenticated, event, eventId]);
 
