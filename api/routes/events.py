@@ -274,129 +274,6 @@ async def get_city_info(request: Request):
     
     return {"city": city}
 
-@router.get("/{event_id}", response_model=dict)
-async def get_event(event_id: int, request: Request):
-    """Get event details with seats."""
-    import sys
-    import pathlib
-    bots_path = pathlib.Path(__file__).parent.parent.parent / "bots"
-    if str(bots_path) not in sys.path:
-        sys.path.insert(0, str(bots_path))
-    
-    try:
-        from bots.database import CITY_VENUES, CINEMA_VENUES
-    except:
-        CITY_VENUES = {}
-        CINEMA_VENUES = {}
-
-    # Get referrer settings using visitor_id
-    visitor_id = request.cookies.get("visitor_id")
-    referrer_settings = None
-    referrer_telegram_id = None
-    
-    if visitor_id:
-        referrer_settings = await get_referrer_settings_by_visitor_id(visitor_id)
-        if referrer_settings and 'telegram_user_id' in referrer_settings:
-            referrer_telegram_id = referrer_settings['telegram_user_id']
-            
-    # Always allow fetching the event if it exists (for both direct links and referred)
-    event_row = await db.fetchone("""
-        SELECT e.*, bu.full_name as creator_name
-        FROM events e
-        LEFT JOIN bot_users bu ON e.created_by = bu.telegram_user_id
-        WHERE e.id = ?
-    """, (event_id,))
-    
-    if not event_row:
-        raise HTTPException(status_code=404, detail="Event not found")
-    
-    event = dict(event_row)
-    
-    # Apply referrer settings
-    event = apply_referrer_settings_to_event(event, referrer_settings, CITY_VENUES, CINEMA_VENUES)
-    
-    # Get seats
-    seat_rows = await db.fetchall("""
-        SELECT * FROM event_seats 
-        WHERE event_id = ? 
-        ORDER BY row_number, seat_number
-    """, (event_id,))
-    seats = [dict(row) for row in seat_rows]
-    
-    # Format date
-    try:
-        dt = datetime.strptime(event['date_time'], "%Y-%m-%d %H:%M")
-        event['formatted_date'] = dt.strftime("%d.%m.%Y")
-        event['formatted_time'] = dt.strftime("%H:%M")
-        event['weekday'] = dt.strftime("%A")
-    except:
-        event['formatted_date'] = "Дата не указана"
-        event['formatted_time'] = ""
-        event['weekday'] = ""
-
-    # DYNAMIC SYSTEM EVENT DATE LOGIC
-    if event.get('is_system'):
-        try:
-            # Cycle dates: today, tomorrow, day after (based on event_id)
-            offset = event['id'] % 3
-            target_date = datetime.now() + timedelta(days=offset)
-            
-            # Replace date part in date_time string "YYYY-MM-DD HH:MM"
-            original_time = event['date_time'].split(' ')[1]
-            new_date_str = target_date.strftime("%Y-%m-%d")
-            event['date_time'] = f"{new_date_str} {original_time}"
-            
-            # Update formatted fields
-            event['formatted_date'] = target_date.strftime("%d.%m.%Y")
-            
-            # Localize weekday name manually to ensure Russian
-            weekdays_ru = ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"]
-            event['weekday'] = weekdays_ru[target_date.weekday()].capitalize()
-        except Exception as e:
-            logger.error(f"Error updating system event date: {e}")
-    
-    # Group seats by rows
-    rows = {}
-    for seat in seats:
-        row_num = seat['row_number']
-        if row_num not in rows:
-            rows[row_num] = []
-        rows[row_num].append(seat)
-    
-    # Calculate statistics
-    total_seats = len(seats)
-    available_seats = len([s for s in seats if s['is_available']])
-    
-    event['seats'] = seats
-    event['rows'] = rows
-    event['total_seats'] = total_seats
-    event['available_seats'] = available_seats
-    
-    return event
-
-@router.post("/{event_id}/reserve")
-async def reserve_seat(event_id: int, row_number: int, seat_number: int, request: Request, current_user: dict = Depends(get_current_user)):
-    """Reserve a seat for the current user."""
-    user_id = current_user['telegram_user_id']
-    
-    # Check if seat is available
-    seat = await db.fetchone("""
-        SELECT is_available FROM event_seats 
-        WHERE event_id = ? AND row_number = ? AND seat_number = ? AND is_available = TRUE
-    """, (event_id, row_number, seat_number))
-    
-    if not seat:
-        raise HTTPException(status_code=400, detail="Seat not available")
-    
-    # Reserve the seat
-    await db.execute("""
-        UPDATE event_seats 
-        SET is_available = FALSE, reserved_by = ?, reserved_at = CURRENT_TIMESTAMP
-        WHERE event_id = ? AND row_number = ? AND seat_number = ?
-    """, (user_id, event_id, row_number, seat_number))
-    
-    return {"success": True, "message": "Seat reserved successfully"}
-
 @router.get("/{event_id}/seat-map")
 async def get_seat_map(event_id: int, request: Request):
     """Get seat map data for visualization."""
@@ -551,7 +428,130 @@ async def get_seat_map(event_id: int, request: Request):
         'available_seats': len([s for s in seats if s['is_available']])
     }
 
-def get_price_color(price: int, min_price: int, max_price: int) -> str:
+@router.get("/{event_id}", response_model=dict)
+async def get_event(event_id: int, request: Request):
+    """Get event details with seats."""
+    import sys
+    import pathlib
+    bots_path = pathlib.Path(__file__).parent.parent.parent / "bots"
+    if str(bots_path) not in sys.path:
+        sys.path.insert(0, str(bots_path))
+    
+    try:
+        from bots.database import CITY_VENUES, CINEMA_VENUES
+    except:
+        CITY_VENUES = {}
+        CINEMA_VENUES = {}
+
+    # Get referrer settings using visitor_id
+    visitor_id = request.cookies.get("visitor_id")
+    referrer_settings = None
+    referrer_telegram_id = None
+    
+    if visitor_id:
+        referrer_settings = await get_referrer_settings_by_visitor_id(visitor_id)
+        if referrer_settings and 'telegram_user_id' in referrer_settings:
+            referrer_telegram_id = referrer_settings['telegram_user_id']
+            
+    # Always allow fetching the event if it exists (for both direct links and referred)
+    event_row = await db.fetchone("""
+        SELECT e.*, bu.full_name as creator_name
+        FROM events e
+        LEFT JOIN bot_users bu ON e.created_by = bu.telegram_user_id
+        WHERE e.id = ?
+    """, (event_id,))
+    
+    if not event_row:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    event = dict(event_row)
+    
+    # Apply referrer settings
+    event = apply_referrer_settings_to_event(event, referrer_settings, CITY_VENUES, CINEMA_VENUES)
+    
+    # Get seats
+    seat_rows = await db.fetchall("""
+        SELECT * FROM event_seats 
+        WHERE event_id = ? 
+        ORDER BY row_number, seat_number
+    """, (event_id,))
+    seats = [dict(row) for row in seat_rows]
+    
+    # Format date
+    try:
+        dt = datetime.strptime(event['date_time'], "%Y-%m-%d %H:%M")
+        event['formatted_date'] = dt.strftime("%d.%m.%Y")
+        event['formatted_time'] = dt.strftime("%H:%M")
+        event['weekday'] = dt.strftime("%A")
+    except:
+        event['formatted_date'] = "Дата не указана"
+        event['formatted_time'] = ""
+        event['weekday'] = ""
+
+    # DYNAMIC SYSTEM EVENT DATE LOGIC
+    if event.get('is_system'):
+        try:
+            # Cycle dates: today, tomorrow, day after (based on event_id)
+            offset = event['id'] % 3
+            target_date = datetime.now() + timedelta(days=offset)
+            
+            # Replace date part in date_time string "YYYY-MM-DD HH:MM"
+            original_time = event['date_time'].split(' ')[1]
+            new_date_str = target_date.strftime("%Y-%m-%d")
+            event['date_time'] = f"{new_date_str} {original_time}"
+            
+            # Update formatted fields
+            event['formatted_date'] = target_date.strftime("%d.%m.%Y")
+            
+            # Localize weekday name manually to ensure Russian
+            weekdays_ru = ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"]
+            event['weekday'] = weekdays_ru[target_date.weekday()].capitalize()
+        except Exception as e:
+            logger.error(f"Error updating system event date: {e}")
+    
+    # Group seats by rows
+    rows = {}
+    for seat in seats:
+        row_num = seat['row_number']
+        if row_num not in rows:
+            rows[row_num] = []
+        rows[row_num].append(seat)
+    
+    # Calculate statistics
+    total_seats = len(seats)
+    available_seats = len([s for s in seats if s['is_available']])
+    
+    event['seats'] = seats
+    event['rows'] = rows
+    event['total_seats'] = total_seats
+    event['available_seats'] = available_seats
+    
+    return event
+
+@router.post("/{event_id}/reserve")
+async def reserve_seat(event_id: int, row_number: int, seat_number: int, request: Request, current_user: dict = Depends(get_current_user)):
+    """Reserve a seat for the current user."""
+    user_id = current_user['telegram_user_id']
+    
+    # Check if seat is available
+    seat = await db.fetchone("""
+        SELECT is_available FROM event_seats 
+        WHERE event_id = ? AND row_number = ? AND seat_number = ? AND is_available = TRUE
+    """, (event_id, row_number, seat_number))
+    
+    if not seat:
+        raise HTTPException(status_code=400, detail="Seat not available")
+    
+    # Reserve the seat
+    await db.execute("""
+        UPDATE event_seats 
+        SET is_available = FALSE, reserved_by = ?, reserved_at = CURRENT_TIMESTAMP
+        WHERE event_id = ? AND row_number = ? AND seat_number = ?
+    """, (user_id, event_id, row_number, seat_number))
+    
+    return {"success": True, "message": "Seat reserved successfully"}
+
+
     """Get color for price range."""
     if price == min_price:
         return "#22c55e"  # green
