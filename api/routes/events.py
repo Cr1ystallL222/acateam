@@ -254,6 +254,18 @@ async def get_events(request: Request, type: Optional[str] = None):
             except Exception as e:
                 logger.error(f"Error updating system event date: {e}")
 
+        # Apply worker's personal event overrides (title, description, photo, etc.)
+        if referrer_telegram_id and event.get('is_system'):
+            override_row = await db.fetchone(
+                "SELECT * FROM event_overrides WHERE event_id = ? AND telegram_user_id = ?",
+                (event['id'], referrer_telegram_id)
+            )
+            if override_row:
+                override = dict(override_row)
+                for key in ['title', 'description', 'min_price', 'max_price', 'date_time', 'venue', 'photo_path']:
+                    if override.get(key) is not None:
+                        event[key] = override[key]
+
         event = apply_referrer_settings_to_event(event, referrer_settings, CITY_VENUES)
         events.append(event)
     
@@ -497,6 +509,18 @@ async def get_event(event_id: int, request: Request):
     
     event = dict(event_row)
     
+    # Apply worker's personal event overrides
+    if referrer_telegram_id and event.get('is_system'):
+        override_row = await db.fetchone(
+            "SELECT * FROM event_overrides WHERE event_id = ? AND telegram_user_id = ?",
+            (event_id, referrer_telegram_id)
+        )
+        if override_row:
+            override = dict(override_row)
+            for key in ['title', 'description', 'min_price', 'max_price', 'date_time', 'venue', 'photo_path']:
+                if override.get(key) is not None:
+                    event[key] = override[key]
+
     # Apply referrer settings
     event = apply_referrer_settings_to_event(event, referrer_settings, CITY_VENUES, CINEMA_VENUES)
     
@@ -630,13 +654,13 @@ def get_price_color(price: int, min_price: int, max_price: int) -> str:
             return "#8b5cf6"  # purple
 
 @router.get("/{event_id}/photo")
-async def get_event_photo(event_id: int):
-    """Get event photo."""
+async def get_event_photo(event_id: int, request: Request):
+    """Get event photo, with support for worker overrides."""
     from fastapi.responses import FileResponse
     import os
     import pathlib
     
-    row = await db.fetchone("SELECT photo_path FROM events WHERE id = ?", (event_id,))
+    row = await db.fetchone("SELECT photo_path, is_system FROM events WHERE id = ?", (event_id,))
     
     if not row or not row['photo_path']:
         # Return default banner if no photo
@@ -647,6 +671,19 @@ async def get_event_photo(event_id: int):
         raise HTTPException(status_code=404, detail="Photo not found")
     
     photo_path = row['photo_path']
+    
+    # Check for worker override photo
+    if row.get('is_system'):
+        visitor_id = request.cookies.get("visitor_id")
+        if visitor_id:
+            referrer_settings = await get_referrer_settings_by_visitor_id(visitor_id)
+            if referrer_settings and 'telegram_user_id' in referrer_settings:
+                override_row = await db.fetchone(
+                    "SELECT photo_path FROM event_overrides WHERE event_id = ? AND telegram_user_id = ? AND photo_path IS NOT NULL",
+                    (event_id, referrer_settings['telegram_user_id'])
+                )
+                if override_row and override_row['photo_path']:
+                    photo_path = override_row['photo_path']
     current_dir = pathlib.Path(__file__).parent.parent.parent
     
     # Resolution logic:

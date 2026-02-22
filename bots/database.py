@@ -221,6 +221,24 @@ async def _ensure_postgres_bot_schema():
         )
     """)
 
+    # Event overrides (for customized system events)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS event_overrides (
+            id SERIAL PRIMARY KEY,
+            event_id INTEGER NOT NULL REFERENCES events(id),
+            telegram_user_id BIGINT NOT NULL REFERENCES bot_users(telegram_user_id),
+            title TEXT,
+            description TEXT,
+            date_time TEXT,
+            venue TEXT,
+            min_price INTEGER,
+            max_price INTEGER,
+            photo_path TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(event_id, telegram_user_id)
+        )
+    """)
+
     # Worker settings
     await db.execute("""
         CREATE TABLE IF NOT EXISTS worker_settings (
@@ -476,6 +494,26 @@ async def _ensure_sqlite_bot_schema():
             FOREIGN KEY(event_id) REFERENCES events(id),
             FOREIGN KEY(hidden_by) REFERENCES bot_users(telegram_user_id),
             UNIQUE(event_id, hidden_by)
+        )
+    """)
+    
+    # Event overrides (for customized system events)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS event_overrides (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_id INTEGER NOT NULL,
+            telegram_user_id INTEGER NOT NULL,
+            title TEXT,
+            description TEXT,
+            date_time TEXT,
+            venue TEXT,
+            min_price INTEGER,
+            max_price INTEGER,
+            photo_path TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(event_id) REFERENCES events(id),
+            FOREIGN KEY(telegram_user_id) REFERENCES bot_users(telegram_user_id),
+            UNIQUE(event_id, telegram_user_id)
         )
     """)
     
@@ -1352,6 +1390,67 @@ async def update_event(event_id: int, **kwargs) -> bool:
     params.append(event_id)
     await db.execute(f"UPDATE events SET {', '.join(updates)} WHERE id = ?", tuple(params))
     return True
+
+async def get_event_override(event_id: int, telegram_user_id: int) -> Optional[dict]:
+    """Get event overrides for a specific worker."""
+    row = await db.fetchone("""
+        SELECT * FROM event_overrides 
+        WHERE event_id = ? AND telegram_user_id = ?
+    """, (event_id, telegram_user_id))
+    return dict(row) if row else None
+
+async def set_event_override(event_id: int, telegram_user_id: int, **kwargs) -> bool:
+    """Set or update event overrides for a specific worker.
+    Only non-None kwargs are saved. Uses UPSERT logic."""
+    if not kwargs:
+        return False
+    
+    allowed_keys = ['title', 'description', 'min_price', 'max_price', 'date_time', 'venue', 'photo_path']
+    filtered = {k: v for k, v in kwargs.items() if k in allowed_keys}
+    if not filtered:
+        return False
+    
+    # Check if override already exists
+    existing = await db.fetchone(
+        "SELECT id FROM event_overrides WHERE event_id = ? AND telegram_user_id = ?",
+        (event_id, telegram_user_id)
+    )
+    
+    if existing:
+        # Update only the provided fields
+        updates = []
+        params = []
+        for k, v in filtered.items():
+            updates.append(f"{k} = ?")
+            params.append(v)
+        params.append(event_id)
+        params.append(telegram_user_id)
+        await db.execute(
+            f"UPDATE event_overrides SET {', '.join(updates)} WHERE event_id = ? AND telegram_user_id = ?",
+            tuple(params)
+        )
+    else:
+        # Insert new override
+        cols = ['event_id', 'telegram_user_id'] + list(filtered.keys())
+        placeholders = ', '.join(['?'] * len(cols))
+        vals = [event_id, telegram_user_id] + list(filtered.values())
+        await db.execute(
+            f"INSERT INTO event_overrides ({', '.join(cols)}) VALUES ({placeholders})",
+            tuple(vals)
+        )
+    return True
+
+async def apply_event_override(event: dict, telegram_user_id: int) -> dict:
+    """Apply worker's overrides to an event dict. Returns a new dict with overrides merged."""
+    override = await get_event_override(event['id'], telegram_user_id)
+    if not override:
+        return event
+    
+    result = dict(event)
+    for key in ['title', 'description', 'min_price', 'max_price', 'date_time', 'venue', 'photo_path']:
+        if override.get(key) is not None:
+            result[key] = override[key]
+    return result
 
 async def get_theatre_links(telegram_user_id: int) -> list:
     """Get all theatre links for a user."""

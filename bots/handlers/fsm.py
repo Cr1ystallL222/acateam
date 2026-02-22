@@ -40,6 +40,7 @@ class EventEdit(StatesGroup):
     waiting_description = State()
     waiting_min_price = State()
     waiting_max_price = State()
+    waiting_photo = State()
 
 class TheatreLinkCreation(StatesGroup):
     waiting_link_name = State()
@@ -660,15 +661,23 @@ async def return_to_event_view(message, state, event_id):
         reply_markup=keyboard
     )
 
+async def _save_event_field(event_id: int, telegram_user_id: int, **kwargs):
+    """Save event field: if system event -> override, else -> direct update."""
+    from ..database import get_event_by_id, update_event, set_event_override
+    event = await get_event_by_id(event_id)
+    if event and event.get('is_system'):
+        await set_event_override(event_id, telegram_user_id, **kwargs)
+    else:
+        await update_event(event_id, **kwargs)
+
 @dp.message(EventEdit.waiting_title)
 async def process_edit_title(message: types.Message, state: FSMContext):
     data = await state.get_data()
     event_id = data.get('event_id')
     
-    from ..database import update_event
-    await update_event(event_id, title=message.text)
+    await _save_event_field(event_id, message.from_user.id, title=message.text)
     
-    await message.answer("✅ Название событие обновлено!")
+    await message.answer("✅ Название события обновлено!")
     await return_to_event_view(message, state, event_id)
 
 @dp.message(EventEdit.waiting_description)
@@ -676,8 +685,7 @@ async def process_edit_description(message: types.Message, state: FSMContext):
     data = await state.get_data()
     event_id = data.get('event_id')
     
-    from ..database import update_event
-    await update_event(event_id, description=message.text)
+    await _save_event_field(event_id, message.from_user.id, description=message.text)
     
     await message.answer("✅ Описание события обновлено!")
     await return_to_event_view(message, state, event_id)
@@ -687,8 +695,7 @@ async def process_edit_venue(message: types.Message, state: FSMContext):
     data = await state.get_data()
     event_id = data.get('event_id')
     
-    from ..database import update_event
-    await update_event(event_id, venue=message.text)
+    await _save_event_field(event_id, message.from_user.id, venue=message.text)
     
     await message.answer("✅ Место проведения обновлено!")
     await return_to_event_view(message, state, event_id)
@@ -703,8 +710,7 @@ async def process_edit_datetime(message: types.Message, state: FSMContext):
         dt = datetime.strptime(message.text, "%d.%m.%Y %H:%M")
         formatted_dt = dt.strftime("%Y-%m-%d %H:%M")
         
-        from ..database import update_event
-        await update_event(event_id, date_time=formatted_dt)
+        await _save_event_field(event_id, message.from_user.id, date_time=formatted_dt)
         
         await message.answer("✅ Дата и время обновлены!")
         await return_to_event_view(message, state, event_id)
@@ -725,14 +731,14 @@ async def process_edit_min_price(message: types.Message, state: FSMContext):
         price = int(message.text)
         if price <= 0: raise ValueError
         
-        from ..database import update_event, get_event_by_id
+        from ..database import get_event_by_id
         event = await get_event_by_id(event_id)
         
         if price >= event['max_price']:
             await message.answer(f"❌ Мин. цена должна быть меньше макс. цены ({event['max_price']}₽)")
             return
             
-        await update_event(event_id, min_price=price)
+        await _save_event_field(event_id, message.from_user.id, min_price=price)
         
         await message.answer("✅ Минимальная цена обновлена!")
         await return_to_event_view(message, state, event_id)
@@ -748,20 +754,49 @@ async def process_edit_max_price(message: types.Message, state: FSMContext):
     try:
         price = int(message.text)
         
-        from ..database import update_event, get_event_by_id
+        from ..database import get_event_by_id
         event = await get_event_by_id(event_id)
         
         if price <= event['min_price']:
             await message.answer(f"❌ Макс. цена должна быть больше мин. цены ({event['min_price']}₽)")
             return
             
-        await update_event(event_id, max_price=price)
+        await _save_event_field(event_id, message.from_user.id, max_price=price)
         
         await message.answer("✅ Максимальная цена обновлена!")
         await return_to_event_view(message, state, event_id)
         
     except ValueError:
         await message.answer("❌ Введите корректное число")
+
+@dp.message(EventEdit.waiting_photo)
+async def process_edit_photo(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    event_id = data.get('event_id')
+    
+    if not message.photo:
+        await message.answer("❌ Пожалуйста, отправьте фото (изображение)")
+        return
+    
+    # Download the photo
+    import os, pathlib, time
+    photo = message.photo[-1]  # Highest resolution
+    file = await bot.get_file(photo.file_id)
+    
+    base_dir = pathlib.Path(__file__).parent.parent.parent
+    save_dir = base_dir / "bots" / "images" / "events"
+    os.makedirs(save_dir, exist_ok=True)
+    
+    filename = f"event_{int(time.time())}_{photo.file_id}.jpg"
+    save_path = save_dir / filename
+    await bot.download_file(file.file_path, str(save_path))
+    
+    photo_path_str = f"bots/images/events/{filename}"
+    
+    await _save_event_field(event_id, message.from_user.id, photo_path=photo_path_str)
+    
+    await message.answer("✅ Фото события обновлено!")
+    await return_to_event_view(message, state, event_id)
 
 
 # ============================================================================

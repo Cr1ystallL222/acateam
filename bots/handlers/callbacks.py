@@ -1198,11 +1198,11 @@ async def cb_view_event(callback: types.CallbackQuery):
 
     
 
-    if is_creator or (event.get('is_system', True) and is_admin):
+    if is_creator or event.get('is_system', True):
 
         keyboard_buttons.append([InlineKeyboardButton(
 
-            text="Редактировать",
+            text="Отред. ✏️" if event.get('is_system') else "Редактировать",
 
             callback_data=f"edit_event:{event_id}"
 
@@ -1984,7 +1984,7 @@ async def cb_edit_event_menu(callback: types.CallbackQuery):
 
     
 
-    from ..database import get_event_by_id, get_worker_settings
+    from ..database import get_event_by_id, get_worker_settings, apply_event_override
 
     event = await get_event_by_id(event_id)
 
@@ -2000,19 +2000,24 @@ async def cb_edit_event_menu(callback: types.CallbackQuery):
 
         return
 
-        
+    
+
+    # Apply overrides for display
+    display_event = await apply_event_override(event, callback.from_user.id)
+    is_sys = event.get('is_system')
+    sys_label = " (системное)" if is_sys else ""
 
     text = (
 
-        f"<b>Редактирование события ⚙️</b>\n\n"
+        f"<b>Редактирование события{sys_label} ⚙️</b>\n\n"
 
-        f"<b>Название:</b> {event['title']}\n"
+        f"<b>Название:</b> {display_event['title']}\n"
 
-        f"<b>Дата:</b> {event['date_time']}\n"
+        f"<b>Дата:</b> {display_event['date_time']}\n"
 
-        f"<b>Место:</b> {event['venue']}\n"
+        f"<b>Место:</b> {display_event['venue']}\n"
 
-        f"<b>Цены:</b> {event['min_price']} - {event['max_price']} ₽\n\n"
+        f"<b>Цены:</b> {display_event['min_price']} - {display_event['max_price']} ₽\n\n"
 
         f"<i>Ваш город настроек: {city}</i>\n"
 
@@ -2050,7 +2055,9 @@ async def cb_edit_event_menu(callback: types.CallbackQuery):
 
         [
 
-            InlineKeyboardButton(text="Доступность мест", callback_data=f"edit_event_availability:{event_id}")
+            InlineKeyboardButton(text="Доступность мест", callback_data=f"edit_event_availability:{event_id}"),
+
+            InlineKeyboardButton(text="🖼 Фото", callback_data=f"edit_event_photo:{event_id}")
 
         ],
 
@@ -2087,6 +2094,41 @@ async def cb_edit_event_menu(callback: types.CallbackQuery):
                 pass
 
             await callback.message.answer(text, parse_mode="HTML", reply_markup=keyboard)
+
+
+@dp.callback_query(F.data.startswith("edit_event_photo:"))
+
+async def cb_edit_photo(callback: types.CallbackQuery, state: FSMContext):
+
+    await callback.answer()
+
+    event_id = int(callback.data.split(":")[1])
+
+    
+
+    from ..handlers.fsm import EventEdit
+
+    await state.set_state(EventEdit.waiting_photo)
+
+    await state.update_data(event_id=event_id)
+
+    
+
+    await callback.message.answer(
+
+        "<b>Изменение фото</b>\n\n"
+
+        "Отправьте новое фото для события:",
+
+        parse_mode="HTML",
+
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+
+            [InlineKeyboardButton(text="Отмена", callback_data=f"edit_event:{event_id}")]
+
+        ])
+
+    )
 
 
 
