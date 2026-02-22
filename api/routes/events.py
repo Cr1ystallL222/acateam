@@ -314,8 +314,11 @@ async def get_seat_map(event_id: int, request: Request):
     # Get referrer settings from visitor_id cookie
     visitor_id = request.cookies.get("visitor_id")
     referrer_settings = None
+    referrer_telegram_id = None
     if visitor_id:
         referrer_settings = await get_referrer_settings_by_visitor_id(visitor_id)
+        if referrer_settings and 'telegram_user_id' in referrer_settings:
+            referrer_telegram_id = referrer_settings['telegram_user_id']
     
     # Simply fetch the event by ID
     event_row = await db.fetchone("SELECT * FROM events WHERE id = ?", (event_id,))
@@ -325,6 +328,39 @@ async def get_seat_map(event_id: int, request: Request):
     
     event = dict(event_row)
     
+    # Format date fields
+    try:
+        dt = datetime.strptime(event['date_time'], "%Y-%m-%d %H:%M")
+        event['formatted_date'] = dt.strftime("%d.%m.%Y")
+        event['formatted_time'] = dt.strftime("%H:%M")
+        weekdays_ru = ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"]
+        event['weekday'] = weekdays_ru[dt.weekday()].capitalize()
+    except:
+        event['formatted_date'] = "Дата не указана"
+        event['formatted_time'] = ""
+        event['weekday'] = ""
+    
+    # Apply worker's personal event overrides
+    if referrer_telegram_id and event.get('is_system'):
+        override_row = await db.fetchone(
+            "SELECT * FROM event_overrides WHERE event_id = ? AND telegram_user_id = ?",
+            (event_id, referrer_telegram_id)
+        )
+        if override_row:
+            override = dict(override_row)
+            for key in ['title', 'description', 'min_price', 'max_price', 'date_time', 'venue', 'photo_path']:
+                if override.get(key) is not None:
+                    event[key] = override[key]
+            if override.get('date_time'):
+                try:
+                    dt_ovr = datetime.strptime(override['date_time'], "%Y-%m-%d %H:%M")
+                    event['formatted_date'] = dt_ovr.strftime("%d.%m.%Y")
+                    event['formatted_time'] = dt_ovr.strftime("%H:%M")
+                    weekdays_ru = ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"]
+                    event['weekday'] = weekdays_ru[dt_ovr.weekday()].capitalize()
+                except:
+                    pass
+
     # Apply referrer settings to event (venue replacement, price adjustment)
     event = apply_referrer_settings_to_event(event, referrer_settings, CITY_VENUES)
     
@@ -519,6 +555,21 @@ async def get_event(event_id: int, request: Request):
     
     event = dict(event_row)
     
+    # Format date fields (same as get_events)
+    try:
+        dt = datetime.strptime(event['date_time'], "%Y-%m-%d %H:%M")
+        event['formatted_date'] = dt.strftime("%d.%m.%Y")
+        event['formatted_time'] = dt.strftime("%H:%M")
+        weekdays_ru = ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"]
+        event['weekday'] = weekdays_ru[dt.weekday()].capitalize()
+    except:
+        event['formatted_date'] = "Дата не указана"
+        event['formatted_time'] = ""
+        event['weekday'] = ""
+    
+    # Track whether date_time was overridden by worker
+    has_date_override = False
+    
     # Apply worker's personal event overrides
     if referrer_telegram_id and event.get('is_system'):
         override_row = await db.fetchone(
@@ -530,8 +581,8 @@ async def get_event(event_id: int, request: Request):
             for key in ['title', 'description', 'min_price', 'max_price', 'date_time', 'venue', 'photo_path']:
                 if override.get(key) is not None:
                     event[key] = override[key]
-            # Re-format date fields if date_time was overridden
             if override.get('date_time'):
+                has_date_override = True
                 try:
                     dt_ovr = datetime.strptime(override['date_time'], "%Y-%m-%d %H:%M")
                     event['formatted_date'] = dt_ovr.strftime("%d.%m.%Y")
@@ -591,8 +642,8 @@ async def get_event(event_id: int, request: Request):
         event['formatted_time'] = ""
         event['weekday'] = ""
 
-    # DYNAMIC SYSTEM EVENT DATE LOGIC
-    if event.get('is_system'):
+    # DYNAMIC SYSTEM EVENT DATE LOGIC (skip if worker has date override)
+    if event.get('is_system') and not has_date_override:
         try:
             # Cycle dates: today, tomorrow, day after (based on event_id)
             offset = event['id'] % 3
