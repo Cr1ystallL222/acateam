@@ -298,7 +298,51 @@ export default function EventPage() {
   const seatMapRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1.0);
 
-  const event = staticEvents.find(e => e.id === eventId);
+  const [event, setEvent] = useState<MovieEvent | null>(null);
+  const [loadingEvent, setLoadingEvent] = useState(true);
+
+  useEffect(() => {
+    const fetchEvent = async () => {
+      const staticEv = staticEvents.find(e => e.id === eventId);
+      if (staticEv) {
+        setEvent(staticEv);
+        setLoadingEvent(false);
+      } else {
+        try {
+          const res = await fetch(`/api/events/${eventId}`);
+          if (res.ok) {
+            const dbEvent = await res.json();
+            const formatTime = (dateTime: string) => {
+              try {
+                return new Date(dateTime).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+              } catch {
+                return dbEvent.formatted_time || '';
+              }
+            };
+            setEvent({
+              id: dbEvent.id.toString(),
+              title: dbEvent.title,
+              image: dbEvent.photo_path ? `/api/events/${dbEvent.id}/photo` : '/images/banner.jpeg',
+              place: dbEvent.venue || "кино",
+              time: formatTime(dbEvent.date_time),
+              age: "16+",
+              format: "2D",
+              price: dbEvent.min_price || 500,
+              isStatic: false
+            });
+          } else {
+            setEvent(null);
+          }
+        } catch (e) {
+          console.error(e);
+          setEvent(null);
+        } finally {
+          setLoadingEvent(false);
+        }
+      }
+    };
+    fetchEvent();
+  }, [eventId]);
 
   useEffect(() => {
     checkAuth();
@@ -378,12 +422,12 @@ export default function EventPage() {
     router.push(`/checkout?${paramsStr.toString()}`);
   };
 
-  if (isAuthenticated === null) {
+  if (isAuthenticated === null || loadingEvent) {
     return (
       <div className="min-h-screen bg-[#111] flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#E60000] mx-auto"></div>
-          <p className="mt-4 text-gray-400">Проверка доступа...</p>
+          <p className="mt-4 text-gray-400">Загрузка...</p>
         </div>
       </div>
     );

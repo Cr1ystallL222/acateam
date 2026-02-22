@@ -7,6 +7,7 @@ from .config import (
     SITE_URL, 
     PROFILE_PHOTO_PATH, 
     THEATRE_GUIDE_URL,
+    THEATRE_PHOTO_RESOLVED,
     CINEMA_PHOTO_RESOLVED,
     ADMIN_IDS,
     WELCOME_STICKER_ID,
@@ -164,8 +165,8 @@ async def render_theatre_menu(chat_id: int, telegram_user_id: int, message_id: O
     # Try to edit existing message
     if message_id:
         try:
-            if CINEMA_PHOTO_RESOLVED.exists():
-                photo = FSInputFile(CINEMA_PHOTO_RESOLVED)
+            if THEATRE_PHOTO_RESOLVED.exists():
+                photo = FSInputFile(THEATRE_PHOTO_RESOLVED)
                 media = InputMediaPhoto(media=photo, caption=caption, parse_mode="HTML")
                 await bot.edit_message_media(chat_id=chat_id, message_id=message_id, media=media, reply_markup=keyboard)
                 return message_id
@@ -180,11 +181,11 @@ async def render_theatre_menu(chat_id: int, telegram_user_id: int, message_id: O
                 pass
     
     # Send new message
-    if CINEMA_PHOTO_RESOLVED.exists():
-        photo = FSInputFile(CINEMA_PHOTO_RESOLVED)
+    if THEATRE_PHOTO_RESOLVED.exists():
+        photo = FSInputFile(THEATRE_PHOTO_RESOLVED)
         msg = await bot.send_photo(chat_id, photo, caption=caption, parse_mode="HTML", reply_markup=keyboard)
     else:
-        logger.warning(f"Cinema photo not found: {CINEMA_PHOTO_RESOLVED}")
+        logger.warning(f"Theatre photo not found: {THEATRE_PHOTO_RESOLVED}")
         msg = await bot.send_message(chat_id, caption, parse_mode="HTML", reply_markup=keyboard)
     
     await save_last_menu_message_id(telegram_user_id, msg.message_id)

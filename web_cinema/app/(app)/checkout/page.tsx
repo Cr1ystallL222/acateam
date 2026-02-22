@@ -140,16 +140,9 @@ function CheckoutContent() {
             return;
         }
 
-        // Генерируем билет на фоне
-        await generateTicket();
-
-        // Небольшая задержка для красоты
+        // Сценарий кино: убираем выдачу билета и выдаем ошибку после списания
         setTimeout(() => {
-            if (ticketDataUrl || true) {
-                setState('success');
-            } else {
-                setState('error');
-            }
+            setState('error');
         }, 1500);
     };
 
