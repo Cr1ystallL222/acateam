@@ -123,7 +123,10 @@ def get_settings_keyboard(settings: dict, link_id: int = None) -> InlineKeyboard
     else:
         sys_seats = settings.get('system_seats_override')
 
-    seats_text = f"💺 Сис. места: {sys_seats}" if sys_seats else "💺 Сис. места: авто"
+    if sys_seats is not None:
+        seats_text = f"💺 Сис. места: {abs(sys_seats)}%" if sys_seats < 0 else f"💺 Сис. места: {sys_seats}"
+    else:
+        seats_text = "💺 Сис. места: авто"
     
     # Suffix for callbacks
     suffix = f":{link_id}" if link_id else ""

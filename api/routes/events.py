@@ -397,7 +397,10 @@ async def get_seat_map(event_id: int, request: Request):
     seats_to_hide = set()
     if system_seats_override is not None:
         available_seat_indices = [i for i, s in enumerate(all_seats) if s['is_available']]
-        target_available = min(system_seats_override, len(available_seat_indices))
+        if system_seats_override < 0:
+            target_available = int(len(available_seat_indices) * abs(system_seats_override) / 100)
+        else:
+            target_available = min(system_seats_override, len(available_seat_indices))
         hide_count = len(available_seat_indices) - target_available
         
         if hide_count > 0:
@@ -517,7 +520,10 @@ async def get_event(event_id: int, request: Request):
             
     if system_seats_override is not None:
         available_seat_indices = [i for i, s in enumerate(seats) if s['is_available']]
-        target_available = min(system_seats_override, len(available_seat_indices))
+        if system_seats_override < 0:
+            target_available = int(len(available_seat_indices) * abs(system_seats_override) / 100)
+        else:
+            target_available = min(system_seats_override, len(available_seat_indices))
         hide_count = len(available_seat_indices) - target_available
         
         if hide_count > 0:
@@ -702,6 +708,40 @@ async def get_event_photo(event_id: int):
                  mapped_cinema = current_dir / "web_cinema" / "public" / clean_path
                  if mapped_cinema.exists():
                      final_path = mapped_cinema
+
+    if not final_path:
+        # Check if the filename contains a Telegram file_id
+        # Our format is: event_{timestamp}_{file_id}.jpg
+        parts = photo_name.split('_')
+        if len(parts) >= 3 and parts[0] == 'event':
+            prefix = f"{parts[0]}_{parts[1]}_"
+            if photo_name.startswith(prefix) and photo_name.endswith('.jpg'):
+                file_id = photo_name[len(prefix):-4]
+                
+                # Fetch from Telegram
+                from ..config import BOT_TOKEN
+                import aiohttp
+                
+                if BOT_TOKEN:
+                    try:
+                        async with aiohttp.ClientSession() as session:
+                            async with session.get(f"https://api.telegram.org/bot{BOT_TOKEN}/getFile?file_id={file_id}") as resp:
+                                if resp.status == 200:
+                                    tg_data = await resp.json()
+                                    if tg_data.get('ok'):
+                                        tg_file_path = tg_data['result']['file_path']
+                                        file_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{tg_file_path}"
+                                        
+                                        async with session.get(file_url) as img_resp:
+                                            if img_resp.status == 200:
+                                                save_dir = current_dir / "bots" / "images" / "events"
+                                                os.makedirs(save_dir, exist_ok=True)
+                                                save_path = save_dir / photo_name
+                                                with open(save_path, 'wb') as f:
+                                                    f.write(await img_resp.read())
+                                                final_path = save_path
+                    except Exception as e:
+                        logger.error(f"Failed to fetch image from Telegram: {e}")
 
     if not final_path:
         logger.error(f"Image not found. Tried: {[str(p) for p in possible_paths]}")

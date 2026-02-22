@@ -631,12 +631,16 @@ async def cb_settings_sys_seats(callback: types.CallbackQuery, state: FSMContext
         else:
              current = settings.get('system_seats_override')
     
-    current_text = f"Текущее значение: {current}" if current else "Текущее значение: АВТО"
+    if current is not None:
+        display_current = f"{abs(current)}%" if current < 0 else str(current)
+        current_text = f"Текущее значение: {display_current}"
+    else:
+        current_text = "Текущее значение: АВТО"
     
     text = (
         "<b>💺 Доступность системных мест</b>\n\n"
         f"{current_text}\n\n"
-        "Введите количество доступных мест (например, '10'):\n\n"
+        "Введите количество доступных мест (например, '10' или '50%'):\n\n"
     )
     
     if link_id:

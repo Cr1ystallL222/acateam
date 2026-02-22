@@ -365,15 +365,25 @@ async def process_sys_seats(message: types.Message, state: FSMContext):
     type_suffix = "_cinema" if is_cinema else ""
     back_callback = f"menu_settings{type_suffix}:{link_id}" if link_id else f"menu_settings{type_suffix}"
     
-    # Try parsing integer
+    # Try parsing integer or percentage
     try:
-        val = message.text.replace('%', '').strip()
-        seats_num = int(val)
+        val = message.text.strip()
+        is_pct = '%' in val
+        seats_num = int(val.replace('%', '').strip())
+        
         if seats_num < 0:
             raise ValueError
+            
+        if is_pct:
+            if seats_num > 100:
+                seats_num = 100
+            # store as negative to represent percentage, 0% is just 0
+            if seats_num > 0:
+                seats_num = -seats_num
+                
     except ValueError:
         await message.answer(
-            "❌ <b>Пожалуйста, введите положительное целое число</b>\n\n(например: 10)",
+            "❌ <b>Пожалуйста, введите положительное целое число или процент</b>\n\n(например: 10 или 50%)",
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="◀️ К настройкам", callback_data=back_callback)]
@@ -388,8 +398,10 @@ async def process_sys_seats(message: types.Message, state: FSMContext):
     else:
         await update_worker_setting(message.from_user.id, field, seats_num)
         
+    display_val = f"{abs(seats_num)}%" if seats_num < 0 else str(seats_num)
+        
     await message.answer(
-        f"✅ <b>Доступность системных мест установлена: {seats_num}</b>",
+        f"✅ <b>Доступность системных мест установлена: {display_val}</b>",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="◀️ К настройкам", callback_data=back_callback)]
