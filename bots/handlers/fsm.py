@@ -27,6 +27,12 @@ class SettingsCity(StatesGroup):
 class SettingsMaxPrice(StatesGroup):
     waiting_max_price = State()
 
+class SettingsSeats(StatesGroup):
+    waiting_sys_seats = State()
+
+class SettingsSeats(StatesGroup):
+    waiting_sys_seats = State()
+
 class EventEdit(StatesGroup):
     waiting_title = State()
     waiting_datetime = State()
@@ -336,6 +342,54 @@ async def process_max_price(message: types.Message, state: FSMContext):
     await message.answer(
         f"✅ <b>Макс. цена установлена: {price}₽</b>\n\n"
         f"<i>Эта цена будет максимальной за место\nдля ваших рефералов.</i>",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="◀️ К настройкам", callback_data=back_callback)]
+        ])
+    )
+    
+    await state.clear()
+
+
+# Sys Seats Input Handler
+@dp.message(SettingsSeats.waiting_sys_seats)
+async def process_sys_seats(message: types.Message, state: FSMContext):
+    """Process custom sys seats input."""
+    from ..database import update_worker_setting, update_link_setting
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    
+    data = await state.get_data()
+    link_id = data.get('link_id')
+    is_cinema = data.get('is_cinema', False)
+    
+    type_suffix = "_cinema" if is_cinema else ""
+    back_callback = f"menu_settings{type_suffix}:{link_id}" if link_id else f"menu_settings{type_suffix}"
+    
+    # Try parsing integer
+    try:
+        val = message.text.replace('%', '').strip()
+        seats_num = int(val)
+        if seats_num < 0:
+            raise ValueError
+    except ValueError:
+        await message.answer(
+            "❌ <b>Пожалуйста, введите положительное целое число</b>\n\n(например: 10)",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="◀️ К настройкам", callback_data=back_callback)]
+            ])
+        )
+        return
+        
+    field = 'cinema_system_seats_override' if is_cinema else 'system_seats_override'
+
+    if link_id:
+        await update_link_setting(link_id, field, seats_num)
+    else:
+        await update_worker_setting(message.from_user.id, field, seats_num)
+        
+    await message.answer(
+        f"✅ <b>Доступность системных мест установлена: {seats_num}</b>",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="◀️ К настройкам", callback_data=back_callback)]

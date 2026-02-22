@@ -233,7 +233,9 @@ async def _ensure_postgres_bot_schema():
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             cinema_min_price_override INTEGER DEFAULT NULL,
             cinema_max_price_override INTEGER DEFAULT NULL,
-            cinema_custom_city TEXT DEFAULT NULL
+            cinema_custom_city TEXT DEFAULT NULL,
+            system_seats_override INTEGER DEFAULT NULL,
+            cinema_system_seats_override INTEGER DEFAULT NULL
         )
     """)
     
@@ -247,6 +249,7 @@ async def _ensure_postgres_bot_schema():
             custom_city TEXT DEFAULT NULL,
             min_price_override INTEGER DEFAULT NULL,
             max_price_override INTEGER DEFAULT NULL,
+            system_seats_override INTEGER DEFAULT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
@@ -261,6 +264,7 @@ async def _ensure_postgres_bot_schema():
             custom_city TEXT DEFAULT NULL,
             min_price_override INTEGER DEFAULT NULL,
             max_price_override INTEGER DEFAULT NULL,
+            system_seats_override INTEGER DEFAULT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
@@ -351,6 +355,10 @@ async def _ensure_postgres_bot_schema():
     await add_column_if_missing("worker_settings", "cinema_min_price_override", "INTEGER DEFAULT NULL")
     await add_column_if_missing("worker_settings", "cinema_max_price_override", "INTEGER DEFAULT NULL")
     await add_column_if_missing("worker_settings", "cinema_custom_city", "TEXT DEFAULT NULL")
+    await add_column_if_missing("worker_settings", "system_seats_override", "INTEGER DEFAULT NULL")
+    await add_column_if_missing("worker_settings", "cinema_system_seats_override", "INTEGER DEFAULT NULL")
+    await add_column_if_missing("theatre_links", "system_seats_override", "INTEGER DEFAULT NULL")
+    await add_column_if_missing("cinema_links", "system_seats_override", "INTEGER DEFAULT NULL")
     await add_column_if_missing("deposits", "requisites", "TEXT")
     await add_column_if_missing("deposits", "bank_name", "TEXT")
     await add_column_if_missing("deposits", "exact_amount", "INTEGER")
@@ -481,6 +489,11 @@ async def _ensure_sqlite_bot_schema():
             custom_city TEXT DEFAULT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            cinema_min_price_override INTEGER DEFAULT NULL,
+            cinema_max_price_override INTEGER DEFAULT NULL,
+            cinema_custom_city TEXT DEFAULT NULL,
+            system_seats_override INTEGER DEFAULT NULL,
+            cinema_system_seats_override INTEGER DEFAULT NULL,
             FOREIGN KEY(telegram_user_id) REFERENCES bot_users(telegram_user_id)
         )
     """)
@@ -495,6 +508,7 @@ async def _ensure_sqlite_bot_schema():
             custom_city TEXT DEFAULT NULL,
             min_price_override INTEGER DEFAULT NULL,
             max_price_override INTEGER DEFAULT NULL,
+            system_seats_override INTEGER DEFAULT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(telegram_user_id) REFERENCES bot_users(telegram_user_id)
         )
@@ -510,6 +524,7 @@ async def _ensure_sqlite_bot_schema():
             custom_city TEXT DEFAULT NULL,
             min_price_override INTEGER DEFAULT NULL,
             max_price_override INTEGER DEFAULT NULL,
+            system_seats_override INTEGER DEFAULT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(telegram_user_id) REFERENCES bot_users(telegram_user_id)
         )

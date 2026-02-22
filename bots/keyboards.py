@@ -115,18 +115,28 @@ def get_settings_keyboard(settings: dict, link_id: int = None) -> InlineKeyboard
     
     city = settings.get('custom_city')
     city_text = f"🏙️ Город: {city}" if city else "🏙️ Город: Краснодар (по умолчанию)"
+
+    # Resolve system seats override correctly based on service type
+    is_cinema = "cinema" in (settings.get('type') or "")
+    if is_cinema and 'cinema_system_seats_override' in settings:
+        sys_seats = settings.get('cinema_system_seats_override')
+    else:
+        sys_seats = settings.get('system_seats_override')
+
+    seats_text = f"💺 Сис. места: {sys_seats}" if sys_seats else "💺 Сис. места: авто"
     
     # Suffix for callbacks
     suffix = f":{link_id}" if link_id else ""
     
     # Back button logic based on type
-    type_suffix = "_cinema" if "cinema" in (settings.get('type') or "") else ""
+    type_suffix = "_cinema" if is_cinema else ""
     back_callback = f"select_link{type_suffix}:{link_id}" if link_id else f"menu_back{type_suffix}_links"
     
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=min_price_text, callback_data=f"settings_min_price{type_suffix}{suffix}")],
         [InlineKeyboardButton(text=max_price_text, callback_data=f"settings_max_price{type_suffix}{suffix}")],
         [InlineKeyboardButton(text=city_text, callback_data=f"settings_city{type_suffix}{suffix}")],
+        [InlineKeyboardButton(text=seats_text, callback_data=f"settings_sys_seats{type_suffix}{suffix}")],
         [InlineKeyboardButton(text="Назад", callback_data=back_callback)]
     ])
 

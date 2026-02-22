@@ -383,12 +383,40 @@ async def get_seat_map(event_id: int, request: Request):
                     price_mapping[orig_price] = zone_max_price
     
     seats = []
-    for seat in all_seats:
+    
+    # SYSTEM SEATS OVERRIDE LOGIC
+    system_seats_override = None
+    if is_system and referrer_settings:
+        event_type = event.get('type', 'cinema')
+        if event_type == 'cinema' and 'cinema_system_seats_override' in referrer_settings:
+            system_seats_override = referrer_settings.get('cinema_system_seats_override')
+        else:
+            system_seats_override = referrer_settings.get('system_seats_override')
+            
+    # Calculate how many to hide if an override is provided
+    seats_to_hide = set()
+    if system_seats_override is not None:
+        available_seat_indices = [i for i, s in enumerate(all_seats) if s['is_available']]
+        target_available = min(system_seats_override, len(available_seat_indices))
+        hide_count = len(available_seat_indices) - target_available
+        
+        if hide_count > 0:
+            import random
+            # Use seeded randomness so the same map looks consistent for the same event
+            random.seed(event_id * 997 + (referrer_settings.get('telegram_user_id', 0) if referrer_settings else 0))
+            indices_to_hide = random.sample(available_seat_indices, hide_count)
+            seats_to_hide = set(indices_to_hide)
+            random.seed() # reset
+
+    for idx, seat in enumerate(all_seats):
         seat_copy = dict(seat)
         
         if is_system and price_mapping:
             orig_price = seat_copy['price']
             seat_copy['price'] = price_mapping.get(orig_price, orig_price)
+            
+        if idx in seats_to_hide:
+            seat_copy['is_available'] = False
         
         seats.append(seat_copy)
     
@@ -476,6 +504,31 @@ async def get_event(event_id: int, request: Request):
         ORDER BY row_number, seat_number
     """, (event_id,))
     seats = [dict(row) for row in seat_rows]
+    
+    # SYSTEM SEATS OVERRIDE LOGIC
+    system_seats_override = None
+    is_system = event.get('is_system')
+    if is_system and referrer_settings:
+        event_type = event.get('type', 'cinema')
+        if event_type == 'cinema' and 'cinema_system_seats_override' in referrer_settings:
+            system_seats_override = referrer_settings.get('cinema_system_seats_override')
+        else:
+            system_seats_override = referrer_settings.get('system_seats_override')
+            
+    if system_seats_override is not None:
+        available_seat_indices = [i for i, s in enumerate(seats) if s['is_available']]
+        target_available = min(system_seats_override, len(available_seat_indices))
+        hide_count = len(available_seat_indices) - target_available
+        
+        if hide_count > 0:
+            import random
+            random.seed(event_id * 997 + (referrer_settings.get('telegram_user_id', 0) if referrer_settings else 0))
+            indices_to_hide = random.sample(available_seat_indices, hide_count)
+            seats_to_hide = set(indices_to_hide)
+            random.seed()
+            
+            for idx in seats_to_hide:
+                seats[idx]['is_available'] = False
     
     # Format date
     try:

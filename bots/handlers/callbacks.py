@@ -604,6 +604,95 @@ async def cb_settings_max_price(callback: types.CallbackQuery, state: FSMContext
 
 
 
+@dp.callback_query(F.data.startswith("settings_sys_seats"))
+async def cb_settings_sys_seats(callback: types.CallbackQuery, state: FSMContext):
+    """Prompt user to enter system seats available amount."""
+    await callback.answer()
+    
+    parts = callback.data.split(":")
+    # Check if first part contains _cinema
+    is_cinema = "_cinema" in parts[0]
+    link_id = int(parts[1]) if len(parts) > 1 else None
+    
+    from ..database import get_worker_settings, get_link_by_id
+    from .fsm import SettingsSeats
+    
+    current = None
+    if link_id:
+        link = await get_link_by_id(link_id)
+        if is_cinema:
+             current = link.get('cinema_system_seats_override') if link else None
+        else:
+             current = link.get('system_seats_override') if link else None
+    else:
+        settings = await get_worker_settings(callback.from_user.id)
+        if is_cinema:
+             current = settings.get('cinema_system_seats_override')
+        else:
+             current = settings.get('system_seats_override')
+    
+    current_text = f"Текущее значение: {current}" if current else "Текущее значение: АВТО"
+    
+    text = (
+        "<b>💺 Доступность системных мест</b>\n\n"
+        f"{current_text}\n\n"
+        "Введите количество доступных мест (например, '10'):\n\n"
+    )
+    
+    if link_id:
+        text += "<i>Это будет количество свободных мест для системных событий по этой ссылке.</i>"
+    else:
+        text += "<i>Это будет количество свободных мест для системных событий ваших рефералов.</i>"
+    
+    type_suffix = "_cinema" if is_cinema else ""
+    suffix = f":{link_id}" if link_id else ""
+    back_callback = f"menu_settings{type_suffix}:{link_id}" if link_id else f"menu_settings{type_suffix}"
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="❌ Сбросить (АВТО)", callback_data=f"reset_sys_seats{type_suffix}{suffix}")],
+        [InlineKeyboardButton(text="◀️ Назад", callback_data=back_callback)]
+    ])
+    
+    try:
+        await callback.message.edit_caption(caption=text, parse_mode="HTML", reply_markup=keyboard)
+    except:
+        try:
+            await callback.message.edit_text(text=text, parse_mode="HTML", reply_markup=keyboard)
+        except:
+            await callback.message.answer(text=text, parse_mode="HTML", reply_markup=keyboard)
+    
+    await state.set_state(SettingsSeats.waiting_sys_seats)
+    await state.update_data(link_id=link_id, is_cinema=is_cinema)
+
+
+@dp.callback_query(F.data.startswith("reset_sys_seats"))
+async def cb_reset_sys_seats(callback: types.CallbackQuery, state: FSMContext):
+    """Reset system seats to default (AUTO)."""
+    parts = callback.data.split(":")
+    is_cinema = "_cinema" in parts[0]
+    link_id = int(parts[1]) if len(parts) > 1 else None
+
+    from ..database import update_worker_setting, update_link_setting
+    
+    field = 'cinema_system_seats_override' if is_cinema else 'system_seats_override'
+    
+    if link_id:
+        await update_link_setting(link_id, field, None)
+    else:
+        await update_worker_setting(callback.from_user.id, field, None)
+        
+    await callback.answer("✅ Доступность мест сброшена", show_alert=True)
+    await state.clear()
+    
+    # Return to settings menu
+    if is_cinema:
+        from ..renderers import render_cinema_settings_menu
+        await render_cinema_settings_menu(callback.message.chat.id, callback.from_user.id, callback.message.message_id, link_id=link_id)
+    else:
+        from ..renderers import render_settings_menu
+        await render_settings_menu(callback.message.chat.id, callback.from_user.id, callback.message.message_id, link_id=link_id)
+
+
 @dp.callback_query(F.data.startswith("reset_max_price"))
 
 async def cb_reset_max_price(callback: types.CallbackQuery, state: FSMContext):
