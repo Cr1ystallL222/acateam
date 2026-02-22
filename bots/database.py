@@ -1660,7 +1660,7 @@ async def create_cinema_link(telegram_user_id: int, name: str) -> Optional[dict]
 
 async def update_cinema_link_setting(link_id: int, setting: str, value: Any) -> bool:
     """Update a specific cinema link setting."""
-    allowed_settings = ['min_price_override', 'max_price_override', 'custom_city', 'cinema_system_seats_override']
+    allowed_settings = ['min_price_override', 'max_price_override', 'custom_city', 'system_seats_override']
     if setting not in allowed_settings:
         return False
         
