@@ -158,6 +158,7 @@ export const api = {
         send: (message: string, file?: File | null) => {
             const formData = new FormData();
             formData.append('message', message);
+            formData.append('source', 'theatre');
             if (file) {
                 formData.append('file', file);
             }
@@ -170,6 +171,10 @@ export const api = {
         messages: () =>
             fetchJson<{ messages: Array<{ id: string | number; text: string; isSupport: boolean; timestamp: string; attachment_url?: string; isRead?: boolean }>; has_unread?: boolean }>('/api/support/messages'),
         read: () =>
-            fetchJson<{ status: string }>('/api/support/read', { method: 'POST' })
+            fetchJson<{ status: string }>('/api/support/read', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ source: 'theatre' })
+            })
     }
 };

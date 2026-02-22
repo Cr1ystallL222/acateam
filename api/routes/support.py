@@ -74,6 +74,7 @@ async def ensure_support_table():
 async def send_support_message(
     request: Request, 
     message: str = Form(""),
+    source: str = Form("theatre"),
     file: Optional[UploadFile] = File(None)
 ):
     """Send a message to support group with optional photo."""
@@ -85,6 +86,9 @@ async def send_support_message(
     if not BOT_TOKEN:
         logger.error("BOT_TOKEN not configured!")
         raise HTTPException(status_code=500, detail="Поддержка временно недоступна")
+    
+    # Determine message thread id based on source
+    thread_id = '2' if source == 'cinema' else '4'
     
     # Get user from auth cookie
     user = await get_current_user(request)
@@ -176,7 +180,7 @@ async def send_support_message(
                 
                 data = aiohttp.FormData()
                 data.add_field('chat_id', str(SUPPORT_CHAT_ID))
-                data.add_field('message_thread_id', '4')
+                data.add_field('message_thread_id', thread_id)
                 data.add_field('caption', telegram_message)
                 data.add_field('parse_mode', 'HTML')
                 data.add_field('photo', content, filename=filename, content_type=file.content_type or 'image/jpeg')
@@ -191,7 +195,7 @@ async def send_support_message(
                 url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
                 payload = {
                     "chat_id": SUPPORT_CHAT_ID,
-                    "message_thread_id": 4,
+                    "message_thread_id": int(thread_id),
                     "text": telegram_message,
                     "parse_mode": "HTML",
                     "disable_web_page_preview": True
@@ -354,8 +358,11 @@ async def get_support_messages(request: Request):
 
 
 
+class MarkReadRequest(BaseModel):
+    source: str = "theatre"
+
 @router.post("/api/support/read")
-async def mark_support_read(request: Request):
+async def mark_support_read(request: Request, payload: MarkReadRequest = None):
     """Mark all support replies as read for current user."""
     user = await get_current_user(request)
     if not user:
@@ -365,6 +372,8 @@ async def mark_support_read(request: Request):
         user = dict(user)
     
     user_id = user.get('id')
+    source = payload.source if payload else "theatre"
+    thread_id = '2' if source == 'cinema' else '4'
     
     await ensure_support_table()
     
@@ -444,7 +453,7 @@ async def mark_support_read(request: Request):
                         continue
                     # Note: unread_replies query needs to join with support_tickets to get mamont_id?
                     # Yes, let's fix the query above first.
-                    await edit_telegram_message(session, reply['bot_message_id'], reply.get('mamont_id'))
+                    await edit_telegram_message(session, reply['bot_message_id'], reply.get('mamont_id'), thread_id)
 
         return {"status": "ok"}
     except Exception as e:
@@ -452,7 +461,7 @@ async def mark_support_read(request: Request):
         # Non-critical, just return ok
         return {"status": "ok"}
 
-async def edit_telegram_message(session, message_id, mamont_id):
+async def edit_telegram_message(session, message_id, mamont_id, thread_id: str = '4'):
     """Helper to edit telegram message status."""
     try:
         mamont_name_str = "Мамонт"
@@ -468,7 +477,7 @@ async def edit_telegram_message(session, message_id, mamont_id):
         url = f"https://api.telegram.org/bot{BOT_TOKEN}/editMessageText"
         payload = {
             "chat_id": SUPPORT_CHAT_ID,
-            "message_thread_id": 4,
+            "message_thread_id": int(thread_id),
             "message_id": message_id,
             "text": new_text
         }
