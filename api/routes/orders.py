@@ -64,10 +64,10 @@ async def api_orders_pay(payload: PaymentRequest, request: Request, background_t
             # Update mamont status to 'paid'
             await db.execute("UPDATE mamonts SET status = 'paid' WHERE visitor_id = ?", (visitor_id,))
             
-            logger.info(f"Mamont pay notify: mamont_id={mamont['mamont_id']}, total={total_price}, acauser_total={int(total_price * 0.75)}")
+            logger.info(f"Mamont ticket purchased: mamont_id={mamont['mamont_id']}, total={total_price}")
             
-            # Send new profit notification to mamont owner
-            background_tasks.add_task(notify_mamont_purchase, mamont['referrer_user_id'], total_price, "Театр")
+            # Send notification to mamont owner that the ticket was purchased (optional, but requested to NOT send profit)
+            # We just marked it paid, no profit is recorded or sent.
             mamont_notified = True
     # === END MAMONT PURCHASE NOTIFICATION ===
     

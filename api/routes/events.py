@@ -551,7 +551,7 @@ async def reserve_seat(event_id: int, row_number: int, seat_number: int, request
     
     return {"success": True, "message": "Seat reserved successfully"}
 
-
+def get_price_color(price: int, min_price: int, max_price: int) -> str:
     """Get color for price range."""
     if price == min_price:
         return "#22c55e"  # green
