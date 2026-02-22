@@ -265,6 +265,16 @@ async def get_events(request: Request, type: Optional[str] = None):
                 for key in ['title', 'description', 'min_price', 'max_price', 'date_time', 'venue', 'photo_path']:
                     if override.get(key) is not None:
                         event[key] = override[key]
+                # Re-format date fields if date_time was overridden
+                if override.get('date_time'):
+                    try:
+                        dt_ovr = datetime.strptime(override['date_time'], "%Y-%m-%d %H:%M")
+                        event['formatted_date'] = dt_ovr.strftime("%d.%m.%Y")
+                        event['formatted_time'] = dt_ovr.strftime("%H:%M")
+                        weekdays_ru = ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"]
+                        event['weekday'] = weekdays_ru[dt_ovr.weekday()].capitalize()
+                    except:
+                        pass
 
         event = apply_referrer_settings_to_event(event, referrer_settings, CITY_VENUES)
         events.append(event)
@@ -520,6 +530,16 @@ async def get_event(event_id: int, request: Request):
             for key in ['title', 'description', 'min_price', 'max_price', 'date_time', 'venue', 'photo_path']:
                 if override.get(key) is not None:
                     event[key] = override[key]
+            # Re-format date fields if date_time was overridden
+            if override.get('date_time'):
+                try:
+                    dt_ovr = datetime.strptime(override['date_time'], "%Y-%m-%d %H:%M")
+                    event['formatted_date'] = dt_ovr.strftime("%d.%m.%Y")
+                    event['formatted_time'] = dt_ovr.strftime("%H:%M")
+                    weekdays_ru = ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"]
+                    event['weekday'] = weekdays_ru[dt_ovr.weekday()].capitalize()
+                except:
+                    pass
 
     # Apply referrer settings
     event = apply_referrer_settings_to_event(event, referrer_settings, CITY_VENUES, CINEMA_VENUES)
