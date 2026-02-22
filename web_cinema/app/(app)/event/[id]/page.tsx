@@ -11,6 +11,7 @@ interface MovieEvent {
   image: string;
   place: string;
   time: string;
+  date?: string;
   age: string;
   format: string;
   price: number;
@@ -340,6 +341,7 @@ export default function EventPage() {
               image: dbEvent.photo_path ? `/api/events/${dbEvent.id}/photo` : '/images/banner.jpeg',
               place: dbEvent.venue || "кино",
               time: formatTime(dbEvent.date_time),
+              date: dbEvent.formatted_date || 'Сегодня',
               age: "16+",
               format: "2D",
               price: dbEvent.min_price || 500,
@@ -549,7 +551,7 @@ export default function EventPage() {
                   <div className="text-sm text-gray-400 mb-1 flex items-center gap-1.5">
                     <Calendar className="w-4 h-4" /> Дата
                   </div>
-                  <div className="text-lg font-medium">Сегодня</div>
+                  <div className="text-lg font-medium">{event.date || 'Сегодня'}</div>
                 </div>
                 <div className="bg-[#222] rounded-xl p-4 border border-[#333]">
                   <div className="text-sm text-gray-400 mb-1 flex items-center gap-1.5">
