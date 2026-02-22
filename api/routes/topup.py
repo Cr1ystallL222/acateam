@@ -178,3 +178,29 @@ async def api_topup_paid(deposit_id: int, request: Request, background_tasks: Ba
     logger.info(f"Deposit paid clicked: id={deposit_id}, user_id={user['id']}")
     
     return {"status": "ok"}
+
+
+@router.get("/api/topup/history")
+async def api_topup_history(request: Request):
+    """Get top-up history for current user."""
+    user = await get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    deposits = await db.fetchall("""
+        SELECT id, amount, status, created_at, expires_at 
+        FROM deposits 
+        WHERE user_id = ?
+        ORDER BY created_at DESC
+    """, (user['id'],))
+    
+    history = []
+    for d in deposits:
+        h = dict(d)
+        if h.get('created_at'):
+            h['created_at'] = str(h['created_at'])
+        if h.get('expires_at'):
+            h['expires_at'] = str(h['expires_at'])
+        history.append(h)
+    
+    return {"history": history}

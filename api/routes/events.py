@@ -287,7 +287,7 @@ async def get_city_info(request: Request):
     """Get city info for the current user (based on referrer settings)."""
     visitor_id = request.cookies.get("visitor_id")
     
-    city = "Москва"
+    city = ""
     
     if visitor_id:
         referrer_settings = await get_referrer_settings_by_visitor_id(visitor_id)

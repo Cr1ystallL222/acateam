@@ -144,6 +144,8 @@ export const api = {
                 expired_reason: string | null;
                 time_remaining: number | null;
             }>(`/api/topup/status?deposit_id=${deposit_id}`),
+        history: () =>
+            fetchJson<{ history: any[] }>('/api/topup/history'),
         cancel: (deposit_id: number) =>
             fetchJson<{ status: string }>(`/api/topup/cancel?deposit_id=${deposit_id}`, {
                 method: 'POST'

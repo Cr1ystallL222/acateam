@@ -39,7 +39,7 @@ function getCityGenitive(city: string): string {
 
 export default function FilterBar() {
     const [days, setDays] = useState<DayItem[]>([]);
-    const [city, setCity] = useState("Краснодар");
+    const [city, setCity] = useState("");
 
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const router = useRouter();
@@ -123,7 +123,7 @@ export default function FilterBar() {
         <section className="container mx-auto px-4 py-8 space-y-6">
             {/* Title + Search */}
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <h1 className="text-3xl font-bold text-[#171717]">Афиша {getCityGenitive(city)}</h1>
+                <h1 className="text-3xl font-bold text-[#171717]">Афиша{city ? ` ${getCityGenitive(city)}` : ""}</h1>
 
                 <div className="w-full md:w-auto relative group">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 group-hover:text-black transition-colors" size={16} />

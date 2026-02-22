@@ -8,7 +8,7 @@ import { AuthProvider } from "@/context/AuthContext";
 const inter = Inter({ subsets: ["latin", "cyrillic"] });
 
 export const metadata: Metadata = {
-  title: "Афиша Москвы — AFISHON.RU",
+  title: "Афиша — AFISHON.RU",
   description: "Куда сходить. Афиша кино: новинки кинопроката, расписание сеансов.",
 };
 
