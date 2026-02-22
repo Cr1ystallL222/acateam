@@ -488,3 +488,53 @@ async def render_settings_menu_cinema(chat_id: int, telegram_user_id: int, messa
     msg = await bot.send_message(chat_id, text, parse_mode="HTML", reply_markup=keyboard)
     await save_last_menu_message_id(telegram_user_id, msg.message_id)
     return msg.message_id
+
+async def render_coupons_menu(chat_id: int, telegram_user_id: int, message_id: Optional[int] = None) -> int:
+    """Render coupons menu. Returns new message_id."""
+    from .loader import bot
+    from data.db import db
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    from aiogram.exceptions import TelegramBadRequest
+
+    # Fetch coupons
+    coupons = await db.fetchall("SELECT * FROM coupons WHERE telegram_user_id = ? ORDER BY created_at DESC LIMIT 10", (telegram_user_id,))
+    
+    if coupons:
+        coupons_text = ""
+        for idx, c in enumerate(coupons, start=1):
+            type_str = "Пополнение" if c['type'] == 'balance' else "Скидка"
+            val_str = f"{c['value']}₽" if c['type'] == 'balance' else str(c['value'])
+            act_str = f"{c['current_activations']}/{c['max_activations'] if c['max_activations'] else '∞'}"
+            coupons_text += f"\n<b>{idx}. {c['code']}</b>\n"
+            coupons_text += f"<i>Тип:</i> {type_str} ({val_str})\n"
+            coupons_text += f"<i>Активаций:</i> {act_str}\n"
+    else:
+        coupons_text = "\n<i>У вас пока нет купонов.\nСоздайте первый купон!</i>\n"
+
+    caption = (
+        "🎫 <b>Управление Купонами</b>\n\n"
+        "Здесь вы можете создать промокоды для своих мамонтов.\n\n"
+        "🏷 <b>Ваши последние купоны:</b>"
+        f"{coupons_text}\n"
+    )
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="➕ Создать купон", callback_data="create_coupon")],
+        [InlineKeyboardButton(text="◀️ Назад", callback_data="menu_cinema")]
+    ])
+
+    if message_id:
+        try:
+            await bot.edit_message_caption(chat_id=chat_id, message_id=message_id, caption=caption, parse_mode="HTML", reply_markup=keyboard)
+            return message_id
+        except TelegramBadRequest:
+            try:
+                await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=caption, parse_mode="HTML", reply_markup=keyboard)
+                return message_id
+            except TelegramBadRequest as e:
+                pass
+                
+    msg = await bot.send_message(chat_id, caption, parse_mode="HTML", reply_markup=keyboard)
+    from .database import save_last_menu_message_id
+    await save_last_menu_message_id(telegram_user_id, msg.message_id)
+    return msg.message_id

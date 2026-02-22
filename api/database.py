@@ -281,7 +281,37 @@ async def _ensure_postgres_schema():
         )
     """)
     
+    # Coupons
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS coupons (
+            id SERIAL PRIMARY KEY,
+            code TEXT UNIQUE NOT NULL,
+            telegram_user_id BIGINT REFERENCES bot_users(telegram_user_id),
+            type TEXT NOT NULL,
+            value INTEGER NOT NULL,
+            max_activations INTEGER,
+            current_activations INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # Coupon Activations
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS coupon_activations (
+            id SERIAL PRIMARY KEY,
+            coupon_id INTEGER NOT NULL REFERENCES coupons(id),
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            activated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(coupon_id, user_id)
+        )
+    """)
+    
     # Migrations
+    try:
+        await db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS active_discount INTEGER DEFAULT 0")
+    except Exception as e:
+        logger.info(f"Migration note (active_discount): {e}")
+
     try:
         await db.execute("ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS telegram_user_id BIGINT")
     except Exception as e:
@@ -572,6 +602,34 @@ async def _ensure_sqlite_schema():
         )
     """)
     
+    # Coupons
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS coupons (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            code TEXT UNIQUE NOT NULL,
+            telegram_user_id INTEGER,
+            type TEXT NOT NULL,
+            value INTEGER NOT NULL,
+            max_activations INTEGER,
+            current_activations INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(telegram_user_id) REFERENCES bot_users(telegram_user_id)
+        )
+    """)
+
+    # Coupon Activations
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS coupon_activations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            coupon_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            activated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(coupon_id) REFERENCES coupons(id),
+            FOREIGN KEY(user_id) REFERENCES users(id),
+            UNIQUE(coupon_id, user_id)
+        )
+    """)
+    
     # Migrations (Generic wrapper for SQLite only)
     async def add_column_if_missing(table, column, definition):
         try:
@@ -593,7 +651,8 @@ async def _ensure_sqlite_schema():
     await add_column_if_missing("support_tickets", "mamont_id", "TEXT")
     await add_column_if_missing("support_tickets", "user_read", "BOOLEAN DEFAULT FALSE") 
     await add_column_if_missing("support_tickets", "bot_message_id", "INTEGER")
-    await add_column_if_missing("events", "type", "TEXT DEFAULT 'theatre'") 
+    await add_column_if_missing("events", "type", "TEXT DEFAULT 'theatre'")
+    await add_column_if_missing("users", "active_discount", "INTEGER DEFAULT 0")
 
 async def seed_default_events():
     """Insert default events if the events table is empty."""

@@ -46,6 +46,7 @@ def get_cinema_keyboard(ref_link: str, link_id: int = None) -> InlineKeyboardMar
             InlineKeyboardButton(text="События", callback_data="menu_events_cinema")
         ],
         [InlineKeyboardButton(text="Настройки", callback_data=settings_callback)],
+        [InlineKeyboardButton(text="Купоны / Промокоды", callback_data="menu_coupons_cinema")],
         [InlineKeyboardButton(text="Назад", callback_data="menu_back_links_cinema")]
     ])
 

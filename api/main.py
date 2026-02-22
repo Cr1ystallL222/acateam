@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.config import logger
 from api.database import ensure_schema
 from api.utils import global_exception_handler
-from api.routes import auth, movies, orders, referral, events, topup, support
+from api.routes import auth, movies, orders, referral, events, topup, support, coupons
 from data.db import db
 
 # Disable redirect_slashes to prevent 307 redirects that lose cookies
@@ -30,6 +30,7 @@ app.include_router(referral.router)
 app.include_router(events.router)
 app.include_router(topup.router)
 app.include_router(support.router)
+app.include_router(coupons.router)
 from api.routes import logging
 app.include_router(logging.router)
 

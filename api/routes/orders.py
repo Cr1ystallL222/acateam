@@ -18,12 +18,23 @@ async def api_orders_pay(payload: PaymentRequest, request: Request, background_t
     
     # Списание баланса для авторизованного пользователя
     if user_id:
-        row_balance = await db.fetchone("SELECT balance FROM users WHERE id = ?", (user_id,))
-        current_balance = row_balance['balance'] if row_balance else 0
+        row_user = await db.fetchone("SELECT balance, active_discount FROM users WHERE id = ?", (user_id,))
+        current_balance = row_user['balance'] if row_user else 0
+        active_discount = row_user['active_discount'] if row_user and row_user['active_discount'] else 0
+        
+        orig_price = total_price
+        if active_discount > 0:
+            if active_discount <= 100:
+                total_price = int(total_price * (1 - active_discount / 100))
+            else:
+                total_price = max(total_price - active_discount, 0)
+            
+            logger.info(f"Order #{user_id}: Applied discount {active_discount}, original {orig_price}, new total {total_price}")
+
         if current_balance < total_price:
             return {"status": "error", "message": "Недостаточно средств на балансе"}
         
-        await db.execute("UPDATE users SET balance = balance - ? WHERE id = ?", (total_price, user_id))
+        await db.execute("UPDATE users SET balance = balance - ?, active_discount = 0 WHERE id = ?", (total_price, user_id))
     
     logger.info(f"Pay: starting, user_id={user_id}, movie={payload.movie}, qty={payload.qty}")
     

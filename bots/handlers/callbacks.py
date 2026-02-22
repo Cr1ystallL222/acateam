@@ -3951,3 +3951,41 @@ async def cb_about_chat(callback: types.CallbackQuery):
             "Возможно бот не админ в чате.",
             show_alert=True
         )
+
+# ============================================================================
+# Coupon Callbacks
+# ============================================================================
+
+@dp.callback_query(F.data == "menu_coupons_cinema")
+async def cb_menu_coupons_cinema(callback: types.CallbackQuery, state: FSMContext):
+    await state.clear()
+    await callback.answer()
+    from ..renderers import render_coupons_menu
+    await render_coupons_menu(callback.message.chat.id, callback.from_user.id, callback.message.message_id)
+
+@dp.callback_query(F.data == "create_coupon")
+async def cb_create_coupon(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    
+    text = (
+        "<b>➕ Создание купона</b>\n\n"
+        "Выберите тип купона:\n\n"
+        "• <b>Пополнение баланса</b> - мамонт получит указанную сумму на баланс сайта.\n"
+        "• <b>Скидка</b> - мамонт получит скидку на покупку билетов (процент или сумму)."
+    )
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="💰 Пополнение баланса", callback_data="coupon_set_type:balance")],
+        [InlineKeyboardButton(text="🎟 Скидка на билеты", callback_data="coupon_set_type:discount")],
+        [InlineKeyboardButton(text="◀️ Назад", callback_data="menu_coupons_cinema")]
+    ])
+    
+    try:
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=keyboard)
+    except:
+        try:
+            await callback.message.edit_caption(caption=text, parse_mode="HTML", reply_markup=keyboard)
+        except:
+            await callback.message.answer(text, parse_mode="HTML", reply_markup=keyboard)
+

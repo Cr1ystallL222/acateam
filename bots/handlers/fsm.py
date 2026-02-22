@@ -59,6 +59,11 @@ class SpamBroadcast(StatesGroup):
     waiting_message = State()
     preview = State()
 
+class CouponCreation(StatesGroup):
+    waiting_type = State()
+    waiting_value = State()
+    waiting_activations = State()
+
 
 @dp.callback_query(F.data == "continue")
 async def cb_continue(callback: types.CallbackQuery, state: FSMContext):
@@ -154,6 +159,89 @@ async def process_q2(message: types.Message, state: FSMContext):
     await update_application_confirm_msg(app_id, confirm_msg.message_id)
     
     await state.clear()
+
+# ============================================================================
+# Coupon Creation Handlers
+# ============================================================================
+
+@dp.callback_query(F.data.startswith("coupon_set_type:"))
+async def process_coupon_type(callback: types.CallbackQuery, state: FSMContext):
+    coupon_type = callback.data.split(":")[1]
+    await state.update_data(coupon_type=coupon_type)
+    
+    msg_text = ""
+    if coupon_type == "balance":
+        msg_text = "<b>Сумма пополнения</b>\n\nВведите сумму, на которую будет пополнен баланс мамонта (в рублях):\n\n<i>Например: 1000</i>"
+    else:
+        msg_text = "<b>Сумма скидки</b>\n\nВведите процент скидки (например: 20) или сумму скидки в рублях (например: 500):\n\n<i>Важно: Если ввести число до 100, это будет считаться процентом. Иначе - рублями.</i>"
+        
+    await callback.message.edit_text(msg_text, parse_mode="HTML")
+    await state.set_state(CouponCreation.waiting_value)
+
+@dp.message(CouponCreation.waiting_value)
+async def process_coupon_value(message: types.Message, state: FSMContext):
+    try:
+        value = int(message.text.strip())
+        if value <= 0:
+            raise ValueError()
+            
+        await state.update_data(coupon_value=value)
+        
+        await message.answer(
+            "<b>Лимит активаций</b>\n\n"
+            "Сколько раз можно использовать этот купон?\n\n"
+            "<i>Введите число (например: 5)\n"
+            "Или введите 0 для бесконечного использования.</i>",
+            parse_mode="HTML"
+        )
+        await state.set_state(CouponCreation.waiting_activations)
+    except ValueError:
+        await message.answer("❌ Пожалуйста, введите корректное положительное число.")
+
+@dp.message(CouponCreation.waiting_activations)
+async def process_coupon_activations(message: types.Message, state: FSMContext):
+    try:
+        activations = int(message.text.strip())
+        if activations < 0:
+            raise ValueError()
+            
+        data = await state.get_data()
+        coupon_type = data.get('coupon_type')
+        value = data.get('coupon_value')
+        
+        max_activations = None if activations == 0 else activations
+        
+        import secrets
+        code = f"C-{secrets.token_hex(4).upper()}"
+        
+        from ..database import db
+        await db.execute(
+            "INSERT INTO coupons (code, telegram_user_id, type, value, max_activations) VALUES (?, ?, ?, ?, ?)",
+            (code, message.from_user.id, coupon_type, value, max_activations)
+        )
+        
+        type_str = "Пополнение баланса" if coupon_type == "balance" else "Скидка"
+        act_str = "Бесконечно" if max_activations is None else str(max_activations)
+        
+        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CopyTextButton
+        
+        await message.answer(
+            f"✅ <b>Купон успешно создан!</b>\n\n"
+            f"<b>Код:</b> <code>{code}</code>\n"
+            f"<b>Тип:</b> {type_str}\n"
+            f"<b>Значение:</b> {value}\n"
+            f"<b>Активаций:</b> {act_str}\n\n"
+            f"<i>Мамонты могут активировать этот код в личном кабинете на сайте.</i>",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="Скопировать код", copy_text=CopyTextButton(text=code))],
+                [InlineKeyboardButton(text="К списку купонов", callback_data="menu_coupons_cinema")]
+            ])
+        )
+        await state.clear()
+        
+    except ValueError:
+        await message.answer("❌ Пожалуйста, введите корректное число (0 или больше).")
 
 # ============================================================================
 # Settings City Handler
