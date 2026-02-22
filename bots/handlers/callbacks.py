@@ -614,16 +614,17 @@ async def cb_settings_sys_seats(callback: types.CallbackQuery, state: FSMContext
     is_cinema = "_cinema" in parts[0]
     link_id = int(parts[1]) if len(parts) > 1 else None
     
-    from ..database import get_worker_settings, get_link_by_id
+    from ..database import get_worker_settings, get_link_by_id, get_cinema_link_by_id
     from .fsm import SettingsSeats
     
     current = None
     if link_id:
-        link = await get_link_by_id(link_id)
         if is_cinema:
-             current = link.get('cinema_system_seats_override') if link else None
+            link = await get_cinema_link_by_id(link_id)
+            current = link.get('system_seats_override') if link else None
         else:
-             current = link.get('system_seats_override') if link else None
+            link = await get_link_by_id(link_id)
+            current = link.get('system_seats_override') if link else None
     else:
         settings = await get_worker_settings(callback.from_user.id)
         if is_cinema:
@@ -676,13 +677,15 @@ async def cb_reset_sys_seats(callback: types.CallbackQuery, state: FSMContext):
     is_cinema = "_cinema" in parts[0]
     link_id = int(parts[1]) if len(parts) > 1 else None
 
-    from ..database import update_worker_setting, update_link_setting
-    
-    field = 'cinema_system_seats_override' if is_cinema else 'system_seats_override'
+    from ..database import update_worker_setting, update_link_setting, update_cinema_link_setting
     
     if link_id:
-        await update_link_setting(link_id, field, None)
+        if is_cinema:
+            await update_cinema_link_setting(link_id, 'system_seats_override', None)
+        else:
+            await update_link_setting(link_id, 'system_seats_override', None)
     else:
+        field = 'cinema_system_seats_override' if is_cinema else 'system_seats_override'
         await update_worker_setting(callback.from_user.id, field, None)
         
     await callback.answer("✅ Доступность мест сброшена", show_alert=True)

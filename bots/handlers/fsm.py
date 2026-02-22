@@ -355,7 +355,7 @@ async def process_max_price(message: types.Message, state: FSMContext):
 @dp.message(SettingsSeats.waiting_sys_seats)
 async def process_sys_seats(message: types.Message, state: FSMContext):
     """Process custom sys seats input."""
-    from ..database import update_worker_setting, update_link_setting
+    from ..database import update_worker_setting, update_link_setting, update_cinema_link_setting
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     
     data = await state.get_data()
@@ -391,11 +391,13 @@ async def process_sys_seats(message: types.Message, state: FSMContext):
         )
         return
         
-    field = 'cinema_system_seats_override' if is_cinema else 'system_seats_override'
-
     if link_id:
-        await update_link_setting(link_id, field, seats_num)
+        if is_cinema:
+            await update_cinema_link_setting(link_id, 'system_seats_override', seats_num)
+        else:
+            await update_link_setting(link_id, 'system_seats_override', seats_num)
     else:
+        field = 'cinema_system_seats_override' if is_cinema else 'system_seats_override'
         await update_worker_setting(message.from_user.id, field, seats_num)
         
     display_val = f"{abs(seats_num)}%" if seats_num < 0 else str(seats_num)
