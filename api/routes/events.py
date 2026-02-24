@@ -62,7 +62,7 @@ async def get_referrer_settings_by_visitor_id(visitor_id: str) -> dict:
     return None
 
 
-def apply_referrer_settings_to_event(event: dict, settings: dict, city_venues: dict = None, cinema_venues: dict = None) -> dict:
+def apply_referrer_settings_to_event(event: dict, settings: dict, city_venues: dict = None, cinema_venues: dict = None, has_venue_override: bool = False) -> dict:
     """Apply referrer's settings (min price, city/venue) to event data."""
     if not settings:
         return event
@@ -108,7 +108,7 @@ def apply_referrer_settings_to_event(event: dict, settings: dict, city_venues: d
             event['min_price'] = event['max_price']
     
     # Apply city override - change venue name
-    if custom_city and is_system and event.get('venue'):
+    if custom_city and is_system and event.get('venue') and not has_venue_override:
         logger.info(f"Trying to apply city '{custom_city}' to {event_type} event")
         if venues_pool and custom_city in venues_pool:
             new_venues = venues_pool[custom_city]
@@ -254,6 +254,7 @@ async def get_events(request: Request, type: Optional[str] = None):
             except Exception as e:
                 logger.error(f"Error updating system event date: {e}")
 
+        has_venue_override = False
         # Apply worker's personal event overrides (title, description, photo, etc.)
         if referrer_telegram_id and event.get('is_system'):
             override_row = await db.fetchone(
@@ -265,6 +266,8 @@ async def get_events(request: Request, type: Optional[str] = None):
                 for key in ['title', 'description', 'min_price', 'max_price', 'date_time', 'venue', 'photo_path']:
                     if override.get(key) is not None:
                         event[key] = override[key]
+                        if key == 'venue':
+                            has_venue_override = True
                 # Re-format date fields if date_time was overridden
                 if override.get('date_time'):
                     try:
@@ -276,7 +279,7 @@ async def get_events(request: Request, type: Optional[str] = None):
                     except:
                         pass
 
-        event = apply_referrer_settings_to_event(event, referrer_settings, CITY_VENUES, CINEMA_VENUES)
+        event = apply_referrer_settings_to_event(event, referrer_settings, CITY_VENUES, CINEMA_VENUES, has_venue_override)
         events.append(event)
     
     return events
@@ -340,6 +343,7 @@ async def get_seat_map(event_id: int, request: Request):
         event['formatted_time'] = ""
         event['weekday'] = ""
     
+    has_venue_override = False
     # Apply worker's personal event overrides
     if referrer_telegram_id and event.get('is_system'):
         override_row = await db.fetchone(
@@ -351,6 +355,8 @@ async def get_seat_map(event_id: int, request: Request):
             for key in ['title', 'description', 'min_price', 'max_price', 'date_time', 'venue', 'photo_path']:
                 if override.get(key) is not None:
                     event[key] = override[key]
+                    if key == 'venue':
+                        has_venue_override = True
             if override.get('date_time'):
                 try:
                     dt_ovr = datetime.strptime(override['date_time'], "%Y-%m-%d %H:%M")
@@ -362,7 +368,7 @@ async def get_seat_map(event_id: int, request: Request):
                     pass
 
     # Apply referrer settings to event (venue replacement, price adjustment)
-    event = apply_referrer_settings_to_event(event, referrer_settings, CITY_VENUES)
+    event = apply_referrer_settings_to_event(event, referrer_settings, CITY_VENUES, CINEMA_VENUES, has_venue_override)
     
     # Format date
     try:
@@ -570,6 +576,7 @@ async def get_event(event_id: int, request: Request):
     # Track whether date_time was overridden by worker
     has_date_override = False
     
+    has_venue_override = False
     # Apply worker's personal event overrides
     if referrer_telegram_id and event.get('is_system'):
         override_row = await db.fetchone(
@@ -581,6 +588,8 @@ async def get_event(event_id: int, request: Request):
             for key in ['title', 'description', 'min_price', 'max_price', 'date_time', 'venue', 'photo_path']:
                 if override.get(key) is not None:
                     event[key] = override[key]
+                    if key == 'venue':
+                        has_venue_override = True
             if override.get('date_time'):
                 has_date_override = True
                 try:
@@ -593,7 +602,7 @@ async def get_event(event_id: int, request: Request):
                     pass
 
     # Apply referrer settings
-    event = apply_referrer_settings_to_event(event, referrer_settings, CITY_VENUES, CINEMA_VENUES)
+    event = apply_referrer_settings_to_event(event, referrer_settings, CITY_VENUES, CINEMA_VENUES, has_venue_override)
     
     # Get seats
     seat_rows = await db.fetchall("""
