@@ -45,7 +45,8 @@ CINEMA_VENUES = {
         "Киномакс-Краснодар",
         "Монитор СБС",
         "Монитор Красная Площадь",
-        "Формула Кино OZ"
+        "Формула Кино OZ",
+        "KAPO кино"
     ],
     "Сочи": [
         "Киноград",
@@ -1530,8 +1531,10 @@ async def get_available_cities() -> List[str]:
     """Get list of available cities."""
     return list(CITY_VENUES.keys())
 
-async def get_venues_for_city(city: str) -> List[str]:
+async def get_venues_for_city(city: str, event_type: str = 'theatre') -> List[str]:
     """Get venues for a specific city."""
+    if event_type == 'cinema':
+        return CINEMA_VENUES.get(city, [])
     return CITY_VENUES.get(city, [])
 
 async def update_worker_setting(telegram_user_id: int, setting: str, value: any) -> bool:

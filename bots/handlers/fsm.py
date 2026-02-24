@@ -266,7 +266,7 @@ async def process_city_name(message: types.Message, state: FSMContext):
         )
         return
     
-    from ..database import update_worker_setting, update_link_setting, update_cinema_link_setting, get_venues_for_city, CITY_VENUES
+    from ..database import update_worker_setting, update_link_setting, update_cinema_link_setting, get_venues_for_city, CITY_VENUES, CINEMA_VENUES
     
     data = await state.get_data()
     link_id = data.get('link_id')
@@ -282,9 +282,11 @@ async def process_city_name(message: types.Message, state: FSMContext):
         setting_key = 'cinema_custom_city' if link_type == 'cinema' else 'custom_city'
         await update_worker_setting(message.from_user.id, setting_key, city_name)
     
+    target_venues = CINEMA_VENUES if link_type == 'cinema' else CITY_VENUES
+    
     # Check if city has predefined venues
-    if city_name in CITY_VENUES:
-        venues_info = f"\n\n✅ Найдено {len(CITY_VENUES[city_name])} локаций для города {city_name}."
+    if city_name in target_venues:
+        venues_info = f"\n\n✅ Найдено {len(target_venues[city_name])} локаций для города {city_name}."
     else:
         venues_info = f"\n\n⚠️ Для города {city_name} место проведения не будет отображаться."
     

@@ -2215,8 +2215,7 @@ async def cb_edit_venue(callback: types.CallbackQuery, state: FSMContext):
     
 
     from ..handlers.fsm import EventEdit
-
-    from ..database import get_worker_settings, get_venues_for_city
+    from ..database import get_worker_settings, get_venues_for_city, get_event_by_id
 
     
 
@@ -2227,12 +2226,12 @@ async def cb_edit_venue(callback: types.CallbackQuery, state: FSMContext):
     
 
     # Get venues for user's city
-
     settings = await get_worker_settings(callback.from_user.id)
-
-    city = settings.get('custom_city', 'Краснодар')
-
-    venues = await get_venues_for_city(city)
+    event = await get_event_by_id(event_id)
+    event_type = event.get('type', 'theatre') if event else 'theatre'
+    city_key = 'cinema_custom_city' if event_type == 'cinema' else 'custom_city'
+    city = settings.get(city_key) or settings.get('custom_city') or 'Краснодар'
+    venues = await get_venues_for_city(city, event_type)
 
     
 
@@ -3778,8 +3777,8 @@ async def cb_menu_about(callback: types.CallbackQuery):
     
     text = (
         "<b>О проекте ACA Team</b>\n\n"
-        "Мы — команда профессионалов, занимающаяся арбитражем трафика и монетизацией.\n"
-        "Наш проект существует уже более года и объединяет лучших специалистов в этой области.\n\n"
+        "Команда профессионалов по направлению Антикино.\n"
+        "В этой сфере мы уже много лет и открыли свою команду, чтобы помогать подняться с низов другим людям, у которых нет желания жить в нищете.\n\n"
         "Выберите раздел ниже:"
     )
     

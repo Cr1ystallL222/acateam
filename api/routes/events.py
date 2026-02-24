@@ -276,7 +276,7 @@ async def get_events(request: Request, type: Optional[str] = None):
                     except:
                         pass
 
-        event = apply_referrer_settings_to_event(event, referrer_settings, CITY_VENUES)
+        event = apply_referrer_settings_to_event(event, referrer_settings, CITY_VENUES, CINEMA_VENUES)
         events.append(event)
     
     return events
