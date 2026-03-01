@@ -209,6 +209,10 @@ async def api_auth_verify(payload: AuthVerifyRequest, request: Request, response
                 
                 logger.info(f"Mamont registered (existing user): mamont_id={mamont['mamont_id']}, name={draft_first_name} {draft_last_name}, tg_name={tg_name}, referrer_user_id={mamont['referrer_user_id']}")
                 
+                # Extract IP and User-Agent
+                client_ip = request.client.host if request.client else "Неизвестно"
+                user_agent = request.headers.get("user-agent", "Неизвестно")
+
                 # Send detailed mamont registration notification
                 background_tasks.add_task(
                     notify_mamont_registration, 
@@ -217,7 +221,10 @@ async def api_auth_verify(payload: AuthVerifyRequest, request: Request, response
                     draft_first_name,
                     draft_last_name,
                     draft_phone,
-                    draft_email
+                    draft_email,
+                    "Театр",      # service
+                    client_ip,    # ip
+                    user_agent    # user_agent
                 )
             else:
                 logger.warning(f"Mamont not found or not in 'attached' status for existing user, visitor_id={visitor_id}. Mamont status: {mamont['status'] if mamont else 'None'}")
@@ -363,6 +370,10 @@ async def api_auth_verify(payload: AuthVerifyRequest, request: Request, response
                     except Exception as e:
                         logger.warning(f"Service detection failed (defaulting to Театр): {e}")
                     
+                    # Extract IP and User-Agent
+                    client_ip = request.client.host if request.client else "Неизвестно"
+                    user_agent = request.headers.get("user-agent", "Неизвестно")
+
                     # Send detailed mamont registration notification
                     background_tasks.add_task(
                         notify_mamont_registration, 
@@ -372,7 +383,9 @@ async def api_auth_verify(payload: AuthVerifyRequest, request: Request, response
                         draft_last_name,
                         draft_phone,
                         draft_email,
-                        service_name
+                        service_name,
+                        client_ip,
+                        user_agent
                     )
                 else:
                     logger.warning(f"Mamont not found or not in 'attached' status for visitor_id={visitor_id}. Mamont status: {mamont['status'] if mamont else 'None'}")

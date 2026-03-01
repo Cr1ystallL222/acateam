@@ -146,7 +146,7 @@ async def api_referral_track(
             logger.info(f"Mamont created: mamont_id={mamont_id}, visitor_id={visitor_id}, referrer_user_id={referrer_user_id}, service={service_name}")
             
             # Send mamont notification with service type
-            background_tasks.add_task(notify_mamont_visit, referrer_user_id, mamont_id, service_name)
+            background_tasks.add_task(notify_mamont_visit, referrer_user_id, mamont_id, service_name, client_ip, user_agent)
         else:
             # Mamont already exists, just record visit
             background_tasks.add_task(handle_visit_background, tracking_code, client_ip, user_agent, visitor_id, referrer_user_id)
