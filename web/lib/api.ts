@@ -178,5 +178,14 @@ export const api = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ source: 'theatre' })
             })
+    },
+
+    coupons: {
+        activate: (code: string) =>
+            fetchJson<{ status: string; message?: string }>('/api/coupons/activate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code })
+            })
     }
 };

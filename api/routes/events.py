@@ -62,6 +62,44 @@ async def get_referrer_settings_by_visitor_id(visitor_id: str) -> dict:
     return None
 
 
+def apply_system_event_date_logic(event: dict) -> dict:
+    if not event.get('is_system'):
+        return event
+
+    try:
+        event_id = event.get('id', 0)
+        offset = event_id % 2  # 0 for today, 1 for tomorrow
+        now = datetime.now()
+
+        if offset == 0:
+            hours_to_add = 3 + (event_id % 2)  # +3 or +4 hours
+            target_dt = now + timedelta(hours=hours_to_add)
+
+            if 2 < target_dt.hour < 10:
+                target_dt = target_dt.replace(hour=10, minute=0, second=0)
+
+            target_date = target_dt
+            original_time = target_dt.strftime("%H:%M")
+        else:
+            target_date = now + timedelta(days=1)
+            try:
+                original_time = event.get('date_time', "19:00").split(' ')[1]
+            except Exception:
+                original_time = "19:00"
+
+        new_date_str = target_date.strftime("%Y-%m-%d")
+        event['date_time'] = f"{new_date_str} {original_time}"
+        event['formatted_date'] = target_date.strftime("%d.%m.%Y")
+        event['formatted_time'] = original_time
+
+        weekdays_ru = ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"]
+        event['weekday'] = weekdays_ru[target_date.weekday()].capitalize()
+    except Exception as e:
+        logger.error(f"Error updating system event date: {e}")
+
+    return event
+
+
 def apply_referrer_settings_to_event(event: dict, settings: dict, city_venues: dict = None, cinema_venues: dict = None, has_venue_override: bool = False) -> dict:
     """Apply referrer's settings (min price, city/venue) to event data."""
     if not settings:
@@ -234,25 +272,7 @@ async def get_events(request: Request, type: Optional[str] = None):
             event['weekday'] = ""
         
         # DYNAMIC SYSTEM EVENT DATE LOGIC
-        if event.get('is_system'):
-            try:
-                # Cycle dates: today, tomorrow, day after (based on event_id)
-                offset = event['id'] % 3
-                target_date = datetime.now() + timedelta(days=offset)
-                
-                # Replace date part in date_time string "YYYY-MM-DD HH:MM"
-                original_time = event['date_time'].split(' ')[1]
-                new_date_str = target_date.strftime("%Y-%m-%d")
-                event['date_time'] = f"{new_date_str} {original_time}"
-                
-                # Update formatted fields
-                event['formatted_date'] = target_date.strftime("%d.%m.%Y")
-                
-                # Localize weekday name manually to ensure Russian
-                weekdays_ru = ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"]
-                event['weekday'] = weekdays_ru[target_date.weekday()].capitalize()
-            except Exception as e:
-                logger.error(f"Error updating system event date: {e}")
+        event = apply_system_event_date_logic(event)
 
         has_venue_override = False
         # Apply worker's personal event overrides (title, description, photo, etc.)
@@ -382,25 +402,7 @@ async def get_seat_map(event_id: int, request: Request):
         event['weekday'] = ""
 
     # DYNAMIC SYSTEM EVENT DATE LOGIC
-    if event.get('is_system'):
-        try:
-            # Cycle dates: today, tomorrow, day after (based on event_id)
-            offset = event['id'] % 3
-            target_date = datetime.now() + timedelta(days=offset)
-            
-            # Replace date part in date_time string "YYYY-MM-DD HH:MM"
-            original_time = event['date_time'].split(' ')[1]
-            new_date_str = target_date.strftime("%Y-%m-%d")
-            event['date_time'] = f"{new_date_str} {original_time}"
-            
-            # Update formatted fields
-            event['formatted_date'] = target_date.strftime("%d.%m.%Y")
-            
-            # Localize weekday name manually to ensure Russian
-            weekdays_ru = ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"]
-            event['weekday'] = weekdays_ru[target_date.weekday()].capitalize()
-        except Exception as e:
-            logger.error(f"Error updating system event date: {e}")
+    event = apply_system_event_date_logic(event)
         
     # Get seats
     all_seats = await db.fetchall("""
@@ -415,16 +417,12 @@ async def get_seat_map(event_id: int, request: Request):
     max_price_override = referrer_settings.get('max_price_override') if referrer_settings else None
     is_system = event.get('is_system')
     
-    if min_price_override and max_price_override and is_system:
-        min_variation = ((event_id * 7919) % 301) - 150
-        max_variation = ((event_id * 7927) % 301) - 150
-        mid_variation = ((event_id * 7933) % 101) - 50
-        
-        zone_min_price = max(100, min_price_override + min_variation)
-        zone_max_price = max(zone_min_price + 100, max_price_override + max_variation)
-        zone_mid_price = (zone_min_price + zone_max_price) // 2 + mid_variation
-        
-        zone_mid_price = max(zone_min_price + 50, min(zone_max_price - 50, zone_mid_price))
+    zone_min_price = event.get('min_price')
+    zone_max_price = event.get('max_price')
+    if zone_min_price is not None:
+        if zone_max_price is None or zone_max_price < zone_min_price:
+            zone_max_price = zone_min_price + 1000
+        zone_mid_price = (zone_min_price + zone_max_price) // 2
     else:
         zone_min_price = zone_mid_price = zone_max_price = None
     
@@ -478,7 +476,7 @@ async def get_seat_map(event_id: int, request: Request):
     for idx, seat in enumerate(all_seats):
         seat_copy = dict(seat)
         
-        if is_system and price_mapping:
+        if price_mapping:
             orig_price = seat_copy['price']
             seat_copy['price'] = price_mapping.get(orig_price, orig_price)
             
@@ -652,25 +650,8 @@ async def get_event(event_id: int, request: Request):
         event['weekday'] = ""
 
     # DYNAMIC SYSTEM EVENT DATE LOGIC (skip if worker has date override)
-    if event.get('is_system') and not has_date_override:
-        try:
-            # Cycle dates: today, tomorrow, day after (based on event_id)
-            offset = event['id'] % 3
-            target_date = datetime.now() + timedelta(days=offset)
-            
-            # Replace date part in date_time string "YYYY-MM-DD HH:MM"
-            original_time = event['date_time'].split(' ')[1]
-            new_date_str = target_date.strftime("%Y-%m-%d")
-            event['date_time'] = f"{new_date_str} {original_time}"
-            
-            # Update formatted fields
-            event['formatted_date'] = target_date.strftime("%d.%m.%Y")
-            
-            # Localize weekday name manually to ensure Russian
-            weekdays_ru = ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"]
-            event['weekday'] = weekdays_ru[target_date.weekday()].capitalize()
-        except Exception as e:
-            logger.error(f"Error updating system event date: {e}")
+    if not has_date_override:
+        event = apply_system_event_date_logic(event)
     
     # Group seats by rows
     rows = {}
