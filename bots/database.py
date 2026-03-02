@@ -1786,6 +1786,21 @@ async def update_event_availability(event_id: int, target_free_count: int):
              # Set to False (Occupied)
              await db.execute(f"UPDATE event_seats SET is_available = ? WHERE id IN ({placeholders})", (False, *ids))
 
+async def free_event_seat_by_number(event_id: int, seat_index: int) -> bool:
+    """Free a specific seat by its index (1-based) across all seats in the event."""
+    # Get all seats ordered by row_number, seat_number
+    rows = await db.fetchall("""
+        SELECT id FROM event_seats
+        WHERE event_id = ?
+        ORDER BY row_number, seat_number
+    """, (event_id,))
+    
+    if 0 < seat_index <= len(rows):
+        seat_id = rows[seat_index - 1]['id']
+        await db.execute("UPDATE event_seats SET is_available = ? WHERE id = ?", (True, seat_id))
+        return True
+    return False
+
 async def get_cinema_links(telegram_user_id: int) -> list:
     """Get all cinema links for a user."""
     return await db.fetchall("""

@@ -494,9 +494,10 @@ async def cmd_profit(message: types.Message, state: FSMContext):
     )
 
     # Keyboard
+    cb_conf = f"profit_conf:{worker['telegram_user_id']}:{amount}"
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="Подтвердить", callback_data="profit_confirm"),
+            InlineKeyboardButton(text="Подтвердить", callback_data=cb_conf),
             InlineKeyboardButton(text="Отклонить", callback_data="profit_cancel")
         ]
     ])
@@ -505,16 +506,8 @@ async def cmd_profit(message: types.Message, state: FSMContext):
     from pathlib import Path
     image_path = Path(__file__).parent.parent / "images" / "profit_image.jpg"
     
-    # Save state data
-    await state.set_state(ProfitProcess.confirm)
-    await state.update_data(
-        worker_id=worker['telegram_user_id'],
-        worker_name=worker_name,
-        amount=amount,
-        worker_share=worker_share,
-        note=note,
-        preview_text=preview_text
-    )
+    # Clear state data (not needed anymore, we use callback_data + message parsing)
+    await state.clear()
 
     if image_path.exists():
         photo = FSInputFile(image_path)

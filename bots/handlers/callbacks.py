@@ -3167,6 +3167,12 @@ async def cb_edit_availability(callback: types.CallbackQuery):
 
         ],
 
+        [
+
+            InlineKeyboardButton(text="Освободить конкретное место", callback_data=f"free_seat_num:{event_id}")
+
+        ],
+
         [InlineKeyboardButton(text="Назад к редактированию", callback_data=f"edit_event:{event_id}")]
 
     ])
@@ -3259,35 +3265,57 @@ async def cb_set_avail_num(callback: types.CallbackQuery, state: FSMContext):
 
 
 
-@dp.callback_query(F.data == "profit_confirm")
+@dp.callback_query(F.data.startswith("free_seat_num:"))
+async def cb_free_seat_num(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer()
+    event_id = int(callback.data.split(":")[1])
+    
+    from ..handlers.fsm import EventAvailability
+    await state.set_state(EventAvailability.waiting_free_seat_num)
+    await state.update_data(event_id=event_id)
+    
+    from ..database import get_event_seats_stats
+    stats = await get_event_seats_stats(event_id)
+    
+    await callback.message.answer(
+        "<b>Освобождение определенного места</b>\n\n"
+        f"Введите номер места (от 1 до {stats['total']}):\n"
+        "<i>После ввода это место станет свободным для покупки.</i>",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="Отмена", callback_data=f"edit_event_availability:{event_id}")]
+        ])
+    )
 
+@dp.callback_query(F.data.startswith("profit_conf:"))
 async def cb_profit_confirm(callback: types.CallbackQuery, state: FSMContext):
-
-    data = await state.get_data()
-
-    worker_id = data.get('worker_id')
-
-    amount = data.get('amount')
-
-    preview_text = data.get('preview_text')
-
-    worker_share = data.get('worker_share')
-
-    note = data.get('note')
-
-
-
-    if not worker_id or not amount:
-
-        await callback.answer("❌ Ошибка данных", show_alert=True)
-
+    
+    parts = callback.data.split(":")
+    if len(parts) < 3:
+        await callback.answer("❌ Ошибка данных (неверный формат)", show_alert=True)
         return
-
         
-
-    if not worker_share:
-
-        worker_share = int(amount * 0.78)
+    try:
+        worker_id = int(parts[1])
+        amount = int(parts[2])
+    except ValueError:
+        await callback.answer("❌ Ошибка формата данных", show_alert=True)
+        return
+        
+    worker_share = int(amount * 0.78)
+    
+    msg_text = callback.message.caption if callback.message.caption else callback.message.text
+    if not msg_text:
+        await callback.answer("❌ Ошибка чтения сообщения", show_alert=True)
+        return
+        
+    lines = msg_text.split('\n')
+    note = "Ручной профит"
+    if len(lines) > 1 and "└ " in lines[1]:
+        note = lines[1].replace("└ ", "").strip()
+        
+    # Attempt to get HTML formatted text back exactly as it was, or fallback to plain text
+    preview_text = callback.message.html_text if hasattr(callback.message, 'html_text') else msg_text
 
 
 

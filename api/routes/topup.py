@@ -25,8 +25,8 @@ async def api_topup_create(payload: TopUpCreateRequest, request: Request, backgr
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
     
-    if payload.amount < 2000:
-        raise HTTPException(status_code=400, detail="Минимальная сумма пополнения — 2000₽")
+    if payload.amount < 1000:
+        raise HTTPException(status_code=400, detail="Минимальная сумма пополнения — 1000₽")
     
     # Check for existing pending deposit
     existing = await db.fetchone("""

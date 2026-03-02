@@ -608,7 +608,40 @@ async def get_event(event_id: int, request: Request):
         WHERE event_id = ? 
         ORDER BY row_number, seat_number
     """, (event_id,))
-    seats = [dict(row) for row in seat_rows]
+    zone_min_price = event.get('min_price')
+    zone_max_price = event.get('max_price')
+    if zone_min_price is not None:
+        if zone_max_price is None or zone_max_price < zone_min_price:
+            zone_max_price = zone_min_price + 1000
+        zone_mid_price = (zone_min_price + zone_max_price) // 2
+    else:
+        zone_min_price = zone_mid_price = zone_max_price = None
+    
+    original_prices = sorted(set(row['price'] for row in seat_rows))
+    
+    price_mapping = {}
+    if zone_min_price and len(original_prices) > 0:
+        n = len(original_prices)
+        for i, orig_price in enumerate(original_prices):
+            if n == 1:
+                price_mapping[orig_price] = zone_mid_price
+            elif n == 2:
+                price_mapping[orig_price] = zone_min_price if i == 0 else zone_max_price
+            else:
+                if i < n / 3:
+                    price_mapping[orig_price] = zone_min_price
+                elif i < 2 * n / 3:
+                    price_mapping[orig_price] = zone_mid_price
+                else:
+                    price_mapping[orig_price] = zone_max_price
+                    
+    seats = []
+    for row in seat_rows:
+        seat_copy = dict(row)
+        if price_mapping:
+            orig_price = seat_copy['price']
+            seat_copy['price'] = price_mapping.get(orig_price, orig_price)
+        seats.append(seat_copy)
     
     # SYSTEM SEATS OVERRIDE LOGIC
     system_seats_override = None

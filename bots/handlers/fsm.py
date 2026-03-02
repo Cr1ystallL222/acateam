@@ -51,6 +51,7 @@ class CinemaLinkCreation(StatesGroup):
 class EventAvailability(StatesGroup):
     waiting_percent = State()
     waiting_number = State()
+    waiting_free_seat_num = State()
 
 class ProfitProcess(StatesGroup):
     confirm = State()
@@ -1085,3 +1086,36 @@ async def process_avail_number(message: types.Message, state: FSMContext):
     )
     await state.clear()
 
+@dp.message(EventAvailability.waiting_free_seat_num)
+async def process_avail_free_seat_num(message: types.Message, state: FSMContext):
+    try:
+        seat_num = int(message.text)
+    except ValueError:
+        await message.answer("Пожалуйста, введите целое число.")
+        return
+        
+    data = await state.get_data()
+    event_id = data.get('event_id')
+    
+    from ..database import get_event_seats_stats, free_event_seat_by_number
+    
+    stats = await get_event_seats_stats(event_id)
+    total = stats['total']
+    
+    if not (1 <= seat_num <= total):
+        await message.answer(f"Номер места должен быть от 1 до {total}.")
+        return
+    
+    success = await free_event_seat_by_number(event_id, seat_num)
+    if success:
+        await message.answer(
+            f"✅ <b>Место #{seat_num} успешно освобождено!</b>\n\n"
+            f"Теперь оно доступно для покупки на этом событии.",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="К управлению доступностью", callback_data=f"edit_event_availability:{event_id}")]
+            ])
+        )
+    else:
+        await message.answer("Произошла ошибка при освобождении места.")
+    await state.clear()
