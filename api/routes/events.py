@@ -129,18 +129,13 @@ def apply_referrer_settings_to_event(event: dict, settings: dict, city_venues: d
         
         logger.info(f"Applying {event_type} min_price_override={min_price_override} (+{variation}={randomized_min}) to '{event.get('title')}'")
         
-        # Set minimum price with variation
-        if event['min_price'] < randomized_min:
-            event['min_price'] = randomized_min
-        
-        # Also adjust max price if needed
-        if event['max_price'] < randomized_min:
-            event['max_price'] = randomized_min + 1500  # Keep a reasonable spread
+        # Set minimum and default maximum price with variation
+        event['min_price'] = randomized_min
+        event['max_price'] = randomized_min
     
     # Apply max price override
     if max_price_override and is_system:
-        if event['max_price'] > max_price_override:
-            event['max_price'] = max_price_override
+        event['max_price'] = max_price_override
         # Ensure min <= max
         if event['min_price'] > event['max_price']:
             event['min_price'] = event['max_price']
