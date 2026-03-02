@@ -54,8 +54,8 @@ export default function TopUpPage() {
         setError('');
 
         const numAmount = parseInt(amount);
-        if (isNaN(numAmount) || numAmount < 2000) {
-            setError('Минимальная сумма пополнения — 2000₽');
+        if (isNaN(numAmount) || numAmount < 1000) {
+            setError('Минимальная сумма пополнения — 1000₽');
             return;
         }
 
@@ -143,13 +143,13 @@ export default function TopUpPage() {
                                             type="number"
                                             value={amount}
                                             onChange={(e) => setAmount(e.target.value)}
-                                            placeholder="2000"
-                                            min="2000"
+                                            placeholder="1000"
+                                            min="1000"
                                             className="w-full bg-[#1A1A1A] border border-white/10 rounded-xl px-4 py-3.5 text-white text-lg placeholder:text-gray-600 focus:outline-none focus:border-[#E60000] focus:ring-1 focus:ring-[#E60000] transition-all"
                                         />
                                         <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-medium">₽</span>
                                     </div>
-                                    <p className="text-xs text-gray-500 mt-2 ml-1">Минимальная сумма — 2000 ₽</p>
+                                    <p className="text-xs text-gray-500 mt-2 ml-1">Минимальная сумма — 1000 ₽</p>
                                 </div>
 
                                 {error && (
