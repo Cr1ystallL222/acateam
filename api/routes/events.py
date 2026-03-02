@@ -433,7 +433,7 @@ async def get_seat_map(event_id: int, request: Request):
         n = len(original_prices)
         for i, orig_price in enumerate(original_prices):
             if n == 1:
-                price_mapping[orig_price] = zone_mid_price
+                price_mapping[orig_price] = zone_min_price
             elif n == 2:
                 price_mapping[orig_price] = zone_min_price if i == 0 else zone_max_price
             else:
@@ -624,7 +624,7 @@ async def get_event(event_id: int, request: Request):
         n = len(original_prices)
         for i, orig_price in enumerate(original_prices):
             if n == 1:
-                price_mapping[orig_price] = zone_mid_price
+                price_mapping[orig_price] = zone_min_price
             elif n == 2:
                 price_mapping[orig_price] = zone_min_price if i == 0 else zone_max_price
             else:
