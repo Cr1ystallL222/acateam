@@ -196,6 +196,68 @@ async def cb_menu_cinema(callback: types.CallbackQuery):
     await render_cinema_links_management_menu(callback.message.chat.id, callback.from_user.id, callback.message.message_id)
     await callback.answer()
 
+@dp.callback_query(F.data == "menu_escort")
+async def cb_menu_escort(callback: types.CallbackQuery):
+    """Show Escort stub menu."""
+    from pathlib import Path
+    from ..keyboards import get_stub_keyboard
+    
+    text = (
+        "💎 <b>Эскорт</b>\n\n"
+        "🔐 <b>Код от сервиса:</b> 485564\n"
+        "🔗 <b>Реф. ссылка:</b> COPY\n\n"
+        "📊 <b>Ваша статистика:</b> 💬\n\n"
+        "📈 Количество профитов: 0\n"
+        "💰 Общая сумма профитов: 0 RUB"
+    )
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⚙️ Управление зеркалами", callback_data="escort_stub")],
+        [
+            InlineKeyboardButton(text="🦣 Мамонты", callback_data="escort_stub"),
+            InlineKeyboardButton(text="🔗 Реф. ссылка", callback_data="escort_stub")
+        ],
+        [
+            InlineKeyboardButton(text="📮 Рассылка", callback_data="escort_stub"),
+            InlineKeyboardButton(text="🎫 Создать промокод", callback_data="escort_stub")
+        ],
+        [InlineKeyboardButton(text="🔧 Настройка бота", callback_data="escort_stub")],
+        [InlineKeyboardButton(text="💵 Мин. пополнение: 1000", callback_data="escort_stub")],
+        [InlineKeyboardButton(text="Назад", callback_data="menu_back_profile")]
+    ])
+    
+    # Image path
+    image_path = Path(__file__).parent.parent / "images" / "Escort.png"
+    
+    if image_path.exists():
+        photo = FSInputFile(image_path)
+        try:
+            await callback.message.delete()
+        except:
+            pass
+        sent_msg = await bot.send_photo(
+            chat_id=callback.message.chat.id,
+            photo=photo,
+            caption=text,
+            parse_mode="HTML",
+            reply_markup=keyboard
+        )
+        # Update last menu message
+        from ..database import save_last_menu_message_id
+        await save_last_menu_message_id(callback.from_user.id, sent_msg.message_id)
+    else:
+        try:
+            await callback.message.edit_text(text=text, parse_mode="HTML", reply_markup=keyboard)
+        except:
+            await callback.message.answer(text=text, parse_mode="HTML", reply_markup=keyboard)
+    
+    await callback.answer()
+
+@dp.callback_query(F.data == "escort_stub")
+async def cb_escort_stub(callback: types.CallbackQuery):
+    """Handle stub buttons in escort menu."""
+    await callback.answer("Эта функция находится в разработке", show_alert=True)
+
 @dp.callback_query(F.data == "create_link_cinema")
 async def cb_create_link_cinema(callback: types.CallbackQuery, state: FSMContext):
     """Start cinema link creation flow."""
