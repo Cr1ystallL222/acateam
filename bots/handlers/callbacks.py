@@ -215,7 +215,7 @@ async def cb_menu_escort(callback: types.CallbackQuery):
         text = (
             "💎 <b>Эскорт</b>\n\n"
             f"🔐 <b>Код от сервиса:</b> {ref_code}\n"
-            f"🔗 <b>Реф. ссылка:</b> COPY\n\n"
+            f"🔗 <b>Реф. ссылка:</b> <a href='{ref_link}'>COPY</a>\n\n"
             "<blockquote>📊 <b>Ваша статистика:</b> 💬</blockquote>\n\n"
             "┠ Количество профитов: 0\n"
             "┖ Общая сумма профитов: 0 RUB"

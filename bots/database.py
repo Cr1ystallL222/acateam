@@ -1072,8 +1072,13 @@ async def get_or_create_referral(telegram_user_id: int, chat_id: int) -> str:
     # First, try to get existing referral code
     row = await db.fetchone("SELECT referral_code FROM users WHERE telegram_user_id = ?", (telegram_user_id,))
     if row and row['referral_code']:
-        logger.info(f"Referral code found for user {telegram_user_id}: {row['referral_code']}")
-        return row['referral_code']
+        # Check if code is numeric (new format)
+        if row['referral_code'].isdigit():
+            logger.info(f"Referral code found for user {telegram_user_id}: {row['referral_code']}")
+            return row['referral_code']
+        else:
+            # Old format (alphanumeric), need to update to numeric
+            logger.info(f"Old format referral code found, updating to numeric for user {telegram_user_id}")
     
     # Generate new referral code (6-8 digits only)
     max_attempts = 10
@@ -1093,10 +1098,10 @@ async def get_or_create_referral(telegram_user_id: int, chat_id: int) -> str:
             # User might already exist, try to update
             logger.info(f"Insert failed (attempt {attempt+1}), trying update: {e}")
             try:
-                # Update existing user with new referral code
+                # Update existing user with new referral code (force update even if code exists)
                 await db.execute("""
                     UPDATE users SET referral_code = ?, chat_id = ?
-                    WHERE telegram_user_id = ? AND (referral_code IS NULL OR referral_code = '')
+                    WHERE telegram_user_id = ?
                 """, (new_ref, chat_id, telegram_user_id))
                 
                 # Verify it was set
