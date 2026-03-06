@@ -200,64 +200,83 @@ async def cb_menu_cinema(callback: types.CallbackQuery):
 async def cb_menu_escort(callback: types.CallbackQuery):
     """Show Escort stub menu."""
     logger.info(f"Escort menu called by user {callback.from_user.id}")
-    from pathlib import Path
-    from ..config import ESCORT_BOT_USERNAME
-    
-    # Generate referral code for escort
-    ref_code = await get_or_create_referral(callback.from_user.id, callback.message.chat.id)
-    logger.info(f"Generated ref_code: {ref_code}")
-    ref_link = f"https://t.me/{ESCORT_BOT_USERNAME}?start={ref_code}"
-    
-    text = (
-        "💎 <b>Эскорт</b>\n\n"
-        f"🔐 <b>Код от сервиса:</b> {ref_code}\n"
-        f"🔗 <b>Реф. ссылка:</b> {ref_link}\n\n"
-        "<blockquote>📊 <b>Ваша статистика:</b> 💬</blockquote>\n\n"
-        "┠ Количество профитов: 0\n"
-        "┖ Общая сумма профитов: 0 RUB"
-    )
-    
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⚙️ Управление зеркалами", callback_data="escort_stub")],
-        [
-            InlineKeyboardButton(text="🦣 Мамонты", callback_data="escort_stub"),
-            InlineKeyboardButton(text="🔗 Реф. ссылка", callback_data="escort_stub")
-        ],
-        [
-            InlineKeyboardButton(text="📮 Рассылка", callback_data="escort_stub"),
-            InlineKeyboardButton(text="🎫 Создать промокод", callback_data="escort_stub")
-        ],
-        [InlineKeyboardButton(text="🔧 Настройка бота", callback_data="escort_stub")],
-        [InlineKeyboardButton(text="💵 Мин. пополнение: 1000", callback_data="escort_stub")],
-        [InlineKeyboardButton(text="Назад", callback_data="menu_back_profile")]
-    ])
-    
-    # Image path
-    image_path = Path(__file__).parent.parent / "images" / "Escort.png"
-    
-    if image_path.exists():
-        photo = FSInputFile(image_path)
-        try:
-            await callback.message.delete()
-        except:
-            pass
-        sent_msg = await bot.send_photo(
-            chat_id=callback.message.chat.id,
-            photo=photo,
-            caption=text,
-            parse_mode="HTML",
-            reply_markup=keyboard
+    try:
+        from pathlib import Path
+        from ..config import ESCORT_BOT_USERNAME
+        
+        # Generate referral code for escort
+        logger.info("Generating referral code...")
+        ref_code = await get_or_create_referral(callback.from_user.id, callback.message.chat.id)
+        logger.info(f"Generated ref_code: {ref_code}")
+        ref_link = f"https://t.me/{ESCORT_BOT_USERNAME}?start={ref_code}"
+        logger.info(f"Generated ref_link: {ref_link}")
+        
+        text = (
+            "💎 <b>Эскорт</b>\n\n"
+            f"🔐 <b>Код от сервиса:</b> {ref_code}\n"
+            f"🔗 <b>Реф. ссылка:</b> {ref_link}\n\n"
+            "<blockquote>📊 <b>Ваша статистика:</b> 💬</blockquote>\n\n"
+            "┠ Количество профитов: 0\n"
+            "┖ Общая сумма профитов: 0 RUB"
         )
-        # Update last menu message
-        from ..database import save_last_menu_message_id
-        await save_last_menu_message_id(callback.from_user.id, sent_msg.message_id)
-    else:
-        try:
-            await callback.message.edit_text(text=text, parse_mode="HTML", reply_markup=keyboard)
-        except:
-            await callback.message.answer(text=text, parse_mode="HTML", reply_markup=keyboard)
-    
-    await callback.answer()
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="⚙️ Управление зеркалами", callback_data="escort_stub")],
+            [
+                InlineKeyboardButton(text="🦣 Мамонты", callback_data="escort_stub"),
+                InlineKeyboardButton(text="🔗 Реф. ссылка", callback_data="escort_stub")
+            ],
+            [
+                InlineKeyboardButton(text="📮 Рассылка", callback_data="escort_stub"),
+                InlineKeyboardButton(text="🎫 Создать промокод", callback_data="escort_stub")
+            ],
+            [InlineKeyboardButton(text="🔧 Настройка бота", callback_data="escort_stub")],
+            [InlineKeyboardButton(text="💵 Мин. пополнение: 1000", callback_data="escort_stub")],
+            [InlineKeyboardButton(text="Назад", callback_data="menu_back_profile")]
+        ])
+        
+        # Image path
+        image_path = Path(__file__).parent.parent / "images" / "Escort.png"
+        logger.info(f"Image path: {image_path}, exists: {image_path.exists()}")
+        
+        if image_path.exists():
+            logger.info("Sending photo with escort menu...")
+            photo = FSInputFile(image_path)
+            try:
+                await callback.message.delete()
+                logger.info("Old message deleted")
+            except Exception as e:
+                logger.warning(f"Could not delete old message: {e}")
+            
+            sent_msg = await bot.send_photo(
+                chat_id=callback.message.chat.id,
+                photo=photo,
+                caption=text,
+                parse_mode="HTML",
+                reply_markup=keyboard
+            )
+            logger.info(f"Photo sent, message_id: {sent_msg.message_id}")
+            
+            # Update last menu message
+            from ..database import save_last_menu_message_id
+            await save_last_menu_message_id(callback.from_user.id, sent_msg.message_id)
+            logger.info("Last menu message updated")
+        else:
+            logger.warning("Image not found, sending text message")
+            try:
+                await callback.message.edit_text(text=text, parse_mode="HTML", reply_markup=keyboard)
+                logger.info("Message edited")
+            except Exception as e:
+                logger.warning(f"Could not edit message: {e}, sending new message")
+                await callback.message.answer(text=text, parse_mode="HTML", reply_markup=keyboard)
+                logger.info("New message sent")
+        
+        await callback.answer()
+        logger.info("Callback answered")
+        
+    except Exception as e:
+        logger.error(f"Error in escort menu handler: {e}", exc_info=True)
+        await callback.answer("Произошла ошибка", show_alert=True)
 
 @dp.callback_query(F.data == "escort_stub")
 async def cb_escort_stub(callback: types.CallbackQuery):
