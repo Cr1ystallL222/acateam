@@ -26,6 +26,7 @@ ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip()]
 LOG_CHAT_ID = os.getenv("LOG_CHAT_ID") or os.getenv("APPLICATIONS_CHAT_ID")
 SITE_URL = os.getenv("SITE_URL", "http://localhost:3000").rstrip('/')
 CINEMA_SITE_URL = os.getenv("CINEMA_SITE_URL", "http://localhost:3001").rstrip('/')
+ESCORT_BOT_USERNAME = os.getenv("ESCORT_BOT_USERNAME", "CrystallGirls_bot")
 WELCOME_STICKER_ID = os.getenv("WELCOME_STICKER_ID", "CAACAgIAAxkBAAEVndxpfLWe_kV-422Fi4qGKJLHsd5efwACu4wAAuMy4UtXVa5yYy5AOTgE")
 WELCOME_IMAGE_PATH = os.getenv("WELCOME_IMAGE_PATH", "")
 

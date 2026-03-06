@@ -200,15 +200,19 @@ async def cb_menu_cinema(callback: types.CallbackQuery):
 async def cb_menu_escort(callback: types.CallbackQuery):
     """Show Escort stub menu."""
     from pathlib import Path
-    from ..keyboards import get_stub_keyboard
+    from ..config import ESCORT_BOT_USERNAME
+    
+    # Generate referral code for escort
+    ref_code = await get_or_create_referral(callback.from_user.id, callback.message.chat.id)
+    ref_link = f"https://t.me/{ESCORT_BOT_USERNAME}?start={ref_code}"
     
     text = (
         "💎 <b>Эскорт</b>\n\n"
-        "🔐 <b>Код от сервиса:</b> 485564\n"
-        "🔗 <b>Реф. ссылка:</b> COPY\n\n"
-        "📊 <b>Ваша статистика:</b> 💬\n\n"
-        "📈 Количество профитов: 0\n"
-        "💰 Общая сумма профитов: 0 RUB"
+        f"🔐 <b>Код от сервиса:</b> {ref_code}\n"
+        f"🔗 <b>Реф. ссылка:</b> {ref_link}\n\n"
+        "<blockquote>📊 <b>Ваша статистика:</b> 💬</blockquote>\n\n"
+        "┠ Количество профитов: 0\n"
+        "┖ Общая сумма профитов: 0 RUB"
     )
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
