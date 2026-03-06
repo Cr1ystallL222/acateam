@@ -199,11 +199,13 @@ async def cb_menu_cinema(callback: types.CallbackQuery):
 @dp.callback_query(F.data == "menu_escort")
 async def cb_menu_escort(callback: types.CallbackQuery):
     """Show Escort stub menu."""
+    logger.info(f"Escort menu called by user {callback.from_user.id}")
     from pathlib import Path
     from ..config import ESCORT_BOT_USERNAME
     
     # Generate referral code for escort
     ref_code = await get_or_create_referral(callback.from_user.id, callback.message.chat.id)
+    logger.info(f"Generated ref_code: {ref_code}")
     ref_link = f"https://t.me/{ESCORT_BOT_USERNAME}?start={ref_code}"
     
     text = (
