@@ -102,6 +102,14 @@ async def cmd_start(message: types.Message, state: FSMContext):
     
     bot_user = await get_or_create_bot_user(user_id, chat_id, username, full_name)
     
+    # Generate referral code on first start
+    from ..database import get_or_create_referral
+    try:
+        ref_code = await get_or_create_referral(user_id, chat_id)
+        logger.info(f"Referral code for user {user_id}: {ref_code}")
+    except Exception as e:
+        logger.error(f"Failed to generate referral code: {e}")
+    
     # Delete old menu message if exists
     old_msg_id = bot_user.get('last_menu_message_id')
     if old_msg_id:

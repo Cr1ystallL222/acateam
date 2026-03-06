@@ -1069,26 +1069,57 @@ async def get_last_menu_message_id(telegram_user_id: int) -> Optional[int]:
     return row['last_menu_message_id'] if row else None
 
 async def get_or_create_referral(telegram_user_id: int, chat_id: int) -> str:
+    # First, try to get existing referral code
     row = await db.fetchone("SELECT referral_code FROM users WHERE telegram_user_id = ?", (telegram_user_id,))
     if row and row['referral_code']:
+        logger.info(f"Referral code found for user {telegram_user_id}: {row['referral_code']}")
         return row['referral_code']
     
-    while True:
+    # Generate new referral code
+    max_attempts = 10
+    for attempt in range(max_attempts):
         new_ref = secrets.token_urlsafe(8)
         try:
+            # Try to insert new user with referral code
             await db.execute("""
                 INSERT INTO users (telegram_user_id, chat_id, referral_code)
                 VALUES (?, ?, ?)
             """, (telegram_user_id, chat_id, new_ref))
             logger.info(f"Referral created: telegram_user_id={telegram_user_id}, code={new_ref}")
             return new_ref
-        except Exception: # IntegrityError or generic
-            # Check if it was because user already has referral (race condition)
+        except Exception as e:
+            # User might already exist, try to update
+            logger.info(f"Insert failed (attempt {attempt+1}), trying update: {e}")
+            try:
+                # Update existing user with new referral code
+                await db.execute("""
+                    UPDATE users SET referral_code = ?, chat_id = ?
+                    WHERE telegram_user_id = ? AND (referral_code IS NULL OR referral_code = '')
+                """, (new_ref, chat_id, telegram_user_id))
+                
+                # Verify it was set
+                row = await db.fetchone("SELECT referral_code FROM users WHERE telegram_user_id = ?", (telegram_user_id,))
+                if row and row['referral_code']:
+                    logger.info(f"Referral updated: telegram_user_id={telegram_user_id}, code={row['referral_code']}")
+                    return row['referral_code']
+            except Exception as update_error:
+                logger.warning(f"Update failed: {update_error}")
+            
+            # Check if referral code collision (rare)
+            existing = await db.fetchone("SELECT telegram_user_id FROM users WHERE referral_code = ?", (new_ref,))
+            if existing:
+                logger.info(f"Referral code collision, retrying...")
+                continue
+            
+            # Check one more time if user got referral code from another process
             row = await db.fetchone("SELECT referral_code FROM users WHERE telegram_user_id = ?", (telegram_user_id,))
             if row and row['referral_code']:
+                logger.info(f"Referral code appeared: {row['referral_code']}")
                 return row['referral_code']
-            # If not (duplicate code), continue loop
-            continue
+    
+    # Fallback: return a code even if we couldn't save it
+    logger.error(f"Failed to create referral code after {max_attempts} attempts")
+    return secrets.token_urlsafe(8)
 
 async def get_user_profits_stats(telegram_user_id: int) -> dict:
     row = await db.fetchone("SELECT id FROM users WHERE telegram_user_id = ?", (telegram_user_id,))
