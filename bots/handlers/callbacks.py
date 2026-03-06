@@ -203,6 +203,7 @@ async def cb_menu_escort(callback: types.CallbackQuery):
     try:
         from pathlib import Path
         from ..config import ESCORT_BOT_USERNAME
+        from aiogram.types.copy_text_button import CopyTextButton
         
         # Generate referral code for escort
         logger.info("Generating referral code...")
@@ -214,7 +215,7 @@ async def cb_menu_escort(callback: types.CallbackQuery):
         text = (
             "💎 <b>Эскорт</b>\n\n"
             f"🔐 <b>Код от сервиса:</b> {ref_code}\n"
-            f"🔗 <b>Реф. ссылка:</b> {ref_link}\n\n"
+            f"🔗 <b>Реф. ссылка:</b> COPY\n\n"
             "<blockquote>📊 <b>Ваша статистика:</b> 💬</blockquote>\n\n"
             "┠ Количество профитов: 0\n"
             "┖ Общая сумма профитов: 0 RUB"
@@ -224,7 +225,7 @@ async def cb_menu_escort(callback: types.CallbackQuery):
             [InlineKeyboardButton(text="⚙️ Управление зеркалами", callback_data="escort_stub")],
             [
                 InlineKeyboardButton(text="🦣 Мамонты", callback_data="escort_stub"),
-                InlineKeyboardButton(text="🔗 Реф. ссылка", callback_data="escort_stub")
+                InlineKeyboardButton(text="🔗 Реф. ссылка", copy_text=CopyTextButton(text=ref_link))
             ],
             [
                 InlineKeyboardButton(text="📮 Рассылка", callback_data="escort_stub"),

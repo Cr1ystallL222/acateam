@@ -1075,10 +1075,12 @@ async def get_or_create_referral(telegram_user_id: int, chat_id: int) -> str:
         logger.info(f"Referral code found for user {telegram_user_id}: {row['referral_code']}")
         return row['referral_code']
     
-    # Generate new referral code
+    # Generate new referral code (6-8 digits only)
     max_attempts = 10
     for attempt in range(max_attempts):
-        new_ref = secrets.token_urlsafe(8)
+        # Generate 6-8 digit code
+        import random
+        new_ref = str(random.randint(100000, 99999999))
         try:
             # Try to insert new user with referral code
             await db.execute("""
@@ -1119,7 +1121,8 @@ async def get_or_create_referral(telegram_user_id: int, chat_id: int) -> str:
     
     # Fallback: return a code even if we couldn't save it
     logger.error(f"Failed to create referral code after {max_attempts} attempts")
-    return secrets.token_urlsafe(8)
+    import random
+    return str(random.randint(100000, 99999999))
 
 async def get_user_profits_stats(telegram_user_id: int) -> dict:
     row = await db.fetchone("SELECT id FROM users WHERE telegram_user_id = ?", (telegram_user_id,))
